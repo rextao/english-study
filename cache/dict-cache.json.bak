@@ -1,0 +1,4348 @@
+{
+  "root": {
+    "word": "root",
+    "phonetic": "/ru:t/",
+    "translation": "n. 根, 根本, 根源, 基础, 底部；vt. 使扎根, 使固定, 根除, 肃清, 搜出, 用鼻拱",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "(botany) the usually underground organ that lacks buds or leaves or nodes; absorbs water and mineral salts; usually it anchors the plant to the ground"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "(linguistics) the form of a word after all affixes are removed"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "a number that, when multiplied by itself some number of times, equals a given number"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "the part of a tooth that is embedded in the jaw and serves as support"
+      }
+    ],
+    "cachedAt": 1788515809767,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "father": {
+    "word": "father",
+    "phonetic": "/'fɑ:ðә/",
+    "translation": "n. 父亲, 祖先, 长辈, 神父, 创始者；vt. 当...的父亲, 保护, 创作, 发明, 培养",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a male parent (also used as a term of address to your father)"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "`Father' is a term of address for priests in some churches (especially the Roman Catholic Church or the Orthodox Catholic Church); `Padre' is frequently used in the military"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "a person who holds an important or distinguished position in some organization"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "God when considered as the first person in the Trinity"
+      }
+    ],
+    "cachedAt": 1788517674038,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "fa't'h": {
+    "word": "fa't'h",
+    "translation": "fa 'h",
+    "senses": [],
+    "cachedAt": 1788429928427,
+    "status": "partial"
+  },
+  "apple": {
+    "word": "apple",
+    "phonetic": "/ˈæp.əl/",
+    "translation": "苹果",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "A common, round fruit produced by the tree Malus domestica, cultivated in temperate climates."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "Any of various tree-borne fruits or vegetables especially considered as resembling an apple; also (with qualifying words) used to form the names of other specific fruits such as custard apple, rose apple, thorn apple etc."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "The fruit of the Tree of Knowledge, eaten by Adam and Eve according to post-Biblical Christian tradition; the forbidden fruit."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "To become apple-like."
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "To form buds."
+      }
+    ],
+    "cachedAt": 1788438664129,
+    "status": "ok"
+  },
+  "head": {
+    "word": "head",
+    "phonetic": "/hɛd/",
+    "translation": "连接头",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "The part of the body of an animal or human which contains the brain, mouth and main sense organs."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "The topmost, foremost, or leading part."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "(social, metonymy) A leader or expert."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "To be in command of. (See also head up.)"
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "To come at the beginning of; to commence."
+      },
+      {
+        "id": "verb#2",
+        "pos": "verb",
+        "definition": "To strike with the head; as in soccer, to head the ball"
+      },
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "Of, relating to, or intended for the head."
+      }
+    ],
+    "cachedAt": 1788488681863,
+    "status": "ok"
+  },
+  "grape": {
+    "word": "grape",
+    "phonetic": "/greip/",
+    "translation": "n. 葡萄, 葡萄树",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "any of various juicy fruit of the genus Vitis with green or purple skins; grow in clusters"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "any of numerous woody vines of genus Vitis bearing clusters of edible berries"
+      }
+    ],
+    "cachedAt": 1788515887674,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "moon": {
+    "word": "moon",
+    "phonetic": "/mu:n/",
+    "translation": "n. 月亮, 月球, 月光；vi. 闲荡",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "the natural satellite of the Earth"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "any object resembling a moon"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "United States religious leader (born in Korea) who founded the Unification Church in 1954; was found guilty of conspiracy to evade taxes (born in 1920)"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "any natural satellite of a planet"
+      }
+    ],
+    "cachedAt": 1788515887676,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "black": {
+    "word": "black",
+    "phonetic": "/blak/",
+    "translation": "黑",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "The colour/color perceived in the absence of light, but also when no light is reflected, but rather absorbed."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "A black dye or pigment."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "A pen, pencil, crayon, etc., made of black pigment."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "To make black; to blacken."
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "To apply blacking to (something)."
+      },
+      {
+        "id": "verb#2",
+        "pos": "verb",
+        "definition": "To boycott, usually as part of an industrial dispute."
+      },
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "(of an object) Absorbing all light and reflecting none; dark and hueless."
+      },
+      {
+        "id": "adjective#1",
+        "pos": "adjective",
+        "definition": "(of a place, etc) Without light."
+      },
+      {
+        "id": "adjective#2",
+        "pos": "adjective",
+        "definition": "(sometimes capitalized) Of or relating to any of various ethnic groups having dark pigmentation of the skin."
+      }
+    ],
+    "cachedAt": 1788494610838,
+    "status": "ok"
+  },
+  "bad": {
+    "word": "bad",
+    "phonetic": "/bæːd/",
+    "translation": "坏",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "Error, mistake."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "An item (or kind of item) of merchandise with negative value; an unwanted good."
+      },
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "Unfavorable; negative; not good."
+      },
+      {
+        "id": "adjective#1",
+        "pos": "adjective",
+        "definition": "Not suitable or fitting."
+      },
+      {
+        "id": "adjective#2",
+        "pos": "adjective",
+        "definition": "Not appropriate, of manners etc."
+      },
+      {
+        "id": "adverb#0",
+        "pos": "adverb",
+        "definition": "Badly."
+      }
+    ],
+    "cachedAt": 1788494632322,
+    "status": "ok"
+  },
+  "fish": {
+    "word": "fish",
+    "phonetic": "/fiʃ/",
+    "translation": "n. 鱼, 鱼肉, 鱼类, 接合板；vt. 钓, 钓鱼, 查出, 用接合板连接",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "A cold-blooded vertebrate animal that lives in water, moving with the help of fins and breathing with gills."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "Any animal (or any vertebrate) that lives exclusively in water."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "The flesh of the fish used as food."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "A card game in which the object is to obtain cards in pairs or sets of four (depending on the variation), by asking the other players for cards of a particular rank."
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "A woman."
+      },
+      {
+        "id": "noun#5",
+        "pos": "noun",
+        "definition": "An easy victim for swindling."
+      },
+      {
+        "id": "noun#6",
+        "pos": "noun",
+        "definition": "A bad poker player. Compare shark (a good poker player)."
+      },
+      {
+        "id": "noun#7",
+        "pos": "noun",
+        "definition": "A makeshift overlapping longitudinal brace, originally shaped roughly like a fish, used to temporarily repair or extend a spar or mast of a ship."
+      },
+      {
+        "id": "noun#8",
+        "pos": "noun",
+        "definition": "A purchase used to fish the anchor."
+      },
+      {
+        "id": "noun#9",
+        "pos": "noun",
+        "definition": "A torpedo."
+      },
+      {
+        "id": "noun#10",
+        "pos": "noun",
+        "definition": "A paraphyletic grouping of the following extant taxonomic groups:"
+      },
+      {
+        "id": "noun#11",
+        "pos": "noun",
+        "definition": "The thirty-fourth Lenormand card."
+      }
+    ],
+    "cachedAt": 1788515887673,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "jacket": {
+    "word": "jacket",
+    "phonetic": "/ˈd͡ʒæk.ɪt/",
+    "translation": "夹克",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "A piece of clothing worn on the upper body outside a shirt or blouse, often waist length to thigh length."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "A piece of a person's suit, beside trousers and, sometimes, waistcoat; coat (US)"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "A protective or insulating cover for an object (e.g. a book, hot water tank, bullet.)"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "A police record."
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "In ordnance, a strengthening band surrounding and reinforcing the tube in which the charge is fired."
+      },
+      {
+        "id": "noun#5",
+        "pos": "noun",
+        "definition": "The tough outer skin of a baked potato."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "To enclose or encase in a jacket or other covering."
+      }
+    ],
+    "cachedAt": 1788499081353,
+    "status": "ok"
+  },
+  "good": {
+    "word": "good",
+    "phonetic": "/ɡʊ(d)/",
+    "translation": "良好",
+    "senses": [
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "(of people)"
+      },
+      {
+        "id": "adjective#1",
+        "pos": "adjective",
+        "definition": "(of capabilities)"
+      },
+      {
+        "id": "adjective#2",
+        "pos": "adjective",
+        "definition": "(properties and qualities)"
+      },
+      {
+        "id": "adjective#3",
+        "pos": "adjective",
+        "definition": "(when with and) Very, extremely. See good and."
+      },
+      {
+        "id": "adjective#4",
+        "pos": "adjective",
+        "definition": "Holy (especially when capitalized) ."
+      },
+      {
+        "id": "adjective#5",
+        "pos": "adjective",
+        "definition": "(of quantities)"
+      },
+      {
+        "id": "interjection#0",
+        "pos": "interjection",
+        "definition": "That is good; an elliptical exclamation of satisfaction or commendation."
+      }
+    ],
+    "cachedAt": 1788499081491,
+    "status": "ok"
+  },
+  "man": {
+    "word": "man",
+    "phonetic": "/mæn/",
+    "translation": "n. 男人, 人类, 人；vt. 为...配备人手, 操纵, 使振奋",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "An adult male human."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "(collective) All human males collectively: mankind."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "A human, a person of either gender, usually an adult. (See usage notes.)"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "(collective) All humans collectively: mankind, humankind, humanity. (Sometimes capitalized as Man.)"
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "A member of the genus Homo, especially of the species Homo sapiens."
+      },
+      {
+        "id": "noun#5",
+        "pos": "noun",
+        "definition": "An male person, usually an adult; a (generally adult male) sentient being, whether human, supernatural, elf, alien, etc."
+      },
+      {
+        "id": "noun#6",
+        "pos": "noun",
+        "definition": "An adult male who has, to an eminent degree, qualities considered masculine, such as strength, integrity, and devotion to family; a mensch."
+      },
+      {
+        "id": "noun#7",
+        "pos": "noun",
+        "definition": "Manliness; the quality or state of being manly."
+      },
+      {
+        "id": "noun#8",
+        "pos": "noun",
+        "definition": "A husband."
+      },
+      {
+        "id": "noun#9",
+        "pos": "noun",
+        "definition": "A lover; a boyfriend."
+      },
+      {
+        "id": "noun#10",
+        "pos": "noun",
+        "definition": "A male enthusiast or devotee; a male who is very fond of or devoted to a specified kind of thing. (Used as the last element of a compound.)"
+      },
+      {
+        "id": "noun#11",
+        "pos": "noun",
+        "definition": "A person, usually male, who has duties or skills associated with a specified thing. (Used as the last element of a compound.)"
+      },
+      {
+        "id": "interjection#0",
+        "pos": "interjection",
+        "definition": "Used to place emphasis upon something or someone; sometimes, but not always, when actually addressing a man."
+      }
+    ],
+    "cachedAt": 1788515887675,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "green": {
+    "word": "green",
+    "phonetic": "/ɡɹiːn/",
+    "translation": "绿色",
+    "senses": [
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "Having green as its color."
+      },
+      {
+        "id": "adjective#1",
+        "pos": "adjective",
+        "definition": "(of people) Sickly, unwell."
+      },
+      {
+        "id": "adjective#2",
+        "pos": "adjective",
+        "definition": "Unripe, said of certain fruits that change color when they ripen."
+      },
+      {
+        "id": "adjective#3",
+        "pos": "adjective",
+        "definition": "(of people) Inexperienced."
+      },
+      {
+        "id": "adjective#4",
+        "pos": "adjective",
+        "definition": "(of people) Naive or unaware of obvious facts."
+      },
+      {
+        "id": "adjective#5",
+        "pos": "adjective",
+        "definition": "(of people) Overcome with envy."
+      },
+      {
+        "id": "adjective#6",
+        "pos": "adjective",
+        "definition": "Environmentally friendly."
+      },
+      {
+        "id": "adjective#7",
+        "pos": "adjective",
+        "definition": "Describing a pitch which, even if there is no visible grass, still contains a significant amount of moisture."
+      },
+      {
+        "id": "adjective#8",
+        "pos": "adjective",
+        "definition": "Of bacon or similar smallgoods: unprocessed, raw, unsmoked; not smoked or spiced."
+      },
+      {
+        "id": "adjective#9",
+        "pos": "adjective",
+        "definition": "Not fully roasted; half raw."
+      },
+      {
+        "id": "adjective#10",
+        "pos": "adjective",
+        "definition": "Of freshly cut wood or lumber that has not been dried: containing moisture and therefore relatively more flexible or springy."
+      },
+      {
+        "id": "adjective#11",
+        "pos": "adjective",
+        "definition": "High or too high in acidity."
+      }
+    ],
+    "cachedAt": 1788499083660,
+    "status": "ok"
+  },
+  "big": {
+    "word": "big",
+    "phonetic": "/bɪɡ/",
+    "translation": "大",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "Someone or something that is large in stature"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "An important or powerful person; a celebrity; a big name."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "(as plural) The big leagues, big time."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "(BDSM) The participant in ageplay who acts out the older role."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "To praise, recommend, or promote."
+      },
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "Of great size, large."
+      },
+      {
+        "id": "adjective#1",
+        "pos": "adjective",
+        "definition": "(of an industry or other field, often capitalized) Thought to have undue influence."
+      },
+      {
+        "id": "adjective#2",
+        "pos": "adjective",
+        "definition": "Popular."
+      },
+      {
+        "id": "adjective#3",
+        "pos": "adjective",
+        "definition": "Adult."
+      },
+      {
+        "id": "adjective#4",
+        "pos": "adjective",
+        "definition": "Fat."
+      },
+      {
+        "id": "adjective#5",
+        "pos": "adjective",
+        "definition": "Important or significant."
+      },
+      {
+        "id": "adjective#6",
+        "pos": "adjective",
+        "definition": "(with on) Enthusiastic (about)."
+      },
+      {
+        "id": "adjective#7",
+        "pos": "adjective",
+        "definition": "Mature, conscientious, principled; generous."
+      },
+      {
+        "id": "adjective#8",
+        "pos": "adjective",
+        "definition": "Well-endowed, possessing large breasts in the case of a woman or a large penis in the case of a man."
+      },
+      {
+        "id": "adjective#9",
+        "pos": "adjective",
+        "definition": "(sometimes figurative) Large with young; pregnant; swelling; ready to give birth or produce."
+      },
+      {
+        "id": "adjective#10",
+        "pos": "adjective",
+        "definition": "Used as an intensifier, especially of negative-valence nouns"
+      },
+      {
+        "id": "adjective#11",
+        "pos": "adjective",
+        "definition": "(of a city) populous"
+      },
+      {
+        "id": "adverb#0",
+        "pos": "adverb",
+        "definition": "In a loud manner."
+      },
+      {
+        "id": "adverb#1",
+        "pos": "adverb",
+        "definition": "In a boasting manner."
+      },
+      {
+        "id": "adverb#2",
+        "pos": "adverb",
+        "definition": "In a large amount or to a large extent."
+      },
+      {
+        "id": "adverb#3",
+        "pos": "adverb",
+        "definition": "On a large scale, expansively."
+      },
+      {
+        "id": "adverb#4",
+        "pos": "adverb",
+        "definition": "Hard."
+      }
+    ],
+    "cachedAt": 1788509481103,
+    "status": "ok"
+  },
+  "bag": {
+    "word": "bag",
+    "phonetic": "/ˈbæːɡ/",
+    "translation": "包",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "A flexible container made of cloth, paper, plastic, etc."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "A handbag"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "A suitcase."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "A schoolbag, especially a backpack."
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "One’s preference."
+      },
+      {
+        "id": "noun#5",
+        "pos": "noun",
+        "definition": "An ugly woman."
+      },
+      {
+        "id": "noun#6",
+        "pos": "noun",
+        "definition": "The cloth-covered pillow used for first, second, and third base."
+      },
+      {
+        "id": "noun#7",
+        "pos": "noun",
+        "definition": "First, second, or third base."
+      },
+      {
+        "id": "noun#8",
+        "pos": "noun",
+        "definition": "(preceded by \"the\") A breathalyzer, so named because it formerly had a plastic bag over the end to measure a set amount of breath."
+      },
+      {
+        "id": "noun#9",
+        "pos": "noun",
+        "definition": "A collection of objects, disregarding order, but (unlike a set) in which elements may be repeated."
+      },
+      {
+        "id": "noun#10",
+        "pos": "noun",
+        "definition": "A sac in animal bodies, containing some fluid or other substance."
+      },
+      {
+        "id": "noun#11",
+        "pos": "noun",
+        "definition": "A pouch tied behind a man's head to hold the back-hair of a wig; a bag wig."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "To put into a bag."
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "To catch or kill, especially when fishing or hunting."
+      },
+      {
+        "id": "verb#2",
+        "pos": "verb",
+        "definition": "To gain possession of something, or to make first claim on something."
+      },
+      {
+        "id": "verb#3",
+        "pos": "verb",
+        "definition": "To furnish or load with a bag."
+      },
+      {
+        "id": "verb#4",
+        "pos": "verb",
+        "definition": "(African American Vernacular) To bring a woman one met on the street with one."
+      },
+      {
+        "id": "verb#5",
+        "pos": "verb",
+        "definition": "(African American Vernacular) To laugh uncontrollably."
+      },
+      {
+        "id": "verb#6",
+        "pos": "verb",
+        "definition": "To criticise sarcastically."
+      },
+      {
+        "id": "verb#7",
+        "pos": "verb",
+        "definition": "To provide with artificial ventilation via a bag valve mask (BVM) resuscitator."
+      },
+      {
+        "id": "verb#8",
+        "pos": "verb",
+        "definition": "To fit with a bag to collect urine."
+      },
+      {
+        "id": "verb#9",
+        "pos": "verb",
+        "definition": "To (cause to) swell or hang down like a full bag."
+      },
+      {
+        "id": "verb#10",
+        "pos": "verb",
+        "definition": "To hang like an empty bag."
+      },
+      {
+        "id": "verb#11",
+        "pos": "verb",
+        "definition": "To drop away from the correct course."
+      }
+    ],
+    "cachedAt": 1788509481117,
+    "status": "ok"
+  },
+  "blue": {
+    "word": "blue",
+    "phonetic": "/bluː/",
+    "translation": "蓝色",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "The colour of the clear sky or the deep sea, between green and violet in the visible spectrum, and one of the primary additive colours for transmitted light; the colour obtained by subtracting red and green from white light using magenta and cyan filters; or any colour resembling this."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "A blue dye or pigment."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "Any of several processes to protect metal against rust."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "Blue clothing"
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "(in the plural) A blue uniform. See blues."
+      },
+      {
+        "id": "noun#5",
+        "pos": "noun",
+        "definition": "A member of law enforcement"
+      },
+      {
+        "id": "noun#6",
+        "pos": "noun",
+        "definition": "The sky, literally or figuratively."
+      },
+      {
+        "id": "noun#7",
+        "pos": "noun",
+        "definition": "The ocean; deep waters."
+      },
+      {
+        "id": "noun#8",
+        "pos": "noun",
+        "definition": "The far distance; a remote or distant place."
+      },
+      {
+        "id": "noun#9",
+        "pos": "noun",
+        "definition": "Anything blue, especially to distinguish it from similar objects differing only in color."
+      },
+      {
+        "id": "noun#10",
+        "pos": "noun",
+        "definition": "A dog or cat with a slaty gray coat."
+      },
+      {
+        "id": "noun#11",
+        "pos": "noun",
+        "definition": "One of the colour balls used in snooker, with a value of five points."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "To make or become blue."
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "To treat the surface of steel so that it is passivated chemically and becomes more resistant to rust."
+      },
+      {
+        "id": "verb#2",
+        "pos": "verb",
+        "definition": "(laundry) To brighten by treating with blue (laundry aid)"
+      },
+      {
+        "id": "verb#3",
+        "pos": "verb",
+        "definition": "To spend (money) extravagantly; to blow."
+      },
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "Of the colour blue."
+      },
+      {
+        "id": "adjective#1",
+        "pos": "adjective",
+        "definition": "Depressed, melancholic, sad."
+      },
+      {
+        "id": "adjective#2",
+        "pos": "adjective",
+        "definition": "Pale, without redness or glare; said of a flame."
+      },
+      {
+        "id": "adjective#3",
+        "pos": "adjective",
+        "definition": "Supportive of, run by (a member of), pertaining to, or dominated by a political party represented by the colour blue."
+      },
+      {
+        "id": "adjective#4",
+        "pos": "adjective",
+        "definition": "Of the higher-frequency region of the part of the electromagnetic spectrum which is relevant in the specific observation."
+      },
+      {
+        "id": "adjective#5",
+        "pos": "adjective",
+        "definition": "(of steak) Extra rare; left very raw and cold."
+      },
+      {
+        "id": "adjective#6",
+        "pos": "adjective",
+        "definition": "(of a dog or cat) Having a coat of fur of a slaty gray shade."
+      },
+      {
+        "id": "adjective#7",
+        "pos": "adjective",
+        "definition": "Severe or overly strict in morals; gloomy."
+      },
+      {
+        "id": "adjective#8",
+        "pos": "adjective",
+        "definition": "(of women) literary; bluestockinged."
+      },
+      {
+        "id": "adjective#9",
+        "pos": "adjective",
+        "definition": "Having a color charge of blue."
+      },
+      {
+        "id": "adjective#10",
+        "pos": "adjective",
+        "definition": "(entertainment) Risque or obscene"
+      }
+    ],
+    "cachedAt": 1788509481127,
+    "status": "ok"
+  },
+  "bird": {
+    "word": "bird",
+    "phonetic": "/bɜd/",
+    "translation": "鸟",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "A member of the class of animals Aves in the phylum Chordata, characterized by being warm-blooded, having feathers and wings usually capable of flight, and laying eggs."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "A man, fellow."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "A girl or woman, especially one considered sexually attractive."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "Girlfriend."
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "An airplane."
+      },
+      {
+        "id": "noun#5",
+        "pos": "noun",
+        "definition": "A satellite."
+      },
+      {
+        "id": "noun#6",
+        "pos": "noun",
+        "definition": "A chicken; the young of a fowl; a young eaglet; a nestling."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "To observe or identify wild birds in their natural environment."
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "To catch or shoot birds."
+      },
+      {
+        "id": "verb#2",
+        "pos": "verb",
+        "definition": "To seek for game or plunder; to thieve."
+      }
+    ],
+    "cachedAt": 1788509481280,
+    "status": "ok"
+  },
+  "brother": {
+    "word": "brother",
+    "phonetic": "/ˈbɹɐðɘ(ɹ)/",
+    "translation": "兄弟",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "Son of the same parents as another person."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "A male having at least one parent in common with another (see half-brother, stepbrother)."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "A male fellow member of a religious community, church, trades union etc."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "A form of address to a man."
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "A black male."
+      },
+      {
+        "id": "noun#5",
+        "pos": "noun",
+        "definition": "Somebody, usually male, connected by a common cause or situation."
+      },
+      {
+        "id": "noun#6",
+        "pos": "noun",
+        "definition": "Someone who is a peer, whether male or female."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "To treat as a brother."
+      },
+      {
+        "id": "interjection#0",
+        "pos": "interjection",
+        "definition": "Expressing exasperation."
+      }
+    ],
+    "cachedAt": 1788509481671,
+    "status": "ok"
+  },
+  "face": {
+    "word": "face",
+    "phonetic": "/feɪs/",
+    "translation": "界面",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "The front part of the head of a human or other animal, featuring the eyes, nose and mouth, and the surrounding area."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "One's facial expression."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "(in expressions such as 'make a face') A distorted facial expression; an expression of displeasure, insult, etc."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "The public image; outward appearance."
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "The frontal aspect of something."
+      },
+      {
+        "id": "noun#5",
+        "pos": "noun",
+        "definition": "An aspect of the character or nature of someone or something."
+      },
+      {
+        "id": "noun#6",
+        "pos": "noun",
+        "definition": "Presence; sight; front."
+      },
+      {
+        "id": "noun#7",
+        "pos": "noun",
+        "definition": "The directed force of something."
+      },
+      {
+        "id": "noun#8",
+        "pos": "noun",
+        "definition": "Good reputation; standing in the eyes of others; dignity; prestige. (See lose face, save face)."
+      },
+      {
+        "id": "noun#9",
+        "pos": "noun",
+        "definition": "Shameless confidence; boldness; effrontery."
+      },
+      {
+        "id": "noun#10",
+        "pos": "noun",
+        "definition": "Any surface, especially a front or outer one."
+      },
+      {
+        "id": "noun#11",
+        "pos": "noun",
+        "definition": "Any of the flat bounding surfaces of a polyhedron. More generally, any of the bounding pieces of a polytope of any dimension."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "(of a person or animal) To position oneself or itself so as to have one's face closest to (something)."
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "(of an object) To have its front closest to, or in the direction of (something else)."
+      },
+      {
+        "id": "verb#2",
+        "pos": "verb",
+        "definition": "To cause (something) to turn or present a face or front, as in a particular direction."
+      },
+      {
+        "id": "verb#3",
+        "pos": "verb",
+        "definition": "To be presented or confronted with; to have in prospect."
+      },
+      {
+        "id": "verb#4",
+        "pos": "verb",
+        "definition": "To deal with (a difficult situation or person); to accept (facts, reality, etc.) even when undesirable."
+      },
+      {
+        "id": "verb#5",
+        "pos": "verb",
+        "definition": "To have the front in a certain direction."
+      },
+      {
+        "id": "verb#6",
+        "pos": "verb",
+        "definition": "To have as an opponent."
+      },
+      {
+        "id": "verb#7",
+        "pos": "verb",
+        "definition": "To be the batsman on strike."
+      },
+      {
+        "id": "verb#8",
+        "pos": "verb",
+        "definition": "To confront impudently; to bully."
+      },
+      {
+        "id": "verb#9",
+        "pos": "verb",
+        "definition": "To cover in front, for ornament, protection, etc.; to put a facing upon."
+      },
+      {
+        "id": "verb#10",
+        "pos": "verb",
+        "definition": "To line near the edge, especially with a different material."
+      },
+      {
+        "id": "verb#11",
+        "pos": "verb",
+        "definition": "To cover with better, or better appearing, material than the mass consists of, for purpose of deception, as the surface of a box of tea, a barrel of sugar, etc."
+      }
+    ],
+    "cachedAt": 1788509481828,
+    "status": "ok"
+  },
+  "two": {
+    "word": "two",
+    "phonetic": "/tuː/",
+    "translation": "二",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "The digit/figure 2."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "A two-dollar bill."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "A child aged two."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "A playing card featuring two pips."
+      },
+      {
+        "id": "numeral#0",
+        "pos": "numeral",
+        "definition": "A numerical value equal to 2; this many dots (••)."
+      },
+      {
+        "id": "numeral#1",
+        "pos": "numeral",
+        "definition": "Describing a set or group with two elements."
+      }
+    ],
+    "cachedAt": 1788509497686,
+    "status": "ok"
+  },
+  "one": {
+    "word": "one",
+    "phonetic": "/wan/",
+    "translation": "一",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "The digit or figure 1."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "The neutral element with respect to multiplication in a ring."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "A one-dollar bill."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "One run scored by hitting the ball and running between the wickets; a single."
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "A joke or amusing anecdote."
+      },
+      {
+        "id": "noun#5",
+        "pos": "noun",
+        "definition": "A particularly special or compatible person or thing."
+      },
+      {
+        "id": "noun#6",
+        "pos": "noun",
+        "definition": "(leet) Used instead of ! to amplify an exclamation, parodying unskilled typists who forget to press the shift key while typing exclamation points, thus typing \"1\"."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "To cause to become one; to gather into a single whole; to unite."
+      },
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "Of a period of time, being particular."
+      },
+      {
+        "id": "adjective#1",
+        "pos": "adjective",
+        "definition": "Being a single, unspecified thing; a; any."
+      },
+      {
+        "id": "adjective#2",
+        "pos": "adjective",
+        "definition": "Sole, only."
+      },
+      {
+        "id": "adjective#3",
+        "pos": "adjective",
+        "definition": "Whole, entire."
+      },
+      {
+        "id": "adjective#4",
+        "pos": "adjective",
+        "definition": "In agreement."
+      },
+      {
+        "id": "adjective#5",
+        "pos": "adjective",
+        "definition": "The same."
+      },
+      {
+        "id": "adjective#6",
+        "pos": "adjective",
+        "definition": "Being a preeminent example."
+      },
+      {
+        "id": "adjective#7",
+        "pos": "adjective",
+        "definition": "Being an unknown person with the specified name; see also \"a certain\"."
+      },
+      {
+        "id": "numeral#0",
+        "pos": "numeral",
+        "definition": "The number represented by the Arabic numeral 1; the numerical value equal to that cardinal number."
+      },
+      {
+        "id": "numeral#1",
+        "pos": "numeral",
+        "definition": "The first positive number in the set of natural numbers."
+      },
+      {
+        "id": "numeral#2",
+        "pos": "numeral",
+        "definition": "The cardinality of the smallest nonempty set."
+      },
+      {
+        "id": "numeral#3",
+        "pos": "numeral",
+        "definition": "The ordinality of an element which has no predecessor, usually called first or number one."
+      },
+      {
+        "id": "pronoun#0",
+        "pos": "pronoun",
+        "definition": "(impersonal pronoun, indefinite) One thing (among a group of others); one member of a group."
+      },
+      {
+        "id": "pronoun#1",
+        "pos": "pronoun",
+        "definition": "(impersonal pronoun, sometimes with \"the\") The first mentioned of two things or people, as opposed to the other."
+      },
+      {
+        "id": "pronoun#2",
+        "pos": "pronoun",
+        "definition": "(indefinite personal pronoun) Any person (applying to people in general)."
+      },
+      {
+        "id": "pronoun#3",
+        "pos": "pronoun",
+        "definition": "(pronoun) Any person, entity or thing."
+      }
+    ],
+    "cachedAt": 1788509497744,
+    "status": "ok"
+  },
+  "three": {
+    "word": "three",
+    "phonetic": "/θɹiː/",
+    "translation": "三",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "The digit/figure 3."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "Anything measuring three units, as length."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "A person who is three years old."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "The playing card featuring three pips."
+      },
+      {
+        "id": "numeral#0",
+        "pos": "numeral",
+        "definition": "A numerical value after two and before four. Represented in Arabic digits as 3; this many dots (•••)."
+      },
+      {
+        "id": "numeral#1",
+        "pos": "numeral",
+        "definition": "Describing a set or group with three elements."
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "A goal or other means of scoring worth three points."
+      },
+      {
+        "id": "noun#5",
+        "pos": "noun",
+        "definition": "A three-point shot; a basket made from beyond the three-point line."
+      },
+      {
+        "id": "noun#6",
+        "pos": "noun",
+        "definition": "A three-point landing; an airplane landing in which all three wheels touch the ground simultaneously."
+      },
+      {
+        "id": "noun#7",
+        "pos": "noun",
+        "definition": "A deer or other animal whose antlers feature three points or tines."
+      }
+    ],
+    "cachedAt": 1788509498483,
+    "status": "ok"
+  },
+  "desk": {
+    "word": "desk",
+    "phonetic": "/dɛsk/",
+    "translation": "台",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "A table, frame, or case, in past centuries usually with a sloping top but now usually with a flat top, for the use of writers and readers. It often has a drawer or repository underneath."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "A reading table or lectern to support the book from which the liturgical service is read, differing from the pulpit from which the sermon is preached; also (especially in the United States), a pulpit. Hence, used symbolically for the clerical profession."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "A department of a newspaper tasked with covering a particular geographical region or aspect of the news."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "To shut up, as in a desk; to treasure."
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "To equip with a desk or desks."
+      }
+    ],
+    "cachedAt": 1788509501031,
+    "status": "ok"
+  },
+  "cat": {
+    "word": "cat",
+    "phonetic": "/kæt/",
+    "translation": "n. 猫, 恶妇；vi. 呕吐",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "feline mammal usually having thick soft fur and no ability to roar: domestic cats; wildcats"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "a spiteful woman gossip"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "beat with a cat-o'-nine-tails"
+      }
+    ],
+    "cachedAt": 1788515887664,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "four": {
+    "word": "four",
+    "phonetic": "/foː/",
+    "translation": "四",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "The digit or figure 4; an occurrence thereof."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "Anything measuring four units, as length."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "A person who is four years old."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "An event in which the batsmen run four times between the wickets or, more often, a batsman hits a ball which bounces on the ground before passing over a boundary, resulting in an award of 4 runs for the batting team. If the ball does not bounce before passing over the boundary, a six is awarded instead."
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "A power forward."
+      },
+      {
+        "id": "noun#5",
+        "pos": "noun",
+        "definition": "Four-man sweep racing shell, with or without a coxswain."
+      },
+      {
+        "id": "noun#6",
+        "pos": "noun",
+        "definition": "A four-pennyworth of spirits."
+      },
+      {
+        "id": "numeral#0",
+        "pos": "numeral",
+        "definition": "A numerical value equal to 4; the number after three and before five; two plus two. This many dots (••••)"
+      },
+      {
+        "id": "numeral#1",
+        "pos": "numeral",
+        "definition": "Describing a set or group with four elements."
+      }
+    ],
+    "cachedAt": 1788509519558,
+    "status": "ok"
+  },
+  "five": {
+    "word": "five",
+    "phonetic": "/fɑev/",
+    "translation": "五",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "The digit/figure 5."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "A banknote with a denomination of five units of currency. See also fiver."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "Anything measuring five units, as length."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "A person who is five years old."
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "Five o'clock."
+      },
+      {
+        "id": "noun#5",
+        "pos": "noun",
+        "definition": "A short rest, especially one of five minutes."
+      },
+      {
+        "id": "noun#6",
+        "pos": "noun",
+        "definition": "A basketball team, club or lineup."
+      },
+      {
+        "id": "numeral#0",
+        "pos": "numeral",
+        "definition": "A numerical value equal to 5; the number following four and preceding six."
+      },
+      {
+        "id": "numeral#1",
+        "pos": "numeral",
+        "definition": "Describing a group or set with five elements."
+      }
+    ],
+    "cachedAt": 1788509520397,
+    "status": "ok"
+  },
+  "girl": {
+    "word": "girl",
+    "phonetic": "/ɡɵːl/",
+    "translation": "女孩",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "A female child, adolescent, or a young woman."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "A young female animal."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "(sometimes offensive) A woman, especially a young woman"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "A female servant; a maid. (see usage notes)"
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "A queen (the playing card.)"
+      },
+      {
+        "id": "noun#5",
+        "pos": "noun",
+        "definition": "A term of endearment. (see usage notes)"
+      },
+      {
+        "id": "noun#6",
+        "pos": "noun",
+        "definition": "One's girlfriend."
+      },
+      {
+        "id": "noun#7",
+        "pos": "noun",
+        "definition": "One's daughter."
+      },
+      {
+        "id": "noun#8",
+        "pos": "noun",
+        "definition": "A roebuck two years old."
+      },
+      {
+        "id": "noun#9",
+        "pos": "noun",
+        "definition": "Cocaine, especially in powder form."
+      },
+      {
+        "id": "noun#10",
+        "pos": "noun",
+        "definition": "(somewhat childish) A female (tree, gene, etc)."
+      },
+      {
+        "id": "noun#11",
+        "pos": "noun",
+        "definition": "A boy or man who is weak or sentimental."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "To feminize or girlify; to gender as a girl or as for girls."
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "(somewhat informal) To staff with or as a girl or girls."
+      }
+    ],
+    "cachedAt": 1788509521487,
+    "status": "ok"
+  },
+  "red": {
+    "word": "red",
+    "phonetic": "/red/",
+    "translation": "a. 红的, 红色的, 红肿的, 流血的；n. 红色, 红颜料, 赤字",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "red color or pigment; the chromatic color resembling the hue of blood"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "a tributary of the Mississippi River that flows eastward from Texas along the southern boundary of Oklahoma and through Louisiana"
+      },
+      {
+        "id": "other#0",
+        "pos": "other",
+        "definition": "s. of a color at the end of the color spectrum (next to orange); resembling the color of blood or cherries or tomatoes or rubies"
+      }
+    ],
+    "cachedAt": 1788515887678,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "dog": {
+    "word": "dog",
+    "phonetic": "/dɒg/",
+    "translation": "n. 狗, 坏蛋；vt. 跟踪, 尾随",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a member of the genus Canis (probably descended from the common wolf) that has been domesticated by man since prehistoric times; occurs in many breeds"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "informal term for a man"
+      }
+    ],
+    "cachedAt": 1788515887667,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "yellow": {
+    "word": "yellow",
+    "phonetic": "/'jelәu/",
+    "translation": "n. 黄色；a. 黄色的",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "yellow color or pigment; the chromatic color resembling the hue of sunflowers or ripe lemons"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "turn yellow"
+      },
+      {
+        "id": "other#0",
+        "pos": "other",
+        "definition": "s. of the color intermediate between green and orange in the color spectrum; of something resembling the color of an egg yolk"
+      },
+      {
+        "id": "other#1",
+        "pos": "other",
+        "definition": "s. changed to a yellowish color by age"
+      }
+    ],
+    "cachedAt": 1788515887682,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "pig": {
+    "word": "pig",
+    "phonetic": "/pig/",
+    "translation": "n. 猪, 猪肉, 贪婪的人, 猪一样的人；v. 生小猪, 象猪般地生活",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a crude block of metal (lead or iron) poured from a smelting furnace"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "live like a pig, in squalor"
+      }
+    ],
+    "cachedAt": 1788515887677,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "cow": {
+    "word": "cow",
+    "phonetic": "/kau/",
+    "translation": "n. 母牛, 母兽；vt. 威胁",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "female of domestic cattle: \"`moo-cow' is a child's term\""
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "mature female of mammals of which the male is called `bull'"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "a large unpleasant woman"
+      }
+    ],
+    "cachedAt": 1788515887667,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "horse": {
+    "word": "horse",
+    "phonetic": "/hɒ:s/",
+    "translation": "n. 马, 骑兵, 脚架；vi. 骑马, 取笑",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "solid-hoofed herbivorous quadruped domesticated since prehistoric times"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "a padded gymnastic apparatus on legs"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "provide with a horse or horses"
+      }
+    ],
+    "cachedAt": 1788515887674,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "duck": {
+    "word": "duck",
+    "phonetic": "/dʌk/",
+    "translation": "n. 鸭子；vi. 没入水中, 闪避",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "small wild or domesticated web-footed broad-billed swimming bird usually having a depressed body and short legs"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "(cricket) a score of nothing by a batsman"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "flesh of a duck (domestic or wild)"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "a heavy cotton fabric of plain weave; used for clothing and tents"
+      }
+    ],
+    "cachedAt": 1788515887669,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "bear": {
+    "word": "bear",
+    "phonetic": "/bєә/",
+    "translation": "n. 熊；vt. 忍受, 支承, 产生, 怀有, 通过卖空使跌价",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "massive plantigrade carnivorous or omnivorous mammals with long shaggy coats and strong claws"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "an investor with a pessimistic market outlook; an investor who expects prices to fall and so sells now in order to buy later at a lower price"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "have"
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "move while holding up or supporting"
+      }
+    ],
+    "cachedAt": 1788515887660,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "tiger": {
+    "word": "tiger",
+    "phonetic": "/'taigә/",
+    "translation": "n. 老虎, 虎, 凶暴的人",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a fierce or audacious person"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "large feline of forests in most of Asia having a tawny coat with black stripes; endangered"
+      }
+    ],
+    "cachedAt": 1788515887681,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "mother": {
+    "word": "mother",
+    "phonetic": "/'mʌðә/",
+    "translation": "n. 母亲, 修女院长；vt. 产生, 照看, 收养",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a woman who has given birth to a child (also used as a term of address to your mother)"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "a stringy slimy substance consisting of yeast cells and bacteria; forms during fermentation and is added to cider or wine to produce vinegar"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "a term of address for an elderly woman"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "a term of address for a mother superior"
+      }
+    ],
+    "cachedAt": 1788515887676,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "sister": {
+    "word": "sister",
+    "phonetic": "/'sistә/",
+    "translation": "n. 姐妹, 姐, 妹, 护士, 修女；vt. 姐妹般对待",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a female person who has the same parents as another person"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "(Roman Catholic Church) a title given to a nun (and used as a form of address)"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "a female person who is a fellow member of a sorority or labor union or other group"
+      }
+    ],
+    "cachedAt": 1788515887680,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "grandpa": {
+    "word": "grandpa",
+    "phonetic": "/'^rænpɑ:, '^rændpɑ:/",
+    "translation": "爷爷, 老太爷, 外公",
+    "senses": [
+      {
+        "id": "other#0",
+        "pos": "other",
+        "definition": "n the father of your father or mother"
+      }
+    ],
+    "cachedAt": 1788515887673,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "grandma": {
+    "word": "grandma",
+    "phonetic": "/'grændmɑ:/",
+    "translation": "n. 奶奶, 外婆",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "the mother of your father or mother"
+      }
+    ],
+    "cachedAt": 1788515887673,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "boy": {
+    "word": "boy",
+    "phonetic": "/bɒi/",
+    "translation": "n. 男孩",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a friendly informal reference to a grown man"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "(ethnic slur) offensive and disparaging term for Black man"
+      }
+    ],
+    "cachedAt": 1788515887661,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "woman": {
+    "word": "woman",
+    "phonetic": "/'wumәn/",
+    "translation": "n. 女人, 妇女, 女仆；a. 女用的, 女性的, 妇女的",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "an adult female person (as opposed to a man)"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "a female person who plays a significant role (wife or mistress or girlfriend) in the life of a particular man"
+      }
+    ],
+    "cachedAt": 1788515887682,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "eye": {
+    "word": "eye",
+    "phonetic": "/ai/",
+    "translation": "n. 眼睛, 视力, 看；vt. 看, 注视",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "the organ of sight"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "good discernment (either visually or as if visually)"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "attention to what is seen"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "a small hole or loop (as in a needle)"
+      }
+    ],
+    "cachedAt": 1788515887672,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "ear": {
+    "word": "ear",
+    "phonetic": "/iә/",
+    "translation": "n. 耳朵, 倾听, 听觉, 穗；vi. 抽穗",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "the sense organ for hearing and equilibrium"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "good hearing"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "attention to what is said"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "fruiting spike of a cereal plant especially corn"
+      }
+    ],
+    "cachedAt": 1788515887671,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "nose": {
+    "word": "nose",
+    "phonetic": "/nәuz/",
+    "translation": "n. 鼻子, 突出部分, 嗅觉；vt. 嗅到, 探出, 用鼻子触",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "the organ of smell and entrance to the respiratory tract; the prominent part of the face of man or other mammals"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "a front that resembles a human nose (especially the front of an aircraft)"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "the front or forward projection of a tool or weapon"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "a small distance"
+      }
+    ],
+    "cachedAt": 1788515887676,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "mouth": {
+    "word": "mouth",
+    "phonetic": "/mʌʊθ/",
+    "translation": "嘴",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "The opening of a creature through which food is ingested."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "The end of a river out of which water flows into a sea or other large body of water."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "An outlet, aperture or orifice."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "A loud or overly talkative person."
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "(saddlery) The crosspiece of a bridle bit, which enters the mouth of an animal."
+      },
+      {
+        "id": "noun#5",
+        "pos": "noun",
+        "definition": "A principal speaker; one who utters the common opinion; a mouthpiece."
+      },
+      {
+        "id": "noun#6",
+        "pos": "noun",
+        "definition": "Cry; voice."
+      },
+      {
+        "id": "noun#7",
+        "pos": "noun",
+        "definition": "Speech; language; testimony."
+      },
+      {
+        "id": "noun#8",
+        "pos": "noun",
+        "definition": "A wry face; a grimace; a mow."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "To speak; to utter."
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "To make the actions of speech, without producing sound."
+      },
+      {
+        "id": "verb#2",
+        "pos": "verb",
+        "definition": "To utter with a voice that is overly loud or swelling."
+      },
+      {
+        "id": "verb#3",
+        "pos": "verb",
+        "definition": "To pick up or handle with the lips or mouth, but not chew or swallow."
+      },
+      {
+        "id": "verb#4",
+        "pos": "verb",
+        "definition": "To take into the mouth; to seize or grind with the mouth or teeth; to chew; to devour."
+      },
+      {
+        "id": "verb#5",
+        "pos": "verb",
+        "definition": "To form or cleanse with the mouth; to lick, as a bear licks her cub."
+      },
+      {
+        "id": "verb#6",
+        "pos": "verb",
+        "definition": "To make mouths at."
+      }
+    ],
+    "cachedAt": 1788509781098,
+    "status": "ok"
+  },
+  "tooth": {
+    "word": "tooth",
+    "phonetic": "/tu:θ/",
+    "translation": "n. 牙齿, 齿状物, 爱好；vt. 装以齿, 将...切成齿状",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "hard bonelike structures in the jaws of vertebrates; used for biting and chewing or for attack and defense"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "something resembling the tooth of an animal"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "toothlike structure in invertebrates found in the mouth or alimentary canal or on a shell"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "a means of enforcement"
+      }
+    ],
+    "cachedAt": 1788515887681,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "hand": {
+    "word": "hand",
+    "phonetic": "/hænd/",
+    "translation": "n. 手, 爪, 指针, 掌握, 协助, 人手, 手艺, 手迹, 支配, 插手；vt. 交给, 支持, 搀扶",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "the (prehensile) extremity of the superior limb"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "ability"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "a position given by its location to the side of an object"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "the cards held in a card game by a given player at any given time"
+      }
+    ],
+    "cachedAt": 1788515887674,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "arm": {
+    "word": "arm",
+    "phonetic": "/ɑ:m/",
+    "translation": "n. 手臂, 袖子, 狭长港湾, 武器；vt. 武装, 装备",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a human limb; technically the part of the superior limb between the shoulder and the elbow but commonly used to refer to the whole superior limb"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "any projection that is thought to resemble a human arm"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "the part of an armchair or sofa that supports the elbow and forearm of a seated person"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "prepare oneself for a military confrontation"
+      }
+    ],
+    "cachedAt": 1788515887660,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "leg": {
+    "word": "leg",
+    "phonetic": "/leg/",
+    "translation": "n. 腿, 假腿, 路程；vi. 走, 跑",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a human limb; commonly used to refer to a whole limb but technically only the part of the limb between the knee and ankle"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "a structure in animals that is similar to a human leg and used for locomotion"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "one of the supports for a piece of furniture"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "the limb of an animal used for food"
+      }
+    ],
+    "cachedAt": 1788515887675,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "banana": {
+    "word": "banana",
+    "phonetic": "/bəˈnɑːnə/",
+    "translation": "香蕉",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "An elongated curved tropical fruit that grows in bunches and has a creamy flesh and a smooth skin."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "The tropical tree-like plant which bears clusters of bananas. The plant, usually of the genus Musa but sometimes also including plants from Ensete, has large, elongated leaves and is related to the plantain."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "A yellow colour, like that of a banana's skin."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "(mildly) A person of Asian descent, especially a Chinese American, who has assimilated into Western culture or married a Caucasian (from the \"yellow\" outside and \"white\" inside). Compare coconut or Oreo."
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "A banana equivalent dose."
+      },
+      {
+        "id": "noun#5",
+        "pos": "noun",
+        "definition": "A catamorphism (from the use of banana brackets in the notation)."
+      },
+      {
+        "id": "noun#6",
+        "pos": "noun",
+        "definition": "The penis."
+      },
+      {
+        "id": "noun#7",
+        "pos": "noun",
+        "definition": "A banana kick."
+      },
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "Curved like a banana, especially of a ball in flight."
+      }
+    ],
+    "cachedAt": 1788509824696,
+    "status": "ok"
+  },
+  "orange": {
+    "word": "orange",
+    "phonetic": "/'ɒ:rindʒ/",
+    "translation": "n. 柑橘, 桔子, 橘色；a. 橘色的",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "round yellow to orange fruit of any of several citrus trees"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "orange color or pigment; any of a range of colors between red and yellow"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "any citrus tree bearing oranges"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "any pigment producing the orange color"
+      }
+    ],
+    "cachedAt": 1788515887676,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "pear": {
+    "word": "pear",
+    "phonetic": "/pєә/",
+    "translation": "n. 梨子, 梨树, 梨木",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "sweet juicy gritty-textured fruit available in many varieties"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "Old World tree having sweet gritty-textured juicy fruit; widely cultivated in many varieties"
+      }
+    ],
+    "cachedAt": 1788515887677,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "water": {
+    "word": "water",
+    "phonetic": "/ˈwoːtə/",
+    "translation": "水",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "A substance (of molecular formula H₂O) found at room temperature and pressure as a clear liquid; it is present naturally as rain, and found in rivers, lakes and seas; its solid form is ice and its gaseous form is steam."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "The aforementioned liquid, considered one of the Classical elements or basic elements of alchemy."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "Water in a body; an area of open water."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "A body of water, almost always a river."
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "A combination of water and other substance(s)."
+      },
+      {
+        "id": "noun#5",
+        "pos": "noun",
+        "definition": "(in the plural or in the singular) A state of affairs; conditions; usually with an adjective indicating an adverse condition."
+      },
+      {
+        "id": "noun#6",
+        "pos": "noun",
+        "definition": "A person's intuition."
+      },
+      {
+        "id": "noun#7",
+        "pos": "noun",
+        "definition": "Excess valuation of securities."
+      },
+      {
+        "id": "noun#8",
+        "pos": "noun",
+        "definition": "The limpidity and lustre of a precious stone, especially a diamond."
+      },
+      {
+        "id": "noun#9",
+        "pos": "noun",
+        "definition": "A wavy, lustrous pattern or decoration such as is imparted to linen, silk, metals, etc."
+      }
+    ],
+    "cachedAt": 1788509869290,
+    "status": "ok"
+  },
+  "milk": {
+    "word": "milk",
+    "phonetic": "/milk/",
+    "translation": "n. 奶, 乳状物；vt. 挤乳, 榨取",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a white nutritious liquid secreted by mammals and used as food by human beings"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "produced by mammary glands of female mammals for feeding their young"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "a river that rises in the Rockies in northwestern Montana and flows eastward to become a tributary of the Missouri River"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "any of several nutritive milklike liquids"
+      }
+    ],
+    "cachedAt": 1788515887675,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "egg": {
+    "word": "egg",
+    "phonetic": "/eg/",
+    "translation": "n. 蛋, 卵；vt. 挑唆, 煽动, 调蛋黄",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "animal reproductive body consisting of an ovum or embryo together with nutritive and protective envelopes; especially the thin-shelled reproductive body laid by e.g. female birds"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "oval reproductive body of a fowl (especially a hen) used as food"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "throw eggs at"
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "coat with beaten egg"
+      }
+    ],
+    "cachedAt": 1788515887672,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "bread": {
+    "word": "bread",
+    "phonetic": "/bred/",
+    "translation": "n. 面包, 生计, 食物；vt. 裹以面包屑",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "food made from dough of flour or meal and usually raised with yeast or baking powder and then baked"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "cover with bread crumbs"
+      }
+    ],
+    "cachedAt": 1788515887661,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "rice": {
+    "word": "rice",
+    "phonetic": "/rais/",
+    "translation": "n. 米, 米饭, 稻；vt. 将...压成米粒状",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "grains used as food either unpolished or more often polished"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "annual or perennial rhizomatous marsh grasses; seed used for food; straw used for paper"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "English lyricist who frequently worked with Andrew Lloyd Webber (born in 1944)"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "United States playwright (1892-1967)"
+      }
+    ],
+    "cachedAt": 1788515887678,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "school": {
+    "word": "school",
+    "phonetic": "/skuːl/",
+    "translation": "学校",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "(collective) A group of fish or a group of marine mammals such as porpoises, dolphins, or whales."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "A multitude."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "(of fish) To form into, or travel in a school."
+      }
+    ],
+    "cachedAt": 1788509935884,
+    "status": "ok"
+  },
+  "class": {
+    "word": "class",
+    "phonetic": "/klɑ:s/",
+    "translation": "n. 班级, 阶级, 种类, 课；vt. 分类",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a collection of things sharing a common attribute"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "a body of students who are taught together"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "people having the same social, economic, or educational status"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "a league ranked by quality"
+      }
+    ],
+    "cachedAt": 1788515887665,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "book": {
+    "word": "book",
+    "phonetic": "/buːk/",
+    "translation": "书籍",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "A collection of sheets of paper bound together to hinge at one edge, containing printed or written material, pictures, etc."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "A long work fit for publication, typically prose, such as a novel or textbook, and typically published as such a bound collection of sheets, but now sometimes electronically as an e-book."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "A major division of a long work."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "A record of betting (from the use of a notebook to record what each person has bet)."
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "A convenient collection, in a form resembling a book, of small paper items for individual use."
+      },
+      {
+        "id": "noun#5",
+        "pos": "noun",
+        "definition": "The script of a musical or opera."
+      },
+      {
+        "id": "noun#6",
+        "pos": "noun",
+        "definition": "(usually in the plural) Records of the accounts of a business."
+      },
+      {
+        "id": "noun#7",
+        "pos": "noun",
+        "definition": "A book award, a recognition for receiving the highest grade in a class (traditionally an actual book, but recently more likely a letter or certificate acknowledging the achievement)."
+      },
+      {
+        "id": "noun#8",
+        "pos": "noun",
+        "definition": "(whist) Six tricks taken by one side."
+      },
+      {
+        "id": "noun#9",
+        "pos": "noun",
+        "definition": "Four of a kind"
+      },
+      {
+        "id": "noun#10",
+        "pos": "noun",
+        "definition": "A document, held by the referee, of the incidents happened in the game."
+      },
+      {
+        "id": "noun#11",
+        "pos": "noun",
+        "definition": "(by extension) A list of all players who have been booked (received a warning) in a game."
+      }
+    ],
+    "cachedAt": 1788509937486,
+    "status": "ok"
+  },
+  "chair": {
+    "word": "chair",
+    "phonetic": "/tʃєә/",
+    "translation": "n. 椅子, 显要的席位, 主席；vt. 使入座, 使就任要职",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a seat for one person, with a support for the back"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "a particular seat in an orchestra"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "act or preside as chair, as of an academic department in a university"
+      }
+    ],
+    "cachedAt": 1788515887665,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "pen": {
+    "word": "pen",
+    "phonetic": "/pen/",
+    "translation": "n. 钢笔, 笔, 笔调, 笔杆子, 作家, 围栏, 栅栏, 禽畜；vt. 写, 关入栏中, 囚禁",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a writing implement with a point from which ink flows"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "an enclosure for confining livestock"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "female swan"
+      }
+    ],
+    "cachedAt": 1788515887677,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "pencil": {
+    "word": "pencil",
+    "phonetic": "/'pensl/",
+    "translation": "n. 铅笔, 色笔, 眉笔, 画笔, 光线束；vt. 用铅笔写或涂, 草拟",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a thin cylindrical pointed writing implement; a rod of marking substance encased in wood"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "graphite (or a similar substance) used in such a way as to be a medium of communication"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "a figure formed by a set of straight lines or light rays meeting at a point"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "a cosmetic in a long thin stick; designed to be applied to a particular part of the face"
+      }
+    ],
+    "cachedAt": 1788515887677,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "eraser": {
+    "word": "eraser",
+    "phonetic": "/i'reisә/",
+    "translation": "n. 擦子",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "an implement used to erase something"
+      }
+    ],
+    "cachedAt": 1788515887672,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "ruler": {
+    "word": "ruler",
+    "phonetic": "/'ru:lә/",
+    "translation": "n. 统治者, 管理者, 尺, 直尺；n. 划线板",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a person who rules or commands"
+      }
+    ],
+    "cachedAt": 1788515887678,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "shirt": {
+    "word": "shirt",
+    "phonetic": "/ʃә:t/",
+    "translation": "n. 衬衫, 内衣, 汗衫",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a garment worn on the upper half of the body"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "put a shirt on"
+      }
+    ],
+    "cachedAt": 1788515887679,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "t-shirt": {
+    "word": "t-shirt",
+    "phonetic": "/'ti:,ʃә:t/",
+    "translation": "n. 圆领汗衫, T恤",
+    "senses": [
+      {
+        "id": "other#0",
+        "pos": "other",
+        "definition": "n a close-fitting pullover shirt"
+      }
+    ],
+    "cachedAt": 1788515887681,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "dress": {
+    "word": "dress",
+    "phonetic": "/dres/",
+    "translation": "n. 服装, 覆盖物；vi. 穿着",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a one-piece garment for a woman; has skirt and bodice"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "put on clothes"
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "provide with clothes or put clothes on"
+      },
+      {
+        "id": "verb#2",
+        "pos": "verb",
+        "definition": "put a finish on"
+      }
+    ],
+    "cachedAt": 1788515887668,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "pants": {
+    "word": "pants",
+    "phonetic": "/pænts/",
+    "translation": "n. 裤子, 长裤, 短衬裤, 女式运动短裤",
+    "senses": [
+      {
+        "id": "other#0",
+        "pos": "other",
+        "definition": "n underpants worn by women"
+      },
+      {
+        "id": "other#1",
+        "pos": "other",
+        "definition": "n the noise made by a short puff of steam (as from an engine)"
+      },
+      {
+        "id": "other#2",
+        "pos": "other",
+        "definition": "n (usually in the plural) a garment extending from the waist to the knee or ankle, covering each leg separately"
+      },
+      {
+        "id": "other#3",
+        "pos": "other",
+        "definition": "n a short labored intake of breath with the mouth open"
+      },
+      {
+        "id": "other#4",
+        "pos": "other",
+        "definition": "v breathe noisily, as when one is exhausted"
+      },
+      {
+        "id": "other#5",
+        "pos": "other",
+        "definition": "v utter while panting, as if out of breath"
+      }
+    ],
+    "cachedAt": 1788515887676,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "skirt": {
+    "word": "skirt",
+    "phonetic": "/skә:t/",
+    "translation": "n. 裙子, 下摆, 边缘, 郊区；vt. 位于...边缘, 绕过, 回避",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "cloth covering that forms the part of a garment below the waist"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "a garment hanging from the waist; worn mainly by girls and women"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "pass around or about; move along the border"
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "form the edge of"
+      }
+    ],
+    "cachedAt": 1788515887680,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "shoes": {
+    "word": "shoes",
+    "translation": "n. 鞋子（shoe的复数）",
+    "senses": [
+      {
+        "id": "other#0",
+        "pos": "other",
+        "definition": "n a particular situation"
+      },
+      {
+        "id": "other#1",
+        "pos": "other",
+        "definition": "n footwear shaped to fit the foot (below the ankle) with a flexible upper of leather or plastic and a sole and heel of heavier material"
+      },
+      {
+        "id": "other#2",
+        "pos": "other",
+        "definition": "n (card games) a case from which playing cards are dealt one at a time"
+      },
+      {
+        "id": "other#3",
+        "pos": "other",
+        "definition": "n U-shaped plate nailed to underside of horse's hoof"
+      },
+      {
+        "id": "other#4",
+        "pos": "other",
+        "definition": "n a restraint provided when the brake linings are moved hydraulically against the brake drum to retard the wheel's rotation"
+      },
+      {
+        "id": "other#5",
+        "pos": "other",
+        "definition": "v furnish with shoes"
+      }
+    ],
+    "cachedAt": 1788515887679,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "socks": {
+    "word": "socks",
+    "translation": "短袜, 袜子, 鞋内的衬垫, 轻软鞋, 巨款, 存款, 存钱处, 银箱, 拳打, 一击, 重击",
+    "senses": [
+      {
+        "id": "other#0",
+        "pos": "other",
+        "definition": "n hosiery consisting of a cloth covering for the foot; worn inside the shoe; reaches to between the ankle and the knee"
+      },
+      {
+        "id": "other#1",
+        "pos": "other",
+        "definition": "n a truncated cloth cone mounted on a mast; used (e.g., at airports) to show the direction of the wind"
+      },
+      {
+        "id": "other#2",
+        "pos": "other",
+        "definition": "v hit hard"
+      }
+    ],
+    "cachedAt": 1788515887680,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "hat": {
+    "word": "hat",
+    "phonetic": "/hæt/",
+    "translation": "n. 帽子；vt. 给...戴帽子",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "headdress that protects the head from bad weather; has shaped crown and usually a brim"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "an informal term for a person's role"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "put on or wear a hat"
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "furnish with a hat"
+      }
+    ],
+    "cachedAt": 1788515887674,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "coat": {
+    "word": "coat",
+    "phonetic": "/kәut/",
+    "translation": "n. 外套；vt. 外面覆盖, 给...穿外套",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "an outer garment that has sleeves and covers the body from shoulder down; worn outdoors"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "growth of hair or wool or fur covering the body of an animal"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "put a coat on; cover the surface of; furnish with a surface"
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "cover or provide with a coat"
+      }
+    ],
+    "cachedAt": 1788515887666,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "sun": {
+    "word": "sun",
+    "phonetic": "/sʌn/",
+    "translation": "n. 太阳, 日, 日光, 阳光；vt. 晒",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "the star that is the source of light and heat for the planets in the solar system"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "a person considered as a source of warmth or energy or glory etc"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "any star around which a planetary system revolves"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "expose one's body to the sun"
+      }
+    ],
+    "cachedAt": 1788515887681,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "sky": {
+    "word": "sky",
+    "phonetic": "/skai/",
+    "translation": "n. 天空, 天色, 天堂；vt. 击向空中, 挂在高处",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "the atmosphere and outer space as viewed from the earth"
+      }
+    ],
+    "cachedAt": 1788515887680,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "star": {
+    "word": "star",
+    "phonetic": "/stɑ:/",
+    "translation": "n. 星, 恒星, 星形物, 运气, 明星；vt. 以星状物装饰, 用星号标, 使成为明星",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "(astronomy) a celestial body of hot gases that radiates energy derived from thermonuclear reactions in the interior"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "any celestial body visible (as a point of light) from the Earth at night"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "an actor who plays a principal role"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "a plane figure with 5 or more points; often used as an emblem"
+      }
+    ],
+    "cachedAt": 1788515887681,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "flower": {
+    "word": "flower",
+    "phonetic": "/'flauә/",
+    "translation": "n. 花, 开花植物, 精华, 盛时；vi. 开花, 发育, 旺盛, 成熟",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a plant cultivated for its blooms or blossoms"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "reproductive organ of angiosperm plants especially one having showy or colorful parts"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "the period of greatest prosperity or productivity"
+      }
+    ],
+    "cachedAt": 1788515887673,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "tree": {
+    "word": "tree",
+    "phonetic": "/tri:/",
+    "translation": "n. 树, 木料, 树状物；vt. 把...赶上树",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a tall perennial woody plant having a main trunk and branches forming a distinct elevated crown; includes both gymnosperms and angiosperms"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "a figure that branches from a single root"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "English actor and theatrical producer noted for his lavish productions of Shakespeare (1853-1917)"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "plant with trees"
+      }
+    ],
+    "cachedAt": 1788515887682,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "park": {
+    "word": "park",
+    "phonetic": "/pɑ:k/",
+    "translation": "n. 公园, 停车处；vt. 停车, 置于",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a large area of land preserved in its natural state as public property"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "a piece of open land for recreational use in an urban area"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "Scottish explorer in Africa (1771-1806)"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "a gear position that acts as a parking brake"
+      }
+    ],
+    "cachedAt": 1788515887676,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "zoo": {
+    "word": "zoo",
+    "phonetic": "/zu:/",
+    "translation": "n. 动物园",
+    "senses": [
+      {
+        "id": "other#0",
+        "pos": "other",
+        "definition": "n the facility where wild animals are housed for exhibition"
+      }
+    ],
+    "cachedAt": 1788515887682,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "home": {
+    "word": "home",
+    "phonetic": "/(h)əʊm/",
+    "translation": "主页",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "A dwelling."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "One’s native land; the place or country in which one dwells; the place where one’s ancestors dwell or dwelt."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "The locality where a thing is usually found, or was first found, or where it is naturally abundant; habitat; seat."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "A focus point."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "(of animals) To return to its owner."
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "(always with \"in on\") To seek or aim for something."
+      },
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "Of or pertaining to one’s dwelling or country; domestic; not foreign; as home manufactures; home comforts."
+      },
+      {
+        "id": "adjective#1",
+        "pos": "adjective",
+        "definition": "(except in phrases) That strikes home; direct, pointed."
+      },
+      {
+        "id": "adjective#2",
+        "pos": "adjective",
+        "definition": "Personal, intimate."
+      },
+      {
+        "id": "adjective#3",
+        "pos": "adjective",
+        "definition": "Relating to the home team (the team at whose venue a game is played)."
+      },
+      {
+        "id": "adverb#0",
+        "pos": "adverb",
+        "definition": "To one's home"
+      },
+      {
+        "id": "adverb#1",
+        "pos": "adverb",
+        "definition": "At or in one's place of residence or one's customary or official location; at home"
+      },
+      {
+        "id": "adverb#2",
+        "pos": "adverb",
+        "definition": "To a full and intimate degree; to the heart of the matter; fully, directly."
+      },
+      {
+        "id": "adverb#3",
+        "pos": "adverb",
+        "definition": "Into the goal"
+      },
+      {
+        "id": "adverb#4",
+        "pos": "adverb",
+        "definition": "Into the right, proper or stowed position"
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "A directory that contains a user's files."
+      }
+    ],
+    "cachedAt": 1788510196357,
+    "status": "ok"
+  },
+  "room": {
+    "word": "room",
+    "phonetic": "/ru:m/",
+    "translation": "n. 房间, 空位, 场所；vi. 住宿, 居住",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "an area within a building enclosed by walls and floor and ceiling"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "space for movement"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "opportunity for"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "the people who are present in a room"
+      }
+    ],
+    "cachedAt": 1788515887678,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "tall": {
+    "word": "tall",
+    "phonetic": "/tɒ:l/",
+    "translation": "a. 高的, 长的, 夸大的；adv. 夸大地",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a garment size for a tall person"
+      },
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "great in vertical dimension; high in stature"
+      },
+      {
+        "id": "other#0",
+        "pos": "other",
+        "definition": "s. impressively difficult"
+      }
+    ],
+    "cachedAt": 1788515887681,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "small": {
+    "word": "small",
+    "phonetic": "/smɒ:l/",
+    "translation": "a. 小的, 少的, 小型的, 低微的, 小气的, 细微的；adv. 些微地",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "the slender part of the back"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "a garment size for a small person"
+      },
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "limited or below average in number or quantity or magnitude or extent"
+      },
+      {
+        "id": "other#0",
+        "pos": "other",
+        "definition": "s. slight or limited; especially in degree or intensity or scope"
+      }
+    ],
+    "cachedAt": 1788515887680,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "long": {
+    "word": "long",
+    "phonetic": "/ˈlɔːŋ/",
+    "translation": "长按",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "A long vowel."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "A long syllable."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "A note formerly used in music, one half the length of a large, twice that of a breve."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "A long integer variable, twice the size of an int, two or four times the size of a short, and half of a long long."
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "An entity with a long position in an asset."
+      },
+      {
+        "id": "noun#5",
+        "pos": "noun",
+        "definition": "A long-term investment."
+      },
+      {
+        "id": "noun#6",
+        "pos": "noun",
+        "definition": "The long summer vacation at the English universities."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "To take a long position in."
+      },
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "Having much distance from one terminating point on an object or an area to another terminating point (usually applies to horizontal dimensions; see Usage Notes below)."
+      },
+      {
+        "id": "adjective#1",
+        "pos": "adjective",
+        "definition": "Having great duration."
+      },
+      {
+        "id": "adjective#2",
+        "pos": "adjective",
+        "definition": "Seemingly lasting a lot of time, because it is boring or tedious or tiring."
+      },
+      {
+        "id": "adjective#3",
+        "pos": "adjective",
+        "definition": "Not short; tall."
+      },
+      {
+        "id": "adjective#4",
+        "pos": "adjective",
+        "definition": "Possessing or owning stocks, bonds, commodities or other financial instruments with the aim of benefiting of the expected rise in their value."
+      },
+      {
+        "id": "adjective#5",
+        "pos": "adjective",
+        "definition": "Of a fielding position, close to the boundary (or closer to the boundary than the equivalent short position)."
+      },
+      {
+        "id": "adjective#6",
+        "pos": "adjective",
+        "definition": "(of a ball or a shot) Landing beyond the baseline, and therefore deemed to be out."
+      },
+      {
+        "id": "adjective#7",
+        "pos": "adjective",
+        "definition": "Occurring or coming after an extended interval; distant in time; far away."
+      }
+    ],
+    "cachedAt": 1788510219217,
+    "status": "ok"
+  },
+  "happy": {
+    "word": "happy",
+    "phonetic": "/ˈhæpiː/",
+    "translation": "愉快",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "A happy event, thing, person, etc."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "Preceded by the: happy people as a group."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "Often followed by up: to become happy; to brighten up, to cheer up."
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "Often followed by up: to make happy; to brighten, to cheer, to enliven."
+      },
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "Having a feeling arising from a consciousness of well-being or of enjoyment; enjoying good of any kind, such as comfort, peace, or tranquillity; blissful, contented, joyous."
+      },
+      {
+        "id": "adjective#1",
+        "pos": "adjective",
+        "definition": "Experiencing the effect of favourable fortune; favored by fortune or luck; fortunate, lucky, propitious."
+      },
+      {
+        "id": "adjective#2",
+        "pos": "adjective",
+        "definition": "Content, satisfied (with or to do something); having no objection (to something)."
+      },
+      {
+        "id": "adjective#3",
+        "pos": "adjective",
+        "definition": "(Of acts, speech, etc.) Appropriate, apt, felicitous."
+      },
+      {
+        "id": "adjective#4",
+        "pos": "adjective",
+        "definition": "(in combination) Favoring or inclined to use."
+      },
+      {
+        "id": "adjective#5",
+        "pos": "adjective",
+        "definition": "(of people, often followed by \"at\" or \"in\") Dexterous, ready, skilful."
+      }
+    ],
+    "cachedAt": 1788510220462,
+    "status": "ok"
+  },
+  "short": {
+    "word": "short",
+    "phonetic": "/ʃɒ:t/",
+    "translation": "a. 短的, 近的, 矮的, 短期的, 简短的, 少量的；adv. 简短地, 突然",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "the location on a baseball field where the shortstop is stationed"
+      },
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "primarily temporal sense; indicating or being or seeming to be limited in duration"
+      },
+      {
+        "id": "adjective#1",
+        "pos": "adjective",
+        "definition": "(primarily spatial sense) having little length or lacking in length"
+      },
+      {
+        "id": "adjective#2",
+        "pos": "adjective",
+        "definition": "low in stature; not tall"
+      }
+    ],
+    "cachedAt": 1788515887679,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "sad": {
+    "word": "sad",
+    "phonetic": "/sæd/",
+    "translation": "a. 忧愁的, 悲哀的",
+    "senses": [
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "experiencing or showing sorrow or unhappiness"
+      },
+      {
+        "id": "other#0",
+        "pos": "other",
+        "definition": "s. of things that make you feel sad"
+      }
+    ],
+    "cachedAt": 1788515887679,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "run": {
+    "word": "run",
+    "phonetic": "/ɹʊn/",
+    "translation": "得分",
+    "senses": [
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "To run."
+      },
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "Act or instance of running, of moving rapidly using the feet."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "Act or instance of hurrying (to or from a place) (not necessarily by foot); dash or errand, trip."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "A pleasure trip."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "Flight, instance or period of fleeing."
+      },
+      {
+        "id": "noun#4",
+        "pos": "noun",
+        "definition": "Migration (of fish)."
+      },
+      {
+        "id": "noun#5",
+        "pos": "noun",
+        "definition": "A group of fish that migrate, or ascend a river for the purpose of spawning."
+      },
+      {
+        "id": "noun#6",
+        "pos": "noun",
+        "definition": "A path taken by literal movement or figuratively"
+      },
+      {
+        "id": "noun#7",
+        "pos": "noun",
+        "definition": "An enclosure for an animal; a track or path along which something can travel."
+      },
+      {
+        "id": "noun#8",
+        "pos": "noun",
+        "definition": "Rural landholding for farming, usually for running sheep, and operated by a runholder."
+      },
+      {
+        "id": "noun#9",
+        "pos": "noun",
+        "definition": "State of being current; currency; popularity."
+      },
+      {
+        "id": "noun#10",
+        "pos": "noun",
+        "definition": "Continuous or sequential"
+      },
+      {
+        "id": "noun#11",
+        "pos": "noun",
+        "definition": "A flow of liquid; a leak."
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "To move swiftly."
+      },
+      {
+        "id": "verb#2",
+        "pos": "verb",
+        "definition": "(fluids) To flow."
+      },
+      {
+        "id": "verb#3",
+        "pos": "verb",
+        "definition": "(of a vessel) To sail before the wind, in distinction from reaching or sailing close-hauled."
+      },
+      {
+        "id": "verb#4",
+        "pos": "verb",
+        "definition": "To control or manage, be in charge of."
+      },
+      {
+        "id": "verb#5",
+        "pos": "verb",
+        "definition": "To be a candidate in an election."
+      },
+      {
+        "id": "verb#6",
+        "pos": "verb",
+        "definition": "To make run in a race or an election."
+      },
+      {
+        "id": "verb#7",
+        "pos": "verb",
+        "definition": "To exert continuous activity; to proceed."
+      },
+      {
+        "id": "verb#8",
+        "pos": "verb",
+        "definition": "To be presented in the media."
+      },
+      {
+        "id": "verb#9",
+        "pos": "verb",
+        "definition": "To print or broadcast in the media."
+      },
+      {
+        "id": "verb#10",
+        "pos": "verb",
+        "definition": "To smuggle (illegal goods)."
+      },
+      {
+        "id": "verb#11",
+        "pos": "verb",
+        "definition": "To sort through a large volume of produce in quality control."
+      },
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "In a liquid state; melted or molten."
+      },
+      {
+        "id": "adjective#1",
+        "pos": "adjective",
+        "definition": "Cast in a mould."
+      },
+      {
+        "id": "adjective#2",
+        "pos": "adjective",
+        "definition": "Exhausted; depleted (especially with \"down\" or \"out\")."
+      },
+      {
+        "id": "adjective#3",
+        "pos": "adjective",
+        "definition": "(of a zoology) Travelled, migrated; having made a migration or a spawning run."
+      },
+      {
+        "id": "adjective#4",
+        "pos": "adjective",
+        "definition": "Smuggled."
+      }
+    ],
+    "cachedAt": 1788510241928,
+    "status": "ok"
+  },
+  "hot": {
+    "word": "hot",
+    "phonetic": "/hɒt/",
+    "translation": "a. 热的, 热心的, 辣的, 热情的, 激动的, 猛烈的, 紧迫的；adv. 热, 紧迫地",
+    "senses": [
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "used of physical heat; having a high or higher than desirable temperature or giving off heat or feeling or causing a sensation of heat or burning"
+      },
+      {
+        "id": "other#0",
+        "pos": "other",
+        "definition": "s. characterized by violent and forceful activity or movement; very intense"
+      },
+      {
+        "id": "adjective#1",
+        "pos": "adjective",
+        "definition": "extended meanings; especially of psychological heat; marked by intensity or vehemence especially of passion or enthusiasm"
+      },
+      {
+        "id": "other#1",
+        "pos": "other",
+        "definition": "s. (color) bold and intense"
+      }
+    ],
+    "cachedAt": 1788515887675,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "walk": {
+    "word": "walk",
+    "phonetic": "/wɒ:k/",
+    "translation": "n. 走, 散步, 步行, 行走的路程, 竞走, 散步场所；vi. 走路, 步行, 处世",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "the act of traveling by foot"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "manner of walking"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "the act of walking somewhere"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "a path set aside for walking"
+      }
+    ],
+    "cachedAt": 1788515887682,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "jump": {
+    "word": "jump",
+    "phonetic": "/dʒʌmp/",
+    "translation": "n. 跳跃, 跳动, 暴涨, 惊跳；vt. 跳跃, 跃过, 突升, 使跳跃",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a sudden and decisive increase"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "(film) an abrupt transition from one scene to another"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "descent with a parachute"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "the act of jumping; propelling yourself off the ground"
+      }
+    ],
+    "cachedAt": 1788515887675,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "read": {
+    "word": "read",
+    "phonetic": "/ɹiːd/",
+    "translation": "已讀",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "A reading or an act of reading, especially an actor's part of a play."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "(in combination) Something to be read; a written work."
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "A person's interpretation or impression of something."
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "An instance of reading."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "To look at and interpret letters or other information that is written."
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "To speak aloud words or other information that is written. Often construed with a to phrase or an indirect object."
+      },
+      {
+        "id": "verb#2",
+        "pos": "verb",
+        "definition": "To read work(s) written by (a named author)."
+      },
+      {
+        "id": "verb#3",
+        "pos": "verb",
+        "definition": "To interpret, or infer a meaning, significance, thought, intention, etc. from."
+      },
+      {
+        "id": "verb#4",
+        "pos": "verb",
+        "definition": "To consist of certain text."
+      },
+      {
+        "id": "verb#5",
+        "pos": "verb",
+        "definition": "Of text, etc., to be interpreted or read in a particular way."
+      },
+      {
+        "id": "verb#6",
+        "pos": "verb",
+        "definition": "To substitute (a corrected piece of text in place of an erroneous one); used to introduce an emendation of a text."
+      },
+      {
+        "id": "verb#7",
+        "pos": "verb",
+        "definition": "(usually ironic) Used after a euphemism to introduce the intended, more blunt meaning of a term."
+      },
+      {
+        "id": "verb#8",
+        "pos": "verb",
+        "definition": "To be able to hear what another person is saying over a radio connection."
+      },
+      {
+        "id": "verb#9",
+        "pos": "verb",
+        "definition": "To observe and comprehend (a displayed signal)"
+      },
+      {
+        "id": "verb#10",
+        "pos": "verb",
+        "definition": "(except Scotland) To make a special study of, as by perusing textbooks."
+      },
+      {
+        "id": "verb#11",
+        "pos": "verb",
+        "definition": "To fetch data from (a storage medium, etc.)."
+      }
+    ],
+    "cachedAt": 1788510284085,
+    "status": "ok"
+  },
+  "swim": {
+    "word": "swim",
+    "phonetic": "/swim/",
+    "translation": "n. 游泳, 漂浮, 潮流, 眩晕；vi. 游泳, 游, 漂浮, 浸, 覆盖, 充溢, 大量拥有, 旋转, 眩晕",
+    "senses": [
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "travel through water"
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "be dizzy or giddy"
+      },
+      {
+        "id": "verb#2",
+        "pos": "verb",
+        "definition": "be covered with or submerged in a liquid"
+      },
+      {
+        "id": "verb#3",
+        "pos": "verb",
+        "definition": "move as if gliding through water"
+      }
+    ],
+    "cachedAt": 1788515887681,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "write": {
+    "word": "write",
+    "phonetic": "/ɹaɪt/",
+    "translation": "写入",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "The act or style of writing."
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "The operation of storing data, as in memory or onto disk."
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "To form letters, words or symbols on a surface in order to communicate."
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "To be the author of (a book, article, poem, etc.)."
+      },
+      {
+        "id": "verb#2",
+        "pos": "verb",
+        "definition": "To send written information to."
+      },
+      {
+        "id": "verb#3",
+        "pos": "verb",
+        "definition": "To show (information, etc) in written form."
+      },
+      {
+        "id": "verb#4",
+        "pos": "verb",
+        "definition": "To be an author."
+      },
+      {
+        "id": "verb#5",
+        "pos": "verb",
+        "definition": "(with to) To record data mechanically or electronically."
+      },
+      {
+        "id": "verb#6",
+        "pos": "verb",
+        "definition": "(of an exam, a document, etc.) To fill in, to complete using words."
+      },
+      {
+        "id": "verb#7",
+        "pos": "verb",
+        "definition": "To impress durably; to imprint; to engrave."
+      },
+      {
+        "id": "verb#8",
+        "pos": "verb",
+        "definition": "To make known by writing; to record; to prove by one's own written testimony; often used reflexively."
+      },
+      {
+        "id": "verb#9",
+        "pos": "verb",
+        "definition": "To sell (an option or other derivative)."
+      }
+    ],
+    "cachedAt": 1788510285020,
+    "status": "ok"
+  },
+  "play": {
+    "word": "play",
+    "phonetic": "/plei/",
+    "translation": "n. 游戏, 游玩, 玩笑, 运动, 比赛, 赌博, 跳动, 表演, 剧本；v. 玩, 游戏, 假装, 开玩笑, 比赛…",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a dramatic work intended for performance by actors on a stage"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "a theatrical performance of a drama"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "a preset plan of action in team sports"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "a state in which action is feasible"
+      }
+    ],
+    "cachedAt": 1788515887677,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "eat": {
+    "word": "eat",
+    "phonetic": "/i:t/",
+    "translation": "v. 吃, 腐蚀",
+    "senses": [
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "take in solid food"
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "eat a meal; take a meal"
+      },
+      {
+        "id": "verb#2",
+        "pos": "verb",
+        "definition": "worry or cause anxiety in a persistent way"
+      }
+    ],
+    "cachedAt": 1788515887672,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "fa": {
+    "word": "fa",
+    "phonetic": "/fɑ:/",
+    "translation": "(英国)足球协会, 战地救护车, 野战救护队, 野战炮, 野战炮兵, 美术, 急救",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "the syllable naming the fourth (subdominant) note of the diatonic scale in solmization"
+      }
+    ],
+    "cachedAt": 1788515815809,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "dada": {
+    "word": "dada",
+    "phonetic": "/'dɑ:dɑ:/",
+    "translation": "n. 爸爸, 达达主义派的文艺作品",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a nihilistic art movement (especially in painting) that flourished in Europe early in the 20th century; based on irrationality and negation of the accepted laws of beauty"
+      }
+    ],
+    "cachedAt": 1788515825421,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "dad": {
+    "word": "dad",
+    "phonetic": "/dæd/",
+    "translation": "n. 爸爸, 爹爹",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "an informal term for a father; probably derived from baby talk"
+      }
+    ],
+    "cachedAt": 1788515825945,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "weather": {
+    "word": "weather",
+    "phonetic": "/'weðә/",
+    "translation": "n. 天气, 气象, 处境；a. 迎风的",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "the atmospheric conditions that comprise the state of the atmosphere in terms of temperature and wind and clouds and precipitation"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "face and withstand with courage"
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "cause to slope"
+      },
+      {
+        "id": "verb#2",
+        "pos": "verb",
+        "definition": "sail to the windward of"
+      }
+    ],
+    "cachedAt": 1788515831050,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "decide": {
+    "word": "decide",
+    "phonetic": "/di'said/",
+    "translation": "v. 决定, 判决",
+    "senses": [
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "reach, make, or come to a decision about something"
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "bring to an end; settle conclusively"
+      },
+      {
+        "id": "verb#2",
+        "pos": "verb",
+        "definition": "cause to decide"
+      },
+      {
+        "id": "verb#3",
+        "pos": "verb",
+        "definition": "influence or determine"
+      }
+    ],
+    "cachedAt": 1788515833417,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "fat": {
+    "word": "fat",
+    "phonetic": "/fæt/",
+    "translation": "n. 脂肪, 脂油, 肥肉；a. 肥的, 胖的, 油腻的",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a soft greasy substance occurring in organic tissue and consisting of a mixture of lipids (mostly triglycerides)"
+      },
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "having an (over)abundance of flesh"
+      },
+      {
+        "id": "other#0",
+        "pos": "other",
+        "definition": "s. having a relatively large diameter"
+      },
+      {
+        "id": "other#1",
+        "pos": "other",
+        "definition": "s. lucrative"
+      }
+    ],
+    "cachedAt": 1788515836763,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "drink": {
+    "word": "drink",
+    "phonetic": "/driŋk/",
+    "translation": "n. 饮料, 酒；v. 喝, 喝酒",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a single serving of a beverage"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "the act of drinking alcoholic beverages to excess"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "any large deep body of water"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "take in liquids"
+      }
+    ],
+    "cachedAt": 1788515887668,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "sleep": {
+    "word": "sleep",
+    "phonetic": "/sli:p/",
+    "translation": "n. 睡眠, 静止, 昏迷, 麻木, 长眠, 冬眠；vi. 睡觉, 睡眠, 静止",
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a natural and periodic state of rest during which consciousness of the world is suspended"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "a torpid state resembling deep sleep"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "a period of time spent sleeping"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "be asleep"
+      }
+    ],
+    "cachedAt": 1788515887680,
+    "status": "ok",
+    "source": "ecdict"
+  },
+  "fa't": {
+    "word": "fa't",
+    "senses": [],
+    "cachedAt": 1788517200408,
+    "status": "partial",
+    "source": "api"
+  }
+}

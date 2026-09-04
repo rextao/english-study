@@ -1,0 +1,243 @@
+/* 学习列表页：顶部列表选择器 + 词条平铺清单，通用骨架仍走 App.css */
+
+.lists-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.lists-bar > .ui-btn { flex-shrink: 0; }
+
+/* 列表选择器：浅灰底分段控件，选中项是白色 pill，与顶部导航同一套观感 */
+.lists-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+  margin-right: auto;
+  padding: 3px;
+  border-radius: var(--radius);
+  background: var(--color-surface-hover);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.lists-tabs::-webkit-scrollbar { display: none; }
+
+.lists-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .15s, color .15s, box-shadow .15s;
+}
+
+.lists-tab:hover:not(.lists-tab--active) { color: var(--color-text); }
+.lists-tab:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+
+.lists-tab--active {
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.lists-tab__count {
+  min-width: 17px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-border-strong);
+  color: var(--color-text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 17px;
+  text-align: center;
+}
+
+.lists-tab--active .lists-tab__count { background: var(--color-primary); color: #fff; }
+
+/* 新增列表：平时只有一个按钮，点开后原地展开名称输入 */
+.lists-new {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.lists-new__input { width: 150px; }
+
+.lists-alert { margin-bottom: 12px; }
+
+/* 当前列表的标题与操作条 */
+.lists-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.lists-toolbar__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+}
+
+.lists-toolbar__count {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+}
+
+.lists-toolbar__rename { flex: 1; min-width: 0; max-width: 280px; }
+.lists-toolbar__rename .ui-input__inner { font-size: 15px; font-weight: 600; }
+
+.lists-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.lists-toolbar__filter { width: 160px; }
+
+/* 多选操作条：只有开了多选才出现，压在词条清单上面 */
+.lists-select {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+}
+
+.lists-select__count {
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+}
+
+/* 词条清单：一行一个，直接平铺在页面上，不再有内层滚动 */
+.word-rows {
+  list-style: none;
+  margin: 0 -12px;
+}
+
+.word-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 -1px 0 var(--color-border);
+  font-size: 14px;
+}
+
+.word-row:last-child { box-shadow: none; }
+.word-row:hover { background: var(--color-surface-sunken); }
+
+.word-row__main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 词 + 音标同一基线，占满剩余宽度，把标签和按钮挤到右边 */
+.word-row__head {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.word-row__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.word-row__phonetic {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-subtle);
+}
+
+/* 多选模式下词本身就是勾选框的 label，字号 / 颜色要压过 ui-checkbox 的默认值 */
+.word-row .ui-checkbox.word-row__check {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.word-row__check .ui-checkbox__label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* 词条下面那行释义：中文 + 挑中的英文释义 */
+.word-row__gloss {
+  margin: 0;
+  padding-right: 28px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.word-row .ui-tag { flex-shrink: 0; }
+
+.word-row .ui-btn.word-row__pick { flex-shrink: 0; }
+
+/* 圆形小移除按钮，覆盖 ui-btn 的默认内边距 */
+.word-row .ui-btn.word-row__remove {
+  flex-shrink: 0;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity .15s, background .15s, color .15s;
+}
+
+.word-row:hover .ui-btn.word-row__remove,
+.word-row .ui-btn.word-row__remove:focus-visible { opacity: 1; }
+
+@media (max-width: 640px) {
+  .lists-bar { flex-wrap: wrap; }
+  .lists-tabs { flex-basis: 100%; margin-right: 0; }
+  .lists-bar > .ui-btn, .lists-new { margin-left: auto; }
+  .lists-toolbar { flex-wrap: wrap; }
+  .lists-toolbar__actions { width: 100%; }
+  .lists-toolbar__filter { flex: 1; width: auto; }
+  .lists-select { flex-wrap: wrap; gap: 8px; }
+  .word-rows { margin: 0 -8px; }
+  .ui-btn.word-row__remove { opacity: 1; }
+}

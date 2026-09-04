@@ -1,0 +1,104 @@
+{
+  "batches": [
+    {
+      "id": "print_1788509523157",
+      "printedAt": 1788509523157,
+      "kind": "review",
+      "title": "复习 · 9 月 5 日",
+      "wordCount": 18,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "bad"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "bag"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "big"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "bird"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "black"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "blue"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "brother"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "cat"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "desk"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "face"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "father"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "fish"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "girl"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "good"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "green"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "head"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "jacket"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "man"
+        }
+      ],
+      "scope": "day"
+    }
+  ]
+}

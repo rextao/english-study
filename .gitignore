@@ -1,0 +1,8 @@
+node_modules/
+dist/
+
+# ECDICT 原始数据与编译产物：csv 约 200MB，索引十几 MB，都不进 git
+# 换台机器跑 npm run ecdict:fetch 重新装
+data/
+
+.DS_Store

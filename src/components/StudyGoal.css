@@ -1,0 +1,131 @@
+/*
+ * 目标模块：目标 = 一个词库。今日复习卡是淡蓝，这里用淡绿区分「成果」。
+ * 不复用 .card 是因为 App.css 在打包顺序里排在后面，会把这里的边框和底色盖掉。
+ */
+.study-goal {
+  padding: 18px 20px;
+  border: 1px solid #cdeddd;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(140deg, #f5fdf9, var(--color-surface) 58%);
+  box-shadow: var(--shadow-xs);
+}
+
+.study-goal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.study-goal__intro { min-width: 0; }
+
+.study-goal__title { font-size: 17px; font-weight: 600; }
+
+.study-goal__picker { width: 220px; flex-shrink: 0; }
+.study-goal__picker .field-label { display: block; margin-bottom: 4px; }
+
+/* 达成度：左边一个大百分比，右边进度条 + 三段分解 */
+.study-goal__hero {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 16px;
+}
+
+.study-goal__percent {
+  flex-shrink: 0;
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -.03em;
+  color: var(--ui-success-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.study-goal__percent-unit {
+  margin-left: 2px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.study-goal__hero-meta { flex: 1; min-width: 0; }
+
+.study-goal__hero-title {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.study-goal__bar {
+  display: flex;
+  height: 10px;
+  margin-top: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-hover);
+  overflow: hidden;
+}
+
+.study-goal__seg { height: 100%; transition: width .25s ease; }
+.study-goal__seg--mastered { background: linear-gradient(90deg, #34d399, var(--ui-success-text)); }
+.study-goal__seg--learning { background: #93c5fd; }
+
+.study-goal__stats {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 10px;
+}
+
+.study-goal__stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.study-goal__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.study-goal__dot--mastered { background: var(--ui-success-text); }
+.study-goal__dot--learning { background: #93c5fd; }
+.study-goal__dot--rest     { background: var(--color-border-strong); }
+
+.study-goal__stat-num {
+  font-weight: 600;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.study-goal__done { margin-top: 14px; }
+
+/* 目标外的获得：背下来但不在目标词库里的词 */
+.study-goal__extra {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.study-goal__extra-title { font-size: 13px; font-weight: 600; }
+
+.study-goal__extra-tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.study-goal__extra-more { font-size: 12px; color: var(--color-text-subtle); }
+
+@media (max-width: 640px) {
+  .study-goal__picker { width: 100%; }
+  .study-goal__hero { gap: 14px; }
+  .study-goal__percent { font-size: 34px; }
+}

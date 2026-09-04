@@ -1,0 +1,265 @@
+/* 顶部 app bar：左边品牌标，右边分段式 pill 标签页 */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(255, 255, 255, .82);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  box-shadow: inset 0 -1px 0 var(--color-border);
+}
+
+.nav__inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: var(--nav-height);
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.nav__brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.nav__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  box-shadow: 0 1px 3px rgba(37, 99, 235, .35);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.nav__brand-text {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  white-space: nowrap;
+}
+
+/* 分段控件：整块浅灰底，选中项是白色 pill */
+.nav__tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  padding: 3px;
+  border-radius: var(--radius);
+  background: var(--color-surface-hover);
+}
+
+.nav__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .15s, color .15s, box-shadow .15s;
+}
+
+.nav__tab:hover:not(.nav__tab--active) { color: var(--color-text); }
+.nav__tab:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+
+.nav__tab--active {
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.nav__badge {
+  min-width: 17px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-border-strong);
+  color: var(--color-text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 17px;
+  text-align: center;
+}
+
+.nav__tab--active .nav__badge { background: var(--color-primary); color: #fff; }
+
+/* 学习入口：多色流光渐变胶囊 + 背后彩色光晕 + 高光扫过，一眼就想点进去 */
+.nav__cta {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: linear-gradient(100deg, #6366f1 0%, #3b82f6 26%, #06b6d4 50%, #3b82f6 74%, #6366f1 100%);
+  background-size: 220% 100%;
+  background-position: 0% 50%;
+  box-shadow:
+    0 1px 2px rgba(30, 58, 138, .3),
+    0 5px 16px -5px rgba(59, 130, 246, .6),
+    inset 0 1px 0 rgba(255, 255, 255, .3);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  white-space: nowrap;
+  cursor: pointer;
+  animation: nav-cta-flow 7s ease-in-out infinite alternate;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+/* 背后的彩色光晕：z-index -1 沉到按钮底色之下，isolation 保证不会掉到导航栏背景后面 */
+.nav__cta::before {
+  content: '';
+  position: absolute;
+  inset: -4px -7px;
+  z-index: -1;
+  border-radius: var(--radius-full);
+  background: linear-gradient(100deg, #818cf8, #38bdf8, #22d3ee, #818cf8);
+  background-size: 220% 100%;
+  filter: blur(9px);
+  opacity: .5;
+  animation: nav-cta-flow 7s ease-in-out infinite alternate;
+  transition: opacity .18s ease;
+}
+
+.nav__cta:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 2px 4px rgba(30, 58, 138, .32),
+    0 10px 24px -6px rgba(59, 130, 246, .75),
+    inset 0 1px 0 rgba(255, 255, 255, .38);
+}
+
+.nav__cta:hover::before { opacity: .9; }
+.nav__cta:active { transform: translateY(0) scale(.98); }
+
+/* 蓝底上单靠 --ui-focus-ring 太淡，这里用白+蓝双环 */
+.nav__cta:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 5px rgba(37, 99, 235, .5), 0 6px 18px -6px rgba(59, 130, 246, .6);
+}
+
+.nav__cta--active {
+  box-shadow:
+    0 1px 2px rgba(30, 58, 138, .3),
+    0 6px 18px -6px rgba(59, 130, 246, .65),
+    inset 0 1px 0 rgba(255, 255, 255, .3),
+    0 0 0 3px var(--color-primary-soft);
+}
+
+.nav__cta--active::before { opacity: .8; }
+
+/* 单独一层负责裁剪高光，这样按钮本体不用 overflow:hidden，光晕才能溢出 */
+.nav__cta-shine {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.nav__cta-shine::after {
+  content: '';
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  left: 0;
+  width: 34%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, .55), rgba(255, 255, 255, 0));
+  animation: nav-cta-sweep 5s ease-in-out infinite;
+}
+
+.nav__cta:hover .nav__cta-shine::after { animation-duration: 1.6s; }
+
+.nav__cta-icon {
+  display: inline-block;
+  position: relative;
+  font-size: 12px;
+  line-height: 1;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, .8));
+}
+
+.nav__cta:hover .nav__cta-icon { animation: nav-cta-zap 1.1s ease-in-out infinite; }
+
+.nav__cta-label { position: relative; }
+
+.nav__cta-badge {
+  position: relative;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: #fff;
+  color: var(--color-primary-dark);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  animation: nav-cta-pulse 2.4s ease-out infinite;
+}
+
+/* 渐变来回平移：用 alternate 而不是 linear 循环，避免接缝跳一下 */
+@keyframes nav-cta-flow {
+  from { background-position: 0% 50%; }
+  to { background-position: 100% 50%; }
+}
+
+/* 大部分时间停在左边，只在一小段时间里快速扫过 */
+@keyframes nav-cta-sweep {
+  0%, 58% { transform: rotate(18deg) translateX(-260%); }
+  100% { transform: rotate(18deg) translateX(420%); }
+}
+
+@keyframes nav-cta-zap {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+/* 有待复习的词时，白色角标向外扩一圈光环 */
+@keyframes nav-cta-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, .8); }
+  70%, 100% { box-shadow: 0 0 0 7px rgba(255, 255, 255, 0); }
+}
+
+@media (max-width: 640px) {
+  .nav__inner { padding: 0 16px; gap: 10px; }
+  .nav__brand-text { display: none; }
+  .nav__tabs { overflow-x: auto; scrollbar-width: none; }
+  .nav__tabs::-webkit-scrollbar { display: none; }
+  .nav__tab { padding: 5px 10px; font-size: 12px; }
+  .nav__cta { padding: 7px 12px; font-size: 12px; }
+  .nav__cta::before { inset: -3px -4px; filter: blur(7px); opacity: .42; }
+  .nav__cta-icon { font-size: 11px; }
+}
+
+/* 系统开了减少动效就只留静态渐变，不闪不扫 */
+@media (prefers-reduced-motion: reduce) {
+  .nav__cta,
+  .nav__cta::before,
+  .nav__cta-badge,
+  .nav__cta:hover .nav__cta-icon { animation: none; }
+  .nav__cta { background-position: 50% 50%; }
+  .nav__cta-shine { display: none; }
+  .nav__cta:hover { transform: none; }
+}

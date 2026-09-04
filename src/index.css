@@ -1,0 +1,74 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* 白色主题：界面几乎全是白底，靠发丝边框、留白和很淡的投影分层，不铺灰底 */
+:root {
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #fafafa;
+  --color-surface-hover: #f4f4f5;
+  --color-border: #ececef;
+  --color-border-strong: #dcdce1;
+
+  --color-text: #17171a;
+  --color-text-muted: #71717a;
+  --color-text-subtle: #a1a1aa;
+
+  --color-primary: #2563eb;
+  --color-primary-dark: #1d4ed8;
+  --color-primary-soft: #eff4ff;
+  --color-tag-bg: #eff4ff;
+  --color-tag-text: #1d4ed8;
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
+
+  --shadow-xs: 0 1px 2px rgba(24, 24, 27, .04);
+  --shadow-sm: 0 1px 2px rgba(24, 24, 27, .04), 0 2px 6px rgba(24, 24, 27, .04);
+  --shadow-md: 0 4px 14px rgba(24, 24, 27, .06), 0 1px 3px rgba(24, 24, 27, .05);
+  --shadow-lg: 0 12px 32px rgba(24, 24, 27, .10), 0 2px 8px rgba(24, 24, 27, .06);
+  /* 旧变量名保留，避免遗漏的引用直接失效 */
+  --shadow: var(--shadow-xs);
+
+  --content-width: 880px;
+  --nav-height: 56px;
+
+  --font-sans: system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  font-family: var(--font-sans);
+  color-scheme: light;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3 { line-height: 1.25; letter-spacing: -.02em; font-weight: 600; }
+
+button, input, textarea, select { font: inherit; color: inherit; }
+
+a { color: var(--color-primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+code { font-family: var(--font-mono); }
+
+strong { font-weight: 600; }
+
+::selection { background: rgba(37, 99, 235, .14); }
+
+/* 细滚动条：长列表里不出现系统默认的粗条 */
+* { scrollbar-width: thin; scrollbar-color: var(--color-border-strong) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb:hover { background: #c7c7ce; }

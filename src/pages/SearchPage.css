@@ -1,0 +1,62 @@
+/* 查词页：搜索框是整页的视觉重心，其它元素都往后退 */
+
+.search-hero {
+  margin: 20px 0 22px;
+  text-align: center;
+}
+
+.search-hero__title {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -.03em;
+}
+
+.search-hero__subtitle {
+  margin: 8px auto 0;
+  max-width: 30ch;
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+/* 把组件库的输入框覆盖成 pill 形态 */
+.search-bar .ui-input {
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: var(--radius-full);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-sm);
+  transition: border-color .18s, box-shadow .18s;
+}
+
+.search-bar .ui-input:hover { box-shadow: var(--shadow-md); }
+
+.search-bar .ui-input:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: var(--ui-focus-ring);
+}
+
+.search-bar .ui-input__inner { font-size: 17px; }
+
+.search-hints {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.search-hints__label { font-size: 12px; color: var(--color-text-subtle); }
+
+.search-source {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.search-hints .ui-tag {
+  padding: 3px 11px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.search-page .word-card { margin-top: 20px; }

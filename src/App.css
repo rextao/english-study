@@ -1,0 +1,155 @@
+/* 应用外壳 + 各页面共用的版式骨架（容器、标题、卡片、空态、提示条），
+   页面自己的 css 只写业务差异部分，避免每个页面重复一套 header/card 样式。 */
+
+.app { min-height: 100vh; }
+
+.app__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 60vh;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.app__notice {
+  max-width: var(--content-width);
+  margin: 16px auto 0;
+  padding: 0 24px;
+}
+
+/* ---------------- 页面容器 ---------------- */
+
+.page {
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: 40px 24px 96px;
+}
+
+.page--narrow { max-width: 680px; }
+.page--wide   { max-width: 1080px; }
+
+@media (max-width: 640px) {
+  .page { padding: 28px 16px 72px; }
+  .app__notice { padding: 0 16px; }
+}
+
+/* ---------------- 页面标题 ---------------- */
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.page-header__text { min-width: 0; }
+
+.page-header__title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -.025em;
+}
+
+.page-header__subtitle {
+  margin-top: 6px;
+  max-width: 62ch;
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+.page-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ---------------- 卡片 / 分组 ---------------- */
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+}
+
+.card--pad { padding: 18px 20px; }
+
+/* 表单小标题 */
+.field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+/* 行内说明文字 */
+.hint {
+  font-size: 12px;
+  color: var(--color-text-subtle);
+}
+
+/* ---------------- 空态 ---------------- */
+
+.empty {
+  padding: 28px 20px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* 塞在卡片内部的轻量空态，不再画一个盒子 */
+.empty--inline {
+  padding: 16px 0;
+  border: none;
+  background: none;
+  text-align: left;
+}
+
+/* ---------------- 提示条 ---------------- */
+
+.callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.callout code {
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  background: rgba(24, 24, 27, .06);
+  font-size: 12px;
+}
+
+.callout--warn {
+  border-color: #fde3a7;
+  background: #fffcf2;
+  color: #92590c;
+}
+
+.callout--warn code { background: #fdf1cf; }
+
+.callout--error {
+  border-color: #fbd5d5;
+  background: #fff7f7;
+  color: #b42318;
+}
+
+.callout--success {
+  border-color: #b7ebd2;
+  background: #f4fdf8;
+  color: #067a4d;
+}

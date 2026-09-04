@@ -1,0 +1,30 @@
+{
+  "name": "english-skill",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "server": "node --watch server/dict-server.mjs",
+    "dev:all": "node --watch server/dict-server.mjs & vite",
+    "test:server": "node server/dict-server.test.mjs",
+    "ecdict:fetch": "node scripts/ecdict-fetch.mjs",
+    "ecdict:build": "node scripts/ecdict-build.mjs",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.5.2",
+    "typescript": "~5.8.3",
+    "vite": "^6.3.5"
+  }
+}

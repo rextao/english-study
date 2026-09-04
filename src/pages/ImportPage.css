@@ -1,0 +1,135 @@
+/* 批量导入页：单栏结构 —— 标题栏（导入到 + 新建列表）→ 词库筛选标签 → 粘贴框 → 预览。
+   通用骨架（.page / .field-label / .hint / .callout）放在 App.css 里。 */
+
+.import-page__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+}
+
+.import-col {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+}
+
+/* ---------------- 标题栏：导入到 / 新建列表 ---------------- */
+
+.import-target { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+.import-target__select { min-width: 150px; }
+
+/* 新建列表：平时只有一个按钮，点开后原地展开名称输入 */
+.import-new { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+.import-new__input { width: 150px; }
+
+.import-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.import-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 22px;
+}
+
+/* ---------------- 词库筛选标签行 ---------------- */
+
+.import-filter {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+
+.import-filter__tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.import-filter__tag { padding: 4px 11px; font-size: 12px; }
+
+/* 选中项用主色实底，跟一排灰标签明显区分 */
+.ui-tag.import-filter__tag--active { background: var(--color-primary); color: #fff; }
+.ui-tag.import-filter__tag--active:hover { background: var(--color-primary-dark); color: #fff; }
+
+.import-filter__count { opacity: .65; }
+
+.import-check { margin-top: 2px; }
+
+/* ---------------- 导入按钮与结果 ---------------- */
+
+.import-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.import-actions__msg { flex: 1; min-width: 240px; }
+
+/* ---------------- 预览列表 ---------------- */
+
+.import-preview {
+  list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+
+.import-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  font-size: 13px;
+  box-shadow: inset 0 -1px 0 var(--color-border);
+  transition: background .15s;
+}
+
+.import-row:last-child { box-shadow: none; }
+.import-row:hover { background: var(--color-surface-sunken); }
+
+.import-row__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 不会被导入的行压暗，被词库筛掉的再加一道删除线 */
+.import-row--filtered .import-row__text,
+.import-row--dup-text .import-row__text,
+.import-row--dup-list .import-row__text { color: var(--color-text-subtle); }
+
+.import-row--filtered .import-row__text { text-decoration: line-through; }
+
+.import-state {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.import-state--keep     { color: var(--ui-success-text); }
+.import-state--filtered { color: var(--ui-gold-text); }
+.import-state--dup-text,
+.import-state--dup-list { color: var(--color-text-subtle); }
+
+@media (max-width: 640px) {
+  .import-target { width: 100%; }
+  .import-target__select { flex: 1; min-width: 0; }
+  .import-actions__msg { min-width: 0; }
+}

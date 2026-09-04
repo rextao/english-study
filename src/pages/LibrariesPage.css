@@ -1,0 +1,76 @@
+/* 词库页：一张卡一个词库，重点是「显示标签」那一行可编辑。
+   通用骨架（.page / .card / .empty / .callout）放在 App.css 里。 */
+
+.libs-notice { margin-bottom: 20px; }
+
+.libs-filter {
+  max-width: 320px;
+  margin-bottom: 18px;
+}
+
+.libs {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lib-card { padding: 16px 18px; }
+
+.lib-card__top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lib-card__name {
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+}
+
+/* 源文件：右上角的等宽小 chip */
+.lib-card__file {
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+/* ---------------- 显示标签编辑行 ---------------- */
+
+.lib-card__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.lib-card__label-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.lib-card__input { width: 190px; }
+
+.lib-card__error {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ui-danger-strong);
+}
+
+@media (max-width: 640px) {
+  .libs-filter { max-width: none; }
+  .lib-card__input { width: 100%; }
+}
