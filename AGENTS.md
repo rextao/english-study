@@ -43,10 +43,12 @@ src/pages/StudyPage.tsx        英语学习页：StudyGoal + 挑词弹窗（Moda
 
 src/components/Nav.tsx         顶部导航：四个普通 tab +「英语学习」流光胶囊（角标 = plan.dueCount）；TabKey 定义在此
 src/components/PageHeader.tsx  页面标题区（title / subtitle / actions），样式在 App.css
-src/components/WordCard.tsx    词卡：音标 / 来源标签 / 词库标签 / 中文释义 / 右上角「加入学习」小按钮（内嵌 SensePicker）；
-                               卡片上不显示英文释义、也不显示例句（例句字段整个删了），英文 definition 只在挑释义时出现
+src/components/WordCard.tsx    词卡：音标 / 来源标签 / 词库标签 / 中文释义 / 右上角「加入学习」小按钮；
+                               加入浮层只给音标 + 中文 + 加到哪个列表（不列词性、不列英文释义，senseIds 交给服务端自动挑）；
+                               卡片上不显示英文释义、也不显示例句（例句字段整个删了），英文 definition 只在学习列表页挑释义时出现
 src/components/LibraryTag.tsx  已废弃：曾是「点一下就地改名」的标签，现在全项目零引用（改名只允许在词库页），留着但没人用
-src/components/SensePicker.tsx 从释义全集里勾这一阶段要背的几条（上限 12，对齐服务端 MAX_PICKED_SENSES）
+src/components/SensePicker.tsx 从释义全集里勾这一阶段要背的几条（上限 12，对齐服务端 MAX_PICKED_SENSES）；
+                               现在只有学习列表页在用，查词页的加入浮层已经不挑释义
 src/components/StudyGoal.tsx   目标模块：目标词库（useStudyGoal）vs 已开始学的词 → 达成度 +「目标外的获得」；
                                buildFormIndex 做词形宽松匹配
 
@@ -306,9 +308,9 @@ GET /api/dict → ensureEntry(word, force) → resolveEntry(word, force) → { e
 | 导航菜单、学习入口胶囊 | `src/components/Nav.tsx` + `Nav.css` |
 | 有哪些页面 / 默认页 | `useTabRoute.ts` 的 `TAB_KEYS` + `Nav.tsx` 的 `TabKey`、`TABS` + `App.tsx` 的分支 |
 | 查词交互、防抖 | `src/pages/SearchPage.tsx` |
-| 词卡展示、加入学习按钮 | `src/components/WordCard.tsx` |
+| 词卡展示、加入学习按钮和加入浮层 | `src/components/WordCard.tsx` |
 | 词库标签改名交互 | 只有 `src/pages/LibrariesPage.tsx`（别的页面一律只读 `<Tag>`，不给入口） |
-| 挑释义交互、上限 | `src/components/SensePicker.tsx` + 服务端 `MAX_PICKED_SENSES` |
+| 挑释义交互、上限 | `src/components/SensePicker.tsx`（只有 `ListsPage` 在用） + 服务端 `MAX_PICKED_SENSES` |
 | 导入筛选 / 去重 / 预览 | `src/pages/ImportPage.tsx`（`wordForms` 管词形宽松匹配） |
 | 学习列表行样式、补充释义、多选批量删除 | `src/pages/ListsPage.tsx` + `useStudyList.removeItems` + 服务端 `POST /api/lists/:id/remove` |
 | 目标达成度算法 | `src/components/StudyGoal.tsx` |

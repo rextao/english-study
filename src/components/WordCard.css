@@ -114,8 +114,39 @@
   color: var(--color-text);
 }
 
+/* 加入学习浮层：只有音标 + 中文 + 加到哪个列表，不列词性和英文释义 */
+.word-card__add-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.word-card__add-brief { display: flex; flex-direction: column; gap: 2px; }
+
+.word-card__add-phonetic {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-subtle);
+}
+
+.word-card__add-phonetic--none { font-family: var(--font-sans); color: var(--ui-gold-text); }
+
+.word-card__add-cn {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+.word-card__add-cn--none { font-weight: 500; color: var(--color-text-muted); }
+
+.word-card__add-tip { margin: 0; }
+
 /* 浮层里的「加到哪个列表」 */
 .word-card__pick-list { display: flex; flex-direction: column; gap: 5px; }
+
+.word-card__add-actions { display: flex; justify-content: flex-end; gap: 6px; }
 
 @media (max-width: 640px) {
   .word-card { padding: 18px 16px; }

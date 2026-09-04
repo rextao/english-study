@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { SensePicker } from './SensePicker'
 import { Button, Popover, Select, Tag } from '../ui'
 import type { SelectOption } from '../ui'
 import type { DictionaryEntry, StudyList } from '../types/vocab'
@@ -16,8 +15,8 @@ interface WordCardProps {
   studyListIds: string[]        // lists this word already belongs to
   lists: StudyList[]            // all available lists
   onCheckStudy: (word: string) => void
-  /** senseIds = 这一阶段要背的释义 id，空数组表示交给自动挑 */
-  onAddToList: (listId: string, senseIds: string[]) => Promise<void>
+  /** 加入学习列表；要背的释义交给服务端自动挑（中文 + 第一条英文释义） */
+  onAddToList: (listId: string) => Promise<void>
 }
 
 const FALLBACK_LIST: StudyList = { id: 'default', name: '默认列表', createdAt: 0, wordCount: 0 }
@@ -77,9 +76,9 @@ export function WordCard({
     : (firstFree ?? availableLists[0]).id
   const targetTaken = studyListIds.includes(targetId)
 
-  async function handleAdd(senseIds: string[], close: () => void) {
+  async function handleAdd(close: () => void) {
     setAdding(true)
-    await onAddToList(targetId, senseIds)
+    await onAddToList(targetId)
     setAdding(false)
     close()
   }
@@ -108,27 +107,47 @@ export function WordCard({
         <Popover
           wide
           placement="bottomRight"
-          title="加入学习，并挑这一阶段要背的释义"
+          title={'加入学习 · ' + entry.word}
           render={(close) => (
-            <SensePicker
-              entry={entry}
-              value={[]}
-              okText={targetTaken ? '已在这个列表' : '加入学习'}
-              okDisabled={targetTaken}
-              onSubmit={(ids) => handleAdd(ids, close)}
-              extra={(
-                <div className="word-card__pick-list">
-                  <span className="field-label">加到哪个列表</span>
-                  <Select
-                    aria-label="加到哪个列表"
-                    size="small"
-                    value={targetId}
-                    options={listOptions}
-                    onChange={setTarget}
-                  />
-                </div>
+            <div className="word-card__add-panel">
+              {/* 浮层只给音标 + 中文：不显示词性和英文释义，要背的释义交给服务端自动挑 */}
+              <div className="word-card__add-brief">
+                {entry.phonetic
+                  ? <span className="word-card__add-phonetic">{entry.phonetic}</span>
+                  : <span className="word-card__add-phonetic word-card__add-phonetic--none">音标待补齐</span>}
+                <span className={entry.translation ? 'word-card__add-cn' : 'word-card__add-cn word-card__add-cn--none'}>
+                  {entry.translation || '暂无中文释义'}
+                </span>
+              </div>
+
+              {(!entry.phonetic || !entry.translation) && (
+                <p className="hint word-card__add-tip">加入后会自动去补一次音标和中文。</p>
               )}
-            />
+
+              <div className="word-card__pick-list">
+                <span className="field-label">加到哪个列表</span>
+                <Select
+                  aria-label="加到哪个列表"
+                  size="small"
+                  value={targetId}
+                  options={listOptions}
+                  onChange={setTarget}
+                />
+              </div>
+
+              <div className="word-card__add-actions">
+                <Button size="small" onClick={close}>取消</Button>
+                <Button
+                  type="primary"
+                  size="small"
+                  loading={adding}
+                  disabled={targetTaken}
+                  onClick={() => { void handleAdd(close) }}
+                >
+                  {targetTaken ? '已在这个列表' : '加入学习'}
+                </Button>
+              </div>
+            </div>
           )}
         >
           <Button

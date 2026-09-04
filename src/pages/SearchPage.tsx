@@ -46,9 +46,10 @@ export function SearchPage({ libraries, getLabelById, study }: SearchPageProps) 
   const studyStatus = entry ? getStatus(entry.word) : 'unknown'
   const studyListIds = entry ? getListIds(entry.word) : []
 
-  async function handleAddToList(listId: string, senseIds: string[]) {
+  // 查词页只管「加进去」：要背的释义交给服务端自动挑，弹窗里不挑词性和英文释义
+  async function handleAddToList(listId: string) {
     if (!entry) return
-    const result = await addItem(listId, entry.word, sourceIds, senseIds)
+    const result = await addItem(listId, entry.word, sourceIds)
     if (result.ok) markAdded(entry.word, listId)
   }
 
