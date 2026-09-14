@@ -128,8 +128,30 @@
 .import-state--dup-text,
 .import-state--dup-list { color: var(--color-text-subtle); }
 
+/* 批量导入词义选择：弹窗内独立滚动，避免几百条词把页面撑得过高。 */
+.import-translation-picker { display: flex; flex-direction: column; gap: 8px; max-height: min(62vh, 620px); overflow-y: auto; }
+.import-translation-row { display: flex; flex-direction: column; gap: 7px; padding: 10px 2px; border-bottom: 1px solid var(--color-border); }
+.import-translation-row:last-child { border-bottom: 0; }
+.import-translation-row__word { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; }
+.import-translation-row__word > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.import-translation-row__select-all { margin-left: auto; flex: 0 0 auto; }
+.import-translation-row__phonetic { color: var(--color-text-muted); font-family: var(--font-mono); font-size: 12px; font-weight: 400; }
+.import-translation-row__error { color: var(--color-danger, #c23b3b); font-size: 12px; }
+.import-translation-row__suspect { color: var(--ui-gold-text); font-size: 12px; }
+.import-translation-row__groups { display: flex; flex-direction: column; gap: 6px; padding-left: 8px; }
+.import-translation-row__group { display: flex; align-items: flex-start; gap: 8px; }
+.import-translation-row__choices { display: flex; flex: 1; min-width: 0; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+.import-translation-row__choices .ui-checkbox { align-items: center; flex: 0 0 auto; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); transition: border-color .15s ease, background-color .15s ease; }
+.import-translation-row__choices .ui-checkbox__label { white-space: nowrap; }
+.import-translation-row__choices .ui-checkbox:hover:not(.ui-checkbox--disabled) { border-color: var(--color-primary); }
+.import-translation-row__choices .ui-checkbox:has(.ui-checkbox__input:checked) { border-color: var(--color-primary); background: var(--color-primary-soft); }
+.import-translation-row__pos { flex: 0 0 30px; padding-top: 7px; color: var(--color-text-subtle); font-size: 12px; font-weight: 600; }
+.import-translation-picker__footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; }
+.import-translation-picker__buttons { display: flex; gap: 8px; }
+
 @media (max-width: 640px) {
   .import-target { width: 100%; }
   .import-target__select { flex: 1; min-width: 0; }
   .import-actions__msg { min-width: 0; }
+  .import-translation-picker__footer { align-items: flex-end; flex-direction: column; }
 }

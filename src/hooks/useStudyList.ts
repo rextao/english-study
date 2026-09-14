@@ -7,8 +7,14 @@ const SERVER = 'http://127.0.0.1:3456'
 export interface ImportItem {
   text: string
   sourceIds?: string[]
+  /** 批量查询完成后生成的音标快照；确认导入时直接保存，不再重新请求 */
+  phonetic?: string
   /** 这一阶段要背的释义 id，不填就是自动 */
   senseIds?: string[]
+  /** 这一阶段要背的中文词义 id，不填就是默认全部中文词义 */
+  translationIds?: string[]
+  /** 批量查询完成后生成的中文快照；确认导入时直接保存，不再重新请求 */
+  translation?: string
 }
 
 interface Reply<T> {
@@ -90,18 +96,20 @@ export function useStudyList() {
 
   /** 加入单个词 / 句子 */
   const addItem = useCallback(async (
-    listId: string, text: string, sourceIds: string[], senseIds?: string[],
+    listId: string, text: string, sourceIds: string[], senseIds?: string[], translationIds?: string[],
+    translation?: string, phonetic?: string,
   ) => {
-    const reply = await request<{ ok: boolean; reason?: string }>(
-      listPath(listId) + '/words', jsonInit('POST', { text, sourceIds, senseIds })
+    const reply = await request<{ ok: boolean; reason?: string; item?: StudyWordItem }>(
+      listPath(listId) + '/words',
+      jsonInit('POST', { text, sourceIds, senseIds, translationIds, translation, phonetic }),
     )
     if (reply.offline) return { ok: false as const, reason: '本地服务未启动' }
     if (!reply.data?.ok) return { ok: false as const, reason: reply.data?.reason ?? '添加失败' }
     await fetchLists()
-    return { ok: true as const }
+    return { ok: true as const, item: reply.data.item }
   }, [fetchLists])
 
-  /** 批量导入；queued = 服务端后台排队补音标 / 释义的词数 */
+  /** 批量导入；queued = 服务端后台排队补音标的词数 */
   const importItems = useCallback(async (listId: string, items: ImportItem[]) => {
     const reply = await request<{ ok: boolean; added: number; skipped: number; queued?: number }>(
       listPath(listId) + '/import', jsonInit('POST', { items })
@@ -153,6 +161,18 @@ export function useStudyList() {
     return reply.data.item ?? null
   }, [])
 
+  /** 修改这一阶段要背的中文词义；空数组恢复默认摘要 */
+  const updateItemTranslations = useCallback(async (
+    listId: string, text: string, translationIds: string[], translation: string,
+  ): Promise<StudyWordItem | null> => {
+    const reply = await request<{ ok: boolean; item?: StudyWordItem }>(
+      listPath(listId) + '/words/' + encodeURIComponent(text),
+      jsonInit('PATCH', { translationIds, translation })
+    )
+    if (!reply.data?.ok) return null
+    return reply.data.item ?? null
+  }, [])
+
   /** 某个词在哪些学习列表里 */
   const getWordListIds = useCallback(async (word: string): Promise<string[]> => {
     const reply = await request<{ listIds: string[] }>(
@@ -171,5 +191,6 @@ export function useStudyList() {
     fetchLists, createList, renameList, deleteList,
     addItem, importItems, fetchListWords, removeItem, removeItems,
     updateItemSenses, getWordListIds, getListName,
+    updateItemTranslations,
   }
 }

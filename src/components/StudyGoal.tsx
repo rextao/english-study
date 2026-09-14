@@ -60,13 +60,11 @@ interface StudyGoalProps {
   libraries: VocabLibraryInfo[]
   /** 已经开始学的词（含已毕业的），来自复习计划 */
   items: StudyPlanItem[]
-  /** 复习轮次总数，用于说明「毕业」是怎么算的 */
-  totalRounds: number
   getLabelById: (id: string) => string
 }
 
 /** 目标模块：目标 = 一个词库，拿「已经会的词」和词库词条对比给出达成度 */
-export function StudyGoal({ libraries, items, totalRounds, getLabelById }: StudyGoalProps) {
+export function StudyGoal({ libraries, items, getLabelById }: StudyGoalProps) {
   const { libraryId, setGoal } = useStudyGoal()
 
   // 没设过目标、或目标词库被删了，就先按第一个词库看，但不写回服务端
@@ -152,7 +150,6 @@ export function StudyGoal({ libraries, items, totalRounds, getLabelById }: Study
       <div className="study-goal__head">
         <div className="study-goal__intro">
           <h2 className="study-goal__title">目标：背完一个词库</h2>
-          <p className="hint">走完 {totalRounds} 轮复习毕业的词算达成，词库外背下来的算目标外的获得</p>
         </div>
         <div className="study-goal__picker">
           <label className="field-label" htmlFor="study-goal-lib">目标词库</label>

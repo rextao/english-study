@@ -5,10 +5,10 @@
 
 .study-alert { margin-bottom: 16px; }
 
-/* 挑新词：标题在左，学习列表与卡片版式两个下拉在右 */
+/* 标题固定在卡片左上角，学习列表与卡片版式两个下拉在右 */
 .study-start__head {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
@@ -49,6 +49,15 @@
 .study-start__progress { margin-top: 10px; }
 .study-start__foot { margin-top: 10px; }
 
+/* 自由打印与打印记录共用上面的学习列表和卡片版式配置。 */
+.study-start__secondary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 /* 弹窗里的待选词：多列勾选网格，行距压紧好扫视 */
 .pick-modal__quick {
   position: sticky;
@@ -61,6 +70,26 @@
   margin-bottom: 8px;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-surface);
+}
+
+.pick-modal__quick--search { margin-top: 10px; }
+
+.pick-modal__history {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+}
+
+.pick-modal__result {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--color-text-muted);
 }
 
 .pick-modal__count {
@@ -93,7 +122,6 @@
   margin-bottom: 14px;
 }
 
-.study-plan__heading { min-width: 0; }
 .study-plan__title { font-size: 16px; font-weight: 600; }
 
 .study-plan__nav {
@@ -249,7 +277,6 @@
 .review-row:last-child { box-shadow: none; }
 
 .review-row__word {
-  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -257,22 +284,31 @@
   font-weight: 600;
 }
 
-.review-row__stage {
-  flex-shrink: 0;
-  font-size: 12px;
+.review-row__content {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(120px, .75fr) minmax(220px, 2fr);
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.review-row__phonetic {
+  min-width: 0;
+  overflow: hidden;
   color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: Georgia, 'Times New Roman', serif;
 }
 
-/* 按周模式下标出这个词具体哪天到期 */
-.review-row__due {
-  flex-shrink: 0;
-  font-size: 12px;
-  color: var(--color-text-subtle);
-  font-variant-numeric: tabular-nums;
+.review-row__translation {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
-.review-row .ui-tag { flex-shrink: 0; }
 
 .review-row__ops {
   display: flex;
@@ -281,117 +317,21 @@
   flex-shrink: 0;
 }
 
-/* 打印记录：一行一批，点标题展开这批词的当前进度 */
-.study-prints__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.study-prints__title { font-size: 16px; font-weight: 600; }
-
-.study-prints .empty { margin-top: 12px; }
-
-.print-rows {
-  list-style: none;
-  margin-top: 12px;
-  border-top: 1px solid var(--color-border);
-}
-
-.print-row { box-shadow: inset 0 -1px 0 var(--color-border); }
-.print-row:last-child { box-shadow: none; }
-
-.print-row__main {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 2px;
-  font-size: 14px;
-}
-
-/* 标题本身是展开开关 */
-.print-row__title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-weight: 600;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.print-row__title:hover { color: var(--color-primary); }
-
-.print-row__caret {
-  flex-shrink: 0;
-  width: 12px;
-  font-size: 11px;
-  color: var(--color-text-subtle);
-}
-
-.print-row__time,
-.print-row__count,
-.print-row__done {
-  flex-shrink: 0;
-  font-size: 12px;
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.print-row__done { color: var(--color-text-subtle); }
-
-.print-row .ui-tag { flex-shrink: 0; }
-
-.print-row__ops {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-/* 展开后的词表：缩进一格，与批次行区分开 */
-.print-row__words {
-  list-style: none;
-  margin: 0 0 10px;
-  padding-left: 18px;
-}
-
-.print-word {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 0;
-  font-size: 13px;
-}
-
-.print-word__text {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.print-word__list { font-size: 12px; color: var(--color-text-subtle); }
-
 @media (max-width: 640px) {
   .study-start__head { flex-direction: column; align-items: stretch; }
   .study-start__fields { width: 100%; }
   .study-start__field { flex: 1; width: auto; }
+  .pick-modal__history { grid-template-columns: 1fr; }
   .study-cal__week, .study-cal__grid { gap: 4px; }
   .study-cal__day, .study-cal__pad { min-height: 44px; }
   .study-day__ops { width: 100%; margin-left: 0; }
-  .review-row { flex-wrap: wrap; }
-  .review-row__word { flex-basis: 100%; }
-  .print-row__main { flex-wrap: wrap; }
-  .print-row__title { flex-basis: 100%; }
-  .print-row__ops { width: 100%; }
+  .review-row { align-items: stretch; flex-wrap: wrap; }
+  .review-row__content {
+    flex-basis: 100%;
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+  .review-row__phonetic,
+  .review-row__translation { white-space: normal; }
+  .review-row__ops { width: 100%; }
 }

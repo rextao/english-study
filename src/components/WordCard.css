@@ -7,6 +7,18 @@
   box-shadow: var(--shadow-sm);
 }
 
+.word-card--spelling-suspect {
+  border-color: var(--ui-gold-border);
+  background: var(--ui-gold-bg);
+}
+
+.word-card__spelling-warning {
+  margin: 10px 0 0;
+  color: var(--ui-gold-text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 /* 查询中 / 没查到：同一个卡片外形，只放一行状态文案 */
 .word-card--loading,
 .word-card--empty {
@@ -106,7 +118,72 @@
   margin-top: 10px;
 }
 
-/* 中文释义：卡片里的第二主角，用深色而不是蓝色大字 */
+/* 中文释义：直接在卡片中点选，不再打开弹窗 */
+.word-card__translations {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.word-card__translation-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.word-card__translation-toolbar .hint {
+  margin: 0;
+}
+
+.word-card__translation-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.word-card__translation-pos {
+  flex: 0 0 auto;
+  padding-top: 8px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.word-card__translation-options {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+
+.word-card__translation-option {
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  transition: border-color .15s ease, background-color .15s ease;
+}
+
+.word-card__translation-option .ui-checkbox__label {
+  white-space: nowrap;
+}
+
+.word-card__translation-option:hover:not(.ui-checkbox--disabled) {
+  border-color: var(--color-primary);
+}
+
+.word-card__translation-option:has(.ui-checkbox__input:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
 .word-card__translation {
   margin-top: 8px;
   font-size: 17px;
@@ -114,41 +191,48 @@
   color: var(--color-text);
 }
 
-/* 加入学习浮层：只有音标 + 中文 + 加到哪个列表，不列词性和英文释义 */
-.word-card__add-panel {
+.word-card__translation--empty {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.word-card__toast {
+  position: fixed;
+  z-index: 70;
+  left: 50%;
+  bottom: 24px;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.word-card__add-brief { display: flex; flex-direction: column; gap: 2px; }
-
-.word-card__add-phonetic {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--color-text-subtle);
-}
-
-.word-card__add-phonetic--none { font-family: var(--font-sans); color: var(--ui-gold-text); }
-
-.word-card__add-cn {
+  align-items: center;
+  gap: 12px;
+  width: max-content;
+  max-width: min(680px, calc(100vw - 32px));
+  padding: 10px 12px 10px 16px;
+  border-radius: var(--radius);
+  background: #27272a;
+  box-shadow: var(--shadow-lg);
+  color: #fff;
   font-size: 13px;
-  font-weight: 600;
   line-height: 1.5;
-  color: var(--color-text);
+  transform: translateX(-50%);
 }
 
-.word-card__add-cn--none { font-weight: 500; color: var(--color-text-muted); }
+.word-card__toast > span {
+  min-width: 0;
+}
 
-.word-card__add-tip { margin: 0; }
+.word-card__toast .ui-btn {
+  flex-shrink: 0;
+  color: #fff;
+}
 
-/* 浮层里的「加到哪个列表」 */
-.word-card__pick-list { display: flex; flex-direction: column; gap: 5px; }
-
-.word-card__add-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.word-card__toast .ui-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
+}
 
 @media (max-width: 640px) {
   .word-card { padding: 18px 16px; }
   .word-card__word { font-size: 23px; }
+  .word-card__toast { bottom: 16px; align-items: flex-start; }
 }

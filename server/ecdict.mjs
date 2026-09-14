@@ -254,6 +254,14 @@ function splitPos(line) {
   return pos ? [pos, m[2].trim()] : ['other', line]
 }
 
+/** 释义列里的分号表示下一个词性组，不能把它误当成同一词性的文本。 */
+function splitTranslationGroups(text) {
+  return String(text ?? '')
+    .split(/[；;]\s*(?=[a-zA-Z]{1,8}\.\s*)/)
+    .map(s => s.trim())
+    .filter(Boolean)
+}
+
 /** 音标：ECDICT 存的是裸音标（æpl），统一包成 /æpl/ 和外部接口对齐 */
 function pickPhonetic(row) {
   const p = String(row.phonetic ?? '').trim()
@@ -268,9 +276,13 @@ function pickPhonetic(row) {
  */
 function pickTranslation(row) {
   const lines = splitLines(row.translation)
-  if (lines.length === 0) return undefined
-  const plain = lines.filter(l => !l.startsWith('['))
-  let text = (plain.length > 0 ? plain : lines).slice(0, 2).join('；')
+  const parsed = lines.map(line => {
+    const [pos, text] = splitPos(line)
+    return { pos, text, original: line }
+  })
+  const plain = parsed.filter(item => !item.text.startsWith('['))
+  const selected = (plain.length > 0 ? plain : parsed).slice(0, 2)
+  let text = selected.map(item => item.original).join('；')
   if (text.length > MAX_TRANSLATION_LEN) {
     const cut = text.slice(0, MAX_TRANSLATION_LEN)
     const at = Math.max(
@@ -281,6 +293,32 @@ function pickTranslation(row) {
     text = (at > 12 ? cut.slice(0, at) : cut).trim() + '…'
   }
   return text || undefined
+}
+
+/**
+ * 把 ECDICT 的中文行拆成可单独勾选的候选词义。
+ * 词性前缀只作为展示信息保留在 pos，不混进 text；学科标注行排在普通释义后面。
+ */
+function pickTranslations(row) {
+  const lines = splitLines(row.translation).flatMap(splitTranslationGroups)
+  if (lines.length === 0) return []
+  const parsed = lines.map(line => {
+    const [pos, text] = splitPos(line)
+    return { text, pos }
+  })
+  const plain = parsed.filter(item => !item.text.startsWith('['))
+  return (plain.length > 0 ? plain : parsed)
+    .flatMap(item => item.text.split(/[，,]/).map(text => ({ text: text.trim(), pos: item.pos })))
+    .filter(item => item.text)
+    .map(item => {
+      let text = item.text
+      if (text.length > MAX_TRANSLATION_LEN) {
+        const cut = text.slice(0, MAX_TRANSLATION_LEN)
+        const at = Math.max(cut.lastIndexOf('；'), cut.lastIndexOf('，'), cut.lastIndexOf(';'), cut.lastIndexOf(','), cut.lastIndexOf(' '))
+        text = (at > 12 ? cut.slice(0, at) : cut).trim() + '…'
+      }
+      return { text, pos: item.pos }
+    })
 }
 
 /** 释义全集：优先用英文 definition，没有才拿中文 translation 顶上 */
@@ -342,6 +380,7 @@ export function ecdictEntry(word) {
 
   let phonetic = pickPhonetic(row)
   let translation = pickTranslation(row)
+  let translations = pickTranslations(row)
   let senses = buildSenses(row)
 
   // 变形词（apples / running）自己那条常常只有 exchange 没有释义，回原形取
@@ -350,8 +389,9 @@ export function ecdictEntry(word) {
     if (lemma && lemma !== surface) {
       const base = ecdictRecord(lemma)
       if (base) {
-        phonetic = phonetic || pickPhonetic(base)   // 音标优先用这个词形自己的
+        phonetic = phonetic || pickPhonetic(row) || pickPhonetic(base)   // 音标优先用这个词形自己的
         translation = pickTranslation(base)
+        translations = pickTranslations(base)
         senses = buildSenses(base)
       }
     }
@@ -361,6 +401,7 @@ export function ecdictEntry(word) {
   const entry = { word: surface, senses, source: 'ecdict', cachedAt: Date.now() }
   if (phonetic) entry.phonetic = phonetic
   if (translation) entry.translation = translation
+  if (translations.length > 0) entry.translations = translations
   return entry
 }
 

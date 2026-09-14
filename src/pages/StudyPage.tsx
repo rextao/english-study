@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PageHeader } from '../components/PageHeader'
 import { StudyGoal } from '../components/StudyGoal'
-import { Button, Checkbox, Modal, Popconfirm, Select, Tag } from '../ui'
-import type { SelectOption, TagColor } from '../ui'
+import { Button, Checkbox, Input, Modal, Popconfirm, Select } from '../ui'
+import type { SelectOption } from '../ui'
 import type { StudyListApi } from '../hooks/useStudyList'
-import type { ReviewAction, StudyPlanApi } from '../hooks/useStudyPlan'
+import type { StudyPlanApi } from '../hooks/useStudyPlan'
+import { useDictBatch } from '../hooks/useDictBatch'
 import { usePrintBatches } from '../hooks/usePrintBatches'
 import type {
-  PrintBatch, PrintBatchItem, StudyMarkScope, StudyPlanItem, StudyWordItem, VocabLibraryInfo,
+  PrintBatch, StudyMarkScope, StudyPlanItem, StudyWordItem, VocabLibraryInfo,
 } from '../types/vocab'
 import { buildFlashcardsHtml, fetchCards, openCardWindow } from '../utils/flashcards'
-import type { CardRequest } from '../utils/flashcards'
+import type { CardRequest, CardWindow } from '../utils/flashcards'
+import { formatTranslationOptions, selectedTranslationOptions } from '../utils/translations'
 import './StudyPage.css'
 
 const DAY = 86400000
@@ -31,8 +33,8 @@ interface Layout {
 }
 
 const LAYOUTS: Layout[] = [
-  { value: '3x4', cols: 3, rows: 4 },
   { value: '2x3', cols: 2, rows: 3 },
+  { value: '3x4', cols: 3, rows: 4 },
   { value: '4x5', cols: 4, rows: 5 },
 ]
 
@@ -41,13 +43,6 @@ const LAYOUT_OPTIONS: SelectOption[] = LAYOUTS.map(item => ({
   label: item.cols + ' 列 × ' + item.rows + ' 行',
   extra: '每页 ' + item.cols * item.rows + ' 张',
 }))
-
-/** 整批打卡的动作说明，打印记录里回显用 */
-const ACTION_LABEL: Record<ReviewAction, string> = {
-  done: '记住了',
-  again: '没记住',
-  stop: '退出学习',
-}
 
 function startOfDay(ts: number): number {
   const d = new Date(ts)
@@ -61,8 +56,6 @@ function startOfWeek(ts: number): number {
   const weekday = (new Date(day).getDay() + 6) % 7
   return day - weekday * DAY
 }
-
-const pad2 = (n: number) => (n < 10 ? '0' + n : String(n))
 
 function fmtDate(ts: number): string {
   const d = new Date(ts)
@@ -79,9 +72,11 @@ function fmtWeek(week: number): string {
   return fmtShort(week) + ' - ' + fmtShort(week + 6 * DAY)
 }
 
-function fmtDateTime(ts: number): string {
-  const d = new Date(ts)
-  return fmtDate(ts) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes())
+/** 打印记录标题：日批次显示当天，周批次显示周一到周日。 */
+function printBatchTitle(batch: PrintBatch): string {
+  if (batch.scope !== 'week') return fmtDate(batch.printedAt)
+  const week = startOfWeek(batch.printedAt)
+  return fmtDate(week) + ' - ' + fmtDate(week + 6 * DAY)
 }
 
 function fmtMonth(ts: number): string {
@@ -99,6 +94,13 @@ function monthStart(base: number, offset: number): number {
 }
 
 const dayDiff = (from: number, to: number) => Math.round((startOfDay(to) - startOfDay(from)) / DAY)
+const keyOf = (word: string) => word.trim().replace(/\s+/g, ' ').toLowerCase()
+
+function displayTextOf(item: StudyWordItem): string {
+  return item.type === 'sentence' && item.displayText?.trim()
+    ? item.displayText.trim()
+    : item.word
+}
 
 /** 某天相对今天的口语说法 */
 function relLabel(day: number, today: number): string {
@@ -127,7 +129,9 @@ function roundsInWeek(item: StudyPlanItem, through: number, intervals: number[])
   const base = startOfDay(item.startedAt)
   let stage = item.stage ?? 0
   let rounds = 0
-  while (stage < intervals.length && base + intervals[stage] * DAY <= through) {
+  while (stage <= intervals.length) {
+    const due = stage === 0 ? base : base + intervals[stage - 1] * DAY
+    if (due > through) break
     stage++
     rounds++
   }
@@ -145,20 +149,6 @@ function groupByList(items: StudyPlanItem[]): Map<string, string[]> {
   return groups
 }
 
-function stageLabel(item: StudyWordItem, total: number): string {
-  const stage = item.stage ?? 0
-  return stage >= total ? '已完成 ' + total + ' 轮' : '第 ' + (stage + 1) + ' / ' + total + ' 轮'
-}
-
-/** 打印记录展开后每个词的状态标签；进度是服务端按学习列表现算的 */
-function printWordState(item: PrintBatchItem): { label: string; color: TagColor } {
-  if (item.missing) return { label: '已移除', color: 'default' }
-  if (item.state === 'mastered') return { label: '已毕业', color: 'green' }
-  if (item.state === 'due') return { label: '待复习', color: 'gold' }
-  if (item.nextDueAt == null) return { label: '未开始', color: 'default' }
-  return { label: fmtShort(item.nextDueAt) + ' 复习', color: 'blue' }
-}
-
 /** 月历格子：day 为 null 表示月初月末的补位空格 */
 interface DayCell {
   key: string
@@ -166,16 +156,20 @@ interface DayCell {
   count: number
 }
 
-type BusyKind = '' | 'print' | 'start' | 'day'
+type BusyKind = '' | 'print' | 'start' | 'day' | 'custom'
+type WordAction = 'spelling' | 'done' | 'again'
+type PrintResult = 'ok' | 'blocked' | 'failed'
+type StudyCardRequest = CardRequest & { sourceIds?: string[] }
 
 interface StudyPageProps {
   libraries: VocabLibraryInfo[]
   study: StudyListApi
   plan: StudyPlanApi
   getLabelById: (id: string) => string
+  getPrintLabelById: (id: string) => string
 }
 
-export function StudyPage({ libraries, study, plan, getLabelById }: StudyPageProps) {
+export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelById }: StudyPageProps) {
   const { lists, fetchListWords } = study
   const planData = plan.plan
   const prints   = usePrintBatches()
@@ -193,14 +187,18 @@ export function StudyPage({ libraries, study, plan, getLabelById }: StudyPagePro
   /** 挑词弹窗：draft 是草稿，点取消就丢掉 */
   const [pickOpen, setPickOpen]         = useState(false)
   const [draft, setDraft]               = useState<string[]>([])
+  /** 自由打印弹窗：可选择列表里的任意词，只打印、不改变学习进度。 */
+  const [cardPickOpen, setCardPickOpen] = useState(false)
+  const [cardDraft, setCardDraft]       = useState<string[]>([])
+  const [cardSearch, setCardSearch]     = useState('')
+  const [quickBatchId, setQuickBatchId] = useState('')
   /** 日历：相对今天所在月的偏移，selectedDay 为 null 表示跟着今天走 */
   const [monthOffset, setMonthOffset]   = useState(0)
   const [selectedDay, setSelectedDay]   = useState<number | null>(null)
   /** 复习粒度：按天一天一批，按周一周一批 */
-  const [mode, setMode]                 = useState<StudyMarkScope>('day')
-  /** 打印记录：展开的批次 id / 正在处理的批次动作（形如 id + '/done'） */
-  const [openBatch, setOpenBatch]       = useState('')
-  const [batchBusy, setBatchBusy]       = useState('')
+  const [mode, setMode]                 = useState<StudyMarkScope>('week')
+  /** 每个词独立记录操作状态，不阻塞其他词的打卡 */
+  const [wordBusy, setWordBusy]         = useState<Record<string, WordAction | undefined>>({})
 
   // 选中的列表被删掉后回退到默认列表
   useEffect(() => {
@@ -212,6 +210,10 @@ export function StudyPage({ libraries, study, plan, getLabelById }: StudyPagePro
     let alive = true
     setWordsLoading(true)
     setPicked([])
+    setCardDraft([])
+    setCardSearch('')
+    setQuickBatchId('')
+    setCardPickOpen(false)
     fetchListWords(listId).then(items => {
       if (!alive) return
       setWords(items)
@@ -221,10 +223,27 @@ export function StudyPage({ libraries, study, plan, getLabelById }: StudyPagePro
   }, [listId, reloadToken, fetchListWords])
 
   const draftSet = useMemo(() => new Set(draft), [draft])
+  const cardDraftSet = useMemo(() => new Set(cardDraft), [cardDraft])
 
   /** 词 -> 这一阶段要背的释义，跟着打印请求一起带上（反面目前只印音标 + 中文） */
   const senseMap = useMemo(
     () => new Map(words.map(w => [w.word, w.senseIds])),
+    [words]
+  )
+  const translationMap = useMemo(
+    () => new Map(words.map(w => [w.word, w.translation])),
+    [words]
+  )
+  const phoneticMap = useMemo(
+    () => new Map(words.map(w => [w.word, w.phonetic])),
+    [words]
+  )
+  const wordMap = useMemo(
+    () => new Map(words.map(word => [word.word, word])),
+    [words]
+  )
+  const availableWordByKey = useMemo(
+    () => new Map(words.map(word => [keyOf(word.word), word.word])),
     [words]
   )
 
@@ -233,28 +252,39 @@ export function StudyPage({ libraries, study, plan, getLabelById }: StudyPagePro
     () => words.filter(w => !w.startedAt).sort((a, b) => a.word.localeCompare(b.word)),
     [words]
   )
+  const printableWords = useMemo(
+    () => words.slice().sort((a, b) => displayTextOf(a).localeCompare(displayTextOf(b))),
+    [words]
+  )
+  const filteredPrintableWords = useMemo(() => {
+    const query = keyOf(cardSearch)
+    if (!query) return printableWords
+    return printableWords.filter(item => keyOf(displayTextOf(item)).includes(query))
+  }, [printableWords, cardSearch])
 
   const learningCount = words.length - newWords.length
   const layoutInfo    = LAYOUTS.find(l => l.value === layout) ?? LAYOUTS[0]
   const perPage       = layoutInfo.cols * layoutInfo.rows
   const listName      = lists.find(l => l.id === listId)?.name ?? '学习列表'
-  const totalRounds   = planData.intervals.length
-
   const listOptions: SelectOption[] = lists.map(l => ({
     value: l.id,
     label: l.name,
     extra: l.wordCount + ' 词',
   }))
-
-  const masteredTotal = planData.items.filter(i => i.state === 'mastered').length
-  const learningTotal = planData.items.length - masteredTotal
-
-  const nextUpcoming = useMemo(() => {
-    const future = planData.items
-      .filter(i => i.nextDueAt != null && i.nextDueAt > planData.today)
-      .map(i => i.nextDueAt as number)
-    return future.length > 0 ? Math.min(...future) : null
-  }, [planData])
+  const printBatchOptions = useMemo<SelectOption[]>(() => (
+    prints.batches.flatMap(batch => {
+      const count = batch.items.filter(item => (
+        item.listId === listId && availableWordByKey.has(keyOf(item.word))
+      )).length
+      if (count === 0) return []
+      const kind = batch.kind === 'start' ? '新词' : batch.kind === 'review' ? '复习' : '自选'
+      return [{
+        value: batch.id,
+        label: printBatchTitle(batch) + ' · ' + kind,
+        extra: count + ' 词',
+      }]
+    })
+  ), [prints.batches, listId, availableWordByKey])
 
   /** 每天要复习哪些词：已毕业的不进日历，逾期的都折叠到今天 */
   const dueByDay = useMemo(() => {
@@ -326,11 +356,11 @@ export function StudyPage({ libraries, study, plan, getLabelById }: StudyPagePro
   const isThisWeek  = activeWeek === thisWeek
   /** 面板里列出的词：按天取那一天，按周取那一整周 */
   const activeItems = (isWeek ? dueByWeek.get(activeWeek) : dueByDay.get(activeDay)) ?? []
+  const dict = useDictBatch(activeItems.map(item => item.word))
   /** 只有当前这一天 / 当前这一周能打卡，未来的批次只能看 */
   const canReview   = isWeek ? isThisWeek : isToday
   /** 按周打卡的界限：这一周的最后一毫秒 */
   const weekThrough = activeWeek + 7 * DAY - 1
-  const dueTotal    = (isWeek ? dueByWeek.get(thisWeek) : dueByDay.get(planData.today))?.length ?? 0
   const panelTitle  = isWeek
     ? (isThisWeek ? '本周' : fmtWeek(activeWeek))
     : (isToday ? '今天' : fmtDate(activeDay))
@@ -362,13 +392,55 @@ export function StudyPage({ libraries, study, plan, getLabelById }: StudyPagePro
     setDraft(newWords.slice(0, count).map(w => w.word))
   }
 
-  /**
-   * 标签页先开出来显示进度，再去查释义、回填卡片；被拦截返回 false。
-   * 开页必须在点击事件里同步做，不能等 fetchCards 回来再开。
-   */
-  async function printCards(requests: CardRequest[], title: string, startedAt?: number) {
-    const win = openCardWindow(title)
-    if (!win) return false
+  function openCardPick() {
+    const available = new Set(words.map(item => item.word))
+    setCardDraft(current => current.filter(word => available.has(word)))
+    setCardSearch('')
+    setQuickBatchId('')
+    setCardPickOpen(true)
+  }
+
+  function toggleCardDraft(word: string) {
+    setCardDraft(prev => prev.includes(word) ? prev.filter(item => item !== word) : prev.concat(word))
+  }
+
+  function selectFilteredCards() {
+    setCardDraft(prev => Array.from(new Set(prev.concat(filteredPrintableWords.map(item => item.word)))))
+  }
+
+  function selectPrintBatch(batchId: string) {
+    setQuickBatchId(batchId)
+    const batch = prints.batches.find(item => item.id === batchId)
+    if (!batch) return
+    const selected = batch.items.flatMap(item => {
+      if (item.listId !== listId) return []
+      const word = availableWordByKey.get(keyOf(item.word))
+      return word ? [word] : []
+    })
+    setCardDraft(Array.from(new Set(selected)))
+  }
+
+  /** 来源 id 与可展示标签都带进打印链路；句子不显示词库标识。 */
+  function toCardRequest(item: StudyWordItem): StudyCardRequest {
+    const sourceIds = item.type === 'sentence' ? [] : item.sourceIds
+    return {
+      word: item.word,
+      displayText: item.type === 'sentence' ? item.displayText : undefined,
+      type: item.type,
+      senseIds: item.senseIds,
+      phonetic: item.phonetic,
+      translation: item.translation,
+      sourceIds,
+      libraryLabels: sourceIds.map(getPrintLabelById),
+    }
+  }
+
+  async function renderCards(
+    win: CardWindow,
+    requests: StudyCardRequest[],
+    title: string,
+    startedAt?: number,
+  ): Promise<boolean> {
     setProgress({ done: 0, total: 0 })
     try {
       const cards = await fetchCards(requests, (done, total) => {
@@ -381,12 +453,27 @@ export function StudyPage({ libraries, study, plan, getLabelById }: StudyPagePro
         title,
         startedAt,
       }))
+      return true
     } catch {
       win.fail('卡片生成失败，请确认本地服务已启动（npm run dev:all）')
+      return false
     } finally {
       setProgress(null)
     }
-    return true
+  }
+
+  /**
+   * 标签页先开出来显示进度，再去查释义、回填卡片；被拦截返回 false。
+   * 开页必须在点击事件里同步做，不能等 fetchCards 回来再开。
+   */
+  async function printCards(
+    requests: StudyCardRequest[],
+    title: string,
+    startedAt?: number,
+  ): Promise<PrintResult> {
+    const win = openCardWindow(title)
+    if (!win) return 'blocked'
+    return await renderCards(win, requests, title, startedAt) ? 'ok' : 'failed'
   }
 
   async function handleStart(withPrint: boolean) {
@@ -399,18 +486,31 @@ export function StudyPage({ libraries, study, plan, getLabelById }: StudyPagePro
       + (isWeek ? fmtWeek(thisWeek) + ' 周批次' : fmtDate(startedAt) + ' 批次')
 
     if (withPrint) {
-      const requests = picked.map(word => ({ word, senseIds: senseMap.get(word) }))
-      const opened = await printCards(requests, batchTitle, startedAt)
+      const requests = picked.map(word => {
+        const item = wordMap.get(word)
+        return item ? toCardRequest(item) : {
+          word,
+          type: 'word' as const,
+          senseIds: senseMap.get(word),
+          phonetic: phoneticMap.get(word),
+          translation: translationMap.get(word),
+          sourceIds: [],
+          libraryLabels: [],
+        }
+      })
+      const printed = await printCards(requests, batchTitle, startedAt)
       // 卡片没打开就不写学习状态，避免开始时间对不上手里的卡片
-      if (!opened) {
+      if (printed !== 'ok') {
         setBusy('')
-        setError('浏览器拦截了新标签页，请允许本站弹窗后重试，或用「仅标记开始学习」。')
+        setError(printed === 'blocked'
+          ? '浏览器拦截了新标签页，请允许本站弹窗后重试，或用「仅标记开始学习」。'
+          : '卡片生成失败，尚未标记开始学习。')
         return
       }
     }
 
     const res = await plan.startWords(listId, picked, startedAt, mode)
-    // 卡片导出了就留一条打印记录，过一段时间可以拿着卡片整批打卡
+    // 卡片导出成功后再留一条打印记录。
     let recordError = ''
     if (withPrint && res.ok) {
       const saved = await prints.record({
@@ -424,7 +524,7 @@ export function StudyPage({ libraries, study, plan, getLabelById }: StudyPagePro
     }
     setBusy('')
     if (!res.ok) { setError(res.error); return }
-    setNotice(res.started + ' 个词已开始学习，开始时间 ' + fmtDateTime(startedAt) + '，明天进入第 1 轮复习。')
+    setNotice(res.started + ' 个词已放入今天，完成记忆标记后才会进入下一轮复习。')
     if (recordError) setError(recordError)
     setPicked([])
     setReloadToken(t => t + 1)
@@ -436,14 +536,13 @@ export function StudyPage({ libraries, study, plan, getLabelById }: StudyPagePro
     setError('')
     setNotice('')
     setBusy('day')
-    const requests = activeItems.map(i => ({ word: i.word, senseIds: i.senseIds }))
+    const requests = activeItems.map(toCardRequest)
     const title = isWeek
       ? (isThisWeek ? '本周复习 · ' : '复习 · ') + fmtWeek(activeWeek)
       : (isToday ? '今日复习 · ' : '复习 · ') + fmtDate(activeDay)
-    const opened = await printCards(requests, title)
-    const count = activeItems.length
+    const printed = await printCards(requests, title)
     let recordError = ''
-    if (opened) {
+    if (printed === 'ok') {
       // 卡片确实导出了才留档；计划里的词可能跨列表，按列表分组
       const groups = Array.from(groupByList(activeItems).entries())
         .map(([id, wordList]) => ({ listId: id, words: wordList }))
@@ -451,17 +550,72 @@ export function StudyPage({ libraries, study, plan, getLabelById }: StudyPagePro
       if (!saved.ok) recordError = '卡片已导出，但打印记录没保存：' + saved.error
     }
     setBusy('')
-    if (!opened) { setError('浏览器拦截了新标签页，请允许本站弹窗后重试。'); return }
+    if (printed !== 'ok') {
+      setError(printed === 'blocked'
+        ? '浏览器拦截了新标签页，请允许本站弹窗后重试。'
+        : '卡片生成失败，请确认本地服务已启动。')
+      return
+    }
     if (recordError) setError(recordError)
-    else setNotice(count + ' 个词的卡片已导出，并记进了下面的打印记录。')
   }
 
-  async function handleReview(item: StudyPlanItem, action: ReviewAction) {
+  /** 自由挑选只负责打印和留档，不开始学习，也不推进任何复习轮次。 */
+  async function handleCustomPrint() {
+    if (cardDraft.length === 0) return
     setError('')
     setNotice('')
-    const ok = await plan.reviewWords(item.listId, [item.word], action, reviewOptions)
-    if (!ok) { setError('打卡失败，请确认本地服务已启动'); return }
-    if (item.listId === listId) setReloadToken(t => t + 1)
+    setBusy('custom')
+    const selected = cardDraft
+      .map(word => wordMap.get(word))
+      .filter((item): item is StudyWordItem => item != null)
+    const printedAt = Date.now()
+    const title = listName + ' · 自选卡片 · ' + fmtDate(printedAt)
+    const printed = await printCards(selected.map(toCardRequest), title)
+    if (printed !== 'ok') {
+      setBusy('')
+      setError(printed === 'blocked'
+        ? '浏览器拦截了新标签页，请允许本站弹窗后重试。'
+        : '卡片生成失败，请确认本地服务已启动。')
+      return
+    }
+    const saved = await prints.record({
+      title,
+      kind: 'custom',
+      printedAt,
+      groups: [{ listId, words: selected.map(item => item.word) }],
+    })
+    setBusy('')
+    setCardPickOpen(false)
+    if (!saved.ok) setError('卡片已导出，但打印记录没保存：' + saved.error)
+  }
+
+  async function handleWordAction(item: StudyPlanItem, action: WordAction) {
+    const key = item.listId + '/' + item.word
+    const displayText = displayTextOf(item)
+    setError('')
+    setNotice('')
+    setWordBusy(prev => ({ ...prev, [key]: action }))
+    try {
+      const result = await plan.reviewWords(item.listId, [item.word], action === 'spelling' ? 'done' : action, {
+        ...reviewOptions,
+        successKind: action === 'spelling' ? 'spelling' : undefined,
+        requestId: [item.listId, item.word, item.stage ?? 0, item.nextDueAt ?? 'new', action, mode, reviewOptions.through ?? ''].join('|'),
+      })
+      if (!result.ok) {
+        setError(displayText + ' 操作失败：' + result.error)
+        return
+      }
+      if (action === 'spelling') setNotice(displayText + ' 会拼写，已记住并进入下一轮复习。')
+      else if (action === 'done') setNotice(displayText + ' 已标记为记住了，已进入下一轮复习。')
+      else setNotice(displayText + ' 已标记为没记住，明天重新复习。')
+      if (item.listId === listId) setReloadToken(t => t + 1)
+    } finally {
+      setWordBusy(prev => {
+        const next = { ...prev }
+        delete next[key]
+        return next
+      })
+    }
   }
 
   async function handleAllDone() {
@@ -469,41 +623,32 @@ export function StudyPage({ libraries, study, plan, getLabelById }: StudyPagePro
     setError('')
     setNotice('')
     const groups = groupByList(activeItems)
+    const requestIdsByList = new Map<string, Record<string, string>>()
+    for (const item of activeItems) {
+      const ids = requestIdsByList.get(item.listId) ?? {}
+      ids[item.word] = [
+        item.listId,
+        item.word,
+        item.stage ?? 0,
+        item.nextDueAt ?? 'new',
+        'done',
+        mode,
+        reviewOptions.through ?? '',
+      ].join('|')
+      requestIdsByList.set(item.listId, ids)
+    }
     const count = activeItems.length
     let failed = 0
     for (const [id, wordList] of Array.from(groups.entries())) {
-      const ok = await plan.reviewWords(id, wordList, 'done', reviewOptions)
-      if (!ok) failed++
+      const result = await plan.reviewWords(id, wordList, 'done', {
+        ...reviewOptions,
+        requestIds: requestIdsByList.get(id),
+      })
+      if (!result.ok) failed++
     }
     if (failed > 0) setError('部分词打卡失败，请确认本地服务已启动')
     else setNotice(count + ' 个词已进入下一轮复习。')
     setReloadToken(t => t + 1)
-  }
-
-  /**
-   * 按打印批次整批打卡：粒度沿用打印时的（按周印的卡片就按周打卡，
-   * 服务端会把这一周内排到的轮次一次过完）。
-   */
-  async function handleBatchReview(batch: PrintBatch, action: ReviewAction) {
-    setError('')
-    setNotice('')
-    setBatchBusy(batch.id + '/' + action)
-    const res = await prints.reviewBatch(batch.id, action, { scope: batch.scope })
-    setBatchBusy('')
-    if (!res.ok) { setError('整批打卡失败：' + res.error); return }
-    setNotice(batch.title + ' 这一批已标记为' + ACTION_LABEL[action] + '。')
-    await plan.refresh()
-    setReloadToken(t => t + 1)
-  }
-
-  async function handleBatchRemove(batch: PrintBatch) {
-    setError('')
-    setNotice('')
-    setBatchBusy(batch.id + '/remove')
-    const res = await prints.removeBatch(batch.id)
-    setBatchBusy('')
-    if (!res.ok) { setError('删除打印记录失败：' + res.error); return }
-    setNotice('已删除这条打印记录，词的学习进度不受影响。')
   }
 
   return (
@@ -516,16 +661,12 @@ export function StudyPage({ libraries, study, plan, getLabelById }: StudyPagePro
       <StudyGoal
         libraries={libraries}
         items={planData.items}
-        totalRounds={totalRounds}
         getLabelById={getLabelById}
       />
 
       <section className="card card--pad study-start">
         <div className="study-start__head">
-          <div>
-            <h2 className="study-start__title">挑一批新词开始学</h2>
-            <p className="hint">在弹窗里挑词，选好后印成正反面卡片，同时把当前时间记为开始学习时间</p>
-          </div>
+          <h2 className="study-start__title">学习与打印卡片</h2>
           <div className="study-start__fields">
             <div className="study-start__field">
               <label className="field-label" htmlFor="study-list">学习列表</label>
@@ -552,7 +693,7 @@ export function StudyPage({ libraries, study, plan, getLabelById }: StudyPagePro
 
         <div className="study-start__toolbar">
           <Button disabled={wordsLoading || newWords.length === 0} onClick={openPick}>
-            {picked.length > 0 ? '重新挑词' : '挑选单词'}
+            {picked.length > 0 ? '重新挑选新词' : '挑选新词'}
           </Button>
           <span className="study-start__picked">
             {wordsLoading ? '加载词条中...' : '已选 ' + picked.length + ' 个 · 可选 ' + newWords.length + ' 个'}
@@ -573,6 +714,18 @@ export function StudyPage({ libraries, study, plan, getLabelById }: StudyPagePro
           >
             仅标记开始学习
           </Button>
+        </div>
+
+        <div className="study-start__secondary">
+          <Button
+            disabled={wordsLoading || words.length === 0 || busy !== ''}
+            onClick={openCardPick}
+          >
+            挑选单词打印
+          </Button>
+          <span className="hint">
+            {wordsLoading ? '加载词条中...' : listName + ' · 共 ' + words.length + ' 个词'}
+          </span>
         </div>
 
         {progress && (
@@ -623,22 +776,83 @@ export function StudyPage({ libraries, study, plan, getLabelById }: StudyPagePro
                 checked={draftSet.has(item.word)}
                 onChange={() => toggleDraft(item.word)}
               >
-                {item.word}
+                {displayTextOf(item)}
               </Checkbox>
             ))}
           </div>
+        </Modal>
+
+        <Modal
+          open={cardPickOpen}
+          width="wide"
+          title={'挑选要打印的单词 · ' + listName}
+          description={'可选择未开始、学习中或已完成的词；当前版式每页 ' + perPage + ' 张卡片'}
+          onClose={() => { if (busy !== 'custom') setCardPickOpen(false) }}
+          footer={
+            <>
+              <span className="pick-modal__count">已选 {cardDraft.length} 个</span>
+              <Button type="text" disabled={busy === 'custom'} onClick={() => setCardPickOpen(false)}>取消</Button>
+              <Button
+                type="primary"
+                loading={busy === 'custom'}
+                disabled={cardDraft.length === 0 || busy !== ''}
+                onClick={handleCustomPrint}
+              >
+                打印所选卡片（{cardDraft.length}）
+              </Button>
+            </>
+          }
+        >
+          <div className="pick-modal__history">
+            <label className="field-label" htmlFor="print-history-quick-pick">从打印记录快速选择</label>
+            <Select
+              id="print-history-quick-pick"
+              aria-label="从打印记录快速选择单词"
+              value={quickBatchId}
+              options={printBatchOptions}
+              placeholder={printBatchOptions.length > 0 ? '选择某天的打印记录' : '暂无可用的打印记录'}
+              disabled={printBatchOptions.length === 0}
+              onChange={selectPrintBatch}
+            />
+          </div>
+          <Input
+            block
+            allowClear
+            value={cardSearch}
+            placeholder="搜索单词或句子"
+            aria-label="搜索要打印的单词或句子"
+            onChange={event => setCardSearch(event.target.value)}
+            onClear={() => setCardSearch('')}
+          />
+          <div className="pick-modal__quick pick-modal__quick--search">
+            <Button type="link" size="small" disabled={filteredPrintableWords.length === 0} onClick={selectFilteredCards}>
+              全选当前结果
+            </Button>
+            <Button type="link" size="small" disabled={cardDraft.length === 0} onClick={() => setCardDraft([])}>清空</Button>
+            <span className="pick-modal__result">找到 {filteredPrintableWords.length} 个</span>
+          </div>
+          {filteredPrintableWords.length === 0 ? (
+            <p className="empty empty--inline">没有匹配的单词或句子。</p>
+          ) : (
+            <div className="pick-grid">
+              {filteredPrintableWords.map(item => (
+                <Checkbox
+                  key={item.word}
+                  className="pick-grid__item"
+                  checked={cardDraftSet.has(item.word)}
+                  onChange={() => toggleCardDraft(item.word)}
+                >
+                  {displayTextOf(item)}
+                </Checkbox>
+              ))}
+            </div>
+          )}
         </Modal>
       </section>
 
       <section className="card card--pad study-plan">
         <div className="study-plan__head">
-          <div className="study-plan__heading">
-            <h2 className="study-plan__title">复习计划</h2>
-            <p className="hint">
-              正在学习 {learningTotal} 词 · 已毕业 {masteredTotal} 词 · {isWeek ? '本周' : '今天'}要复习 {dueTotal} 词
-              {nextUpcoming != null && ' · 下次 ' + fmtShort(nextUpcoming)}
-            </p>
-          </div>
+          <h2 className="study-plan__title">复习计划</h2>
           <div className="study-plan__nav">
             <div className="study-plan__mode">
               <Select
@@ -726,28 +940,48 @@ export function StudyPage({ libraries, study, plan, getLabelById }: StudyPagePro
                   : (isToday ? '今天没有要复习的词。' : '这天没有要复习的词。')}
             </p>
           ) : (
-            <ul className="review-rows">
+              <ul className="review-rows">
               {activeItems.map(item => {
-                const overdue = item.nextDueAt == null ? 0 : -dayDiff(planData.today, item.nextDueAt)
-                // 按周打卡时这个词会连过几轮，只对能打卡的当前周算
-                const rounds = isWeek && canReview ? roundsInWeek(item, weekThrough, planData.intervals) : 0
+                const action = wordBusy[item.listId + '/' + item.word]
+                const entry = dict.getEntry(item.word)
+                const selected = item.translationIds && entry?.translations
+                  ? formatTranslationOptions(selectedTranslationOptions(entry.translations, item.translationIds))
+                  : ''
+                const translation = item.translation || selected || entry?.translation || '暂无中文词义'
                 return (
                   <li key={item.listId + '/' + item.word} className="review-row">
-                    <span className="review-row__word">{item.word}</span>
-                    <span className="review-row__stage">{stageLabel(item, totalRounds)}</span>
-                    {isWeek && overdue <= 0 && item.nextDueAt != null && (
-                      <span className="review-row__due">{fmtShort(item.nextDueAt)} 到期</span>
-                    )}
-                    {canReview && overdue > 0 && <Tag color="gold">逾期 {overdue} 天</Tag>}
-                    {rounds > 1 && <Tag color="purple">连过 {rounds} 轮</Tag>}
-                    <Tag>{item.listName}</Tag>
-                    {item.sourceIds.map(id => <Tag key={id} color="blue">{getLabelById(id)}</Tag>)}
+                    <div className="review-row__content">
+                      <span className="review-row__word">{displayTextOf(item)}</span>
+                      <span className="review-row__phonetic">{item.phonetic || entry?.phonetic || '—'}</span>
+                      <span className="review-row__translation">{translation}</span>
+                    </div>
                     {canReview && (
                       <span className="review-row__ops">
-                        <Button type="primary" size="small" onClick={() => handleReview(item, 'done')}>
+                        <Button
+                          size="small"
+                          loading={action === 'spelling'}
+                          disabled={action != null}
+                          onClick={() => handleWordAction(item, 'spelling')}
+                        >
+                          会拼写
+                        </Button>
+                        <Button
+                          type="primary"
+                          size="small"
+                          loading={action === 'done'}
+                          disabled={action != null}
+                          onClick={() => handleWordAction(item, 'done')}
+                        >
                           记住了
                         </Button>
-                        <Button size="small" onClick={() => handleReview(item, 'again')}>没记住</Button>
+                        <Button
+                          size="small"
+                          loading={action === 'again'}
+                          disabled={action != null}
+                          onClick={() => handleWordAction(item, 'again')}
+                        >
+                          没记住
+                        </Button>
                       </span>
                     )}
                   </li>
@@ -758,131 +992,6 @@ export function StudyPage({ libraries, study, plan, getLabelById }: StudyPagePro
         </div>
       </section>
 
-      <section className="card card--pad study-prints">
-        <div className="study-prints__head">
-          <div>
-            <h2 className="study-prints__title">打印记录</h2>
-            <p className="hint">
-              每导出一批卡片都会留档；过一段时间（比如一周后）拿着这批卡片回来，可以整批标记
-            </p>
-          </div>
-          <Button size="small" loading={prints.loading} onClick={() => { prints.refresh() }}>刷新</Button>
-        </div>
-
-        {prints.offline ? (
-          <p className="empty empty--inline">本地服务未启动，读不到打印记录。</p>
-        ) : prints.batches.length === 0 ? (
-          <p className="empty empty--inline">还没有打印记录，导出一批卡片后会自动记在这里。</p>
-        ) : (
-          <ul className="print-rows">
-            {prints.batches.map(batch => {
-              const on       = openBatch === batch.id
-              const busyThis = batchBusy.startsWith(batch.id + '/')
-              const locked   = batch.markableCount === 0 || busyThis
-              const scopeNote = batch.scope === 'week'
-                ? '按打印时的按周粒度打卡，这一周内排到的轮次会一次过完。'
-                : '每个词各前进一轮。'
-              const missNote = batch.missingCount > 0
-                ? '有 ' + batch.missingCount + ' 个词已从学习列表移除，会跳过。'
-                : ''
-              return (
-                <li key={batch.id} className="print-row">
-                  <div className="print-row__main">
-                    <button
-                      type="button"
-                      className="print-row__title"
-                      aria-expanded={on}
-                      onClick={() => setOpenBatch(on ? '' : batch.id)}
-                    >
-                      <span className="print-row__caret" aria-hidden="true">{on ? '▾' : '▸'}</span>
-                      {batch.title}
-                    </button>
-                    <span className="print-row__time">{fmtDateTime(batch.printedAt)}</span>
-                    <Tag color={batch.kind === 'start' ? 'purple' : 'blue'}>
-                      {batch.kind === 'start' ? '新词' : '复习'}
-                    </Tag>
-                    {batch.scope === 'week' && <Tag>按周</Tag>}
-                    <span className="print-row__count">{batch.wordCount} 词</span>
-                    {batch.dueCount > 0 && <Tag color="gold">{batch.dueCount} 词待复习</Tag>}
-                    {batch.reviewAction && batch.reviewedAt != null && (
-                      <span className="print-row__done">
-                        {fmtShort(batch.reviewedAt)} 已标记{ACTION_LABEL[batch.reviewAction]}
-                        {(batch.reviewCount ?? 0) > 1 && '（第 ' + batch.reviewCount + ' 次）'}
-                      </span>
-                    )}
-                    <span className="print-row__ops">
-                      <Popconfirm
-                        title={'把这一批 ' + batch.markableCount + ' 个词都标记为记住了？'}
-                        description={scopeNote + missNote}
-                        okText="全部记住"
-                        disabled={locked}
-                        onConfirm={() => handleBatchReview(batch, 'done')}
-                      >
-                        <Button
-                          type="primary"
-                          size="small"
-                          loading={batchBusy === batch.id + '/done'}
-                          disabled={locked}
-                        >
-                          记住了
-                        </Button>
-                      </Popconfirm>
-                      <Popconfirm
-                        title={'把这一批 ' + batch.markableCount + ' 个词都标记为没记住？'}
-                        description={'记忆周期从今天重新开始。' + missNote}
-                        okText="全部重来"
-                        disabled={locked}
-                        onConfirm={() => handleBatchReview(batch, 'again')}
-                      >
-                        <Button
-                          size="small"
-                          loading={batchBusy === batch.id + '/again'}
-                          disabled={locked}
-                        >
-                          没记住
-                        </Button>
-                      </Popconfirm>
-                      <Popconfirm
-                        title="删除这条打印记录？"
-                        description="只删记录，词的学习进度不受影响"
-                        okText="删除"
-                        danger
-                        disabled={busyThis}
-                        onConfirm={() => handleBatchRemove(batch)}
-                      >
-                        <Button
-                          type="text"
-                          size="small"
-                          danger
-                          loading={batchBusy === batch.id + '/remove'}
-                          disabled={busyThis}
-                        >
-                          删除
-                        </Button>
-                      </Popconfirm>
-                    </span>
-                  </div>
-
-                  {on && (
-                    <ul className="print-row__words">
-                      {batch.items.map(item => {
-                        const state = printWordState(item)
-                        return (
-                          <li key={item.listId + '/' + item.word} className="print-word">
-                            <span className="print-word__text">{item.word}</span>
-                            <Tag color={state.color}>{state.label}</Tag>
-                            <span className="print-word__list">{item.listName}</span>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </section>
     </div>
   )
 }

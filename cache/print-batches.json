@@ -1,6 +1,2398 @@
 {
   "batches": [
     {
+      "id": "print_1789123731480",
+      "printedAt": 1789123731480,
+      "kind": "custom",
+      "title": "Amy Learn · 自选卡片 · 9 月 11 日",
+      "wordCount": 6,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got pink roses"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are yellow sunflowers"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are red cars"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        }
+      ]
+    },
+    {
+      "id": "print_1789123714414",
+      "printedAt": 1789123714414,
+      "kind": "custom",
+      "title": "Amy Learn · 自选卡片 · 9 月 11 日",
+      "wordCount": 7,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got pink roses"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are yellow sunflowers"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are red cars"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        }
+      ]
+    },
+    {
+      "id": "print_1789103145280",
+      "printedAt": 1789103145280,
+      "kind": "review",
+      "title": "本周复习 · 9/7 - 9/13",
+      "wordCount": 24,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "ball"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "banana"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "cake"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "candy"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "egg"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "get up"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "home"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got pink roses"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "lemon"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "monster"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "motorbike"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "pink"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "rose"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sun"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sunflower"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are red cars"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are yellow sunflowers"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "wake up"
+        }
+      ],
+      "scope": "week"
+    },
+    {
+      "id": "print_1789100978142",
+      "printedAt": 1789100978142,
+      "kind": "review",
+      "title": "本周复习 · 9/7 - 9/13",
+      "wordCount": 24,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "ball"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "banana"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "cake"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "candy"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "egg"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "get up"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "home"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got pink roses"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "lemon"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "monster"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "motorbike"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "pink"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "rose"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sun"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sunflower"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are red cars"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are yellow sunflowers"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "wake up"
+        }
+      ],
+      "scope": "week"
+    },
+    {
+      "id": "print_1789025032193",
+      "printedAt": 1789025032193,
+      "kind": "review",
+      "title": "本周复习 · 9/7 - 9/13",
+      "wordCount": 24,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "ball"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "banana"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "cake"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "candy"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "egg"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "get up"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "home"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got pink roses"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "lemon"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "monster"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "motorbike"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "pink"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "rose"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sun"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sunflower"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are red cars"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are yellow sunflowers"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "wake up"
+        }
+      ],
+      "scope": "week"
+    },
+    {
+      "id": "print_1789017294116",
+      "printedAt": 1789017294116,
+      "kind": "review",
+      "title": "本周复习 · 9/7 - 9/13",
+      "wordCount": 24,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "ball"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "banana"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "cake"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "candy"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "egg"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "get up"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "home"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got pink roses"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "lemon"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "monster"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "motorbike"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "pink"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "rose"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sun"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sunflower"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are red cars"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are yellow sunflowers"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "wake up"
+        }
+      ],
+      "scope": "week"
+    },
+    {
+      "id": "print_1789005918259",
+      "printedAt": 1789005918259,
+      "kind": "review",
+      "title": "本周复习 · 9/7 - 9/13",
+      "wordCount": 24,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "ball"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "banana"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "cake"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "candy"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "egg"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "get up"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "home"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got pink roses"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "lemon"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "monster"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "motorbike"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "pink"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "rose"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sun"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sunflower"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are red cars"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are yellow sunflowers"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "wake up"
+        }
+      ],
+      "scope": "week"
+    },
+    {
+      "id": "print_1789005583288",
+      "printedAt": 1789005583288,
+      "kind": "review",
+      "title": "本周复习 · 9/7 - 9/13",
+      "wordCount": 24,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "ball"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "banana"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "cake"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "candy"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "egg"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "get up"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "home"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got pink roses"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "lemon"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "monster"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "motorbike"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "pink"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "rose"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sun"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sunflower"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are red cars"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are yellow sunflowers"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "wake up"
+        }
+      ],
+      "scope": "week"
+    },
+    {
+      "id": "print_1789004264966",
+      "printedAt": 1789004264966,
+      "kind": "review",
+      "title": "本周复习 · 9/7 - 9/13",
+      "wordCount": 24,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "ball"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "banana"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "cake"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "candy"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "egg"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "get up"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "home"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got pink roses"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "lemon"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "monster"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "motorbike"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "pink"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "rose"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sun"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sunflower"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are red cars"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are yellow sunflowers"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "wake up"
+        }
+      ],
+      "scope": "week"
+    },
+    {
+      "id": "print_1789004253805",
+      "printedAt": 1789004253805,
+      "kind": "review",
+      "title": "本周复习 · 9/7 - 9/13",
+      "wordCount": 24,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "ball"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "banana"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "cake"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "candy"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "egg"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "get up"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "home"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got pink roses"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "lemon"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "monster"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "motorbike"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "pink"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "rose"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sun"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sunflower"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are red cars"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are yellow sunflowers"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "wake up"
+        }
+      ],
+      "scope": "week"
+    },
+    {
+      "id": "print_1788966881245",
+      "printedAt": 1788966881245,
+      "kind": "review",
+      "title": "本周复习 · 9/7 - 9/13",
+      "wordCount": 24,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "ball"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "banana"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "cake"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "candy"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "egg"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "get up"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "home"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got pink roses"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "lemon"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "monster"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "motorbike"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "pink"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "rose"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sun"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sunflower"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are red cars"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are yellow sunflowers"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "wake up"
+        }
+      ],
+      "scope": "week"
+    },
+    {
+      "id": "print_1788955074336",
+      "printedAt": 1788955074336,
+      "kind": "review",
+      "title": "本周复习 · 9/7 - 9/13",
+      "wordCount": 24,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "ball"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "banana"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "cake"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "candy"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "egg"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "get up"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "home"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got pink roses"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "lemon"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "monster"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "motorbike"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "pink"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "rose"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sun"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sunflower"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are red cars"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are yellow sunflowers"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "wake up"
+        }
+      ],
+      "scope": "week"
+    },
+    {
+      "id": "print_1788934496551",
+      "printedAt": 1788934496551,
+      "kind": "review",
+      "title": "本周复习 · 9/7 - 9/13",
+      "wordCount": 24,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "ball"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "banana"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "cake"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "candy"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "egg"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "get up"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "home"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got pink roses"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "lemon"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "monster"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "motorbike"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "pink"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "rose"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sun"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sunflower"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are red cars"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are yellow sunflowers"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "wake up"
+        }
+      ],
+      "scope": "week"
+    },
+    {
+      "id": "print_1788934059351",
+      "printedAt": 1788934059351,
+      "kind": "review",
+      "title": "本周复习 · 9/7 - 9/13",
+      "wordCount": 24,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "ball"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "banana"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "cake"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "candy"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "egg"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "get up"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "home"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got pink roses"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "lemon"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "monster"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "motorbike"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "pink"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "rose"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sun"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sunflower"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are red cars"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are yellow sunflowers"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "wake up"
+        }
+      ],
+      "scope": "week"
+    },
+    {
+      "id": "print_1788933093389",
+      "printedAt": 1788933093389,
+      "kind": "review",
+      "title": "本周复习 · 9/7 - 9/13",
+      "wordCount": 24,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "ball"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "banana"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "cake"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "candy"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "egg"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "get up"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "home"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got pink roses"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "lemon"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "monster"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "motorbike"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "pink"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "rose"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sun"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sunflower"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are red cars"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are yellow sunflowers"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "wake up"
+        }
+      ],
+      "scope": "week"
+    },
+    {
+      "id": "print_1788933025214",
+      "printedAt": 1788933025214,
+      "kind": "review",
+      "title": "本周复习 · 9/7 - 9/13",
+      "wordCount": 22,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "ball"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "banana"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "cake"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "candy"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "egg"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "get up"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got pink roses"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "monster"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "motorbike"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "pink"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "rose"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sun"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "sunflower"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are red cars"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "these are yellow sunflowers"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "wake up"
+        }
+      ],
+      "scope": "week"
+    },
+    {
+      "id": "print_1788932989542",
+      "printedAt": 1788932989542,
+      "kind": "review",
+      "title": "本周复习 · 9/7 - 9/13",
+      "wordCount": 15,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "ball"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "banana"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "cake"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "candy"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "egg"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "get up"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "monster"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "motorbike"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "wake up"
+        }
+      ],
+      "scope": "week"
+    },
+    {
+      "id": "print_1788932982140",
+      "printedAt": 1788932982140,
+      "kind": "review",
+      "title": "本周复习 · 9/7 - 9/13",
+      "wordCount": 15,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "ball"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "banana"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "cake"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "candy"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "egg"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "get up"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "monster"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "motorbike"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "wake up"
+        }
+      ],
+      "scope": "week"
+    },
+    {
+      "id": "print_1788932762975",
+      "printedAt": 1788932762975,
+      "kind": "review",
+      "title": "本周复习 · 9/7 - 9/13",
+      "wordCount": 15,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "ball"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "banana"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "cake"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "candy"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "egg"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "get up"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "monster"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "motorbike"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "wake up"
+        }
+      ],
+      "scope": "week"
+    },
+    {
+      "id": "print_1788932735175",
+      "printedAt": 1788932735175,
+      "kind": "start",
+      "title": "Amy Learn · 9/7 - 9/13 周批次",
+      "wordCount": 15,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "ball"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "banana"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "cake"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "candy"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "come back early"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "egg"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "get up"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i go to school"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a apple"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "i've got a car"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "monster"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "motorbike"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "wake up"
+        }
+      ],
+      "scope": "week"
+    },
+    {
+      "id": "print_1788918598752",
+      "printedAt": 1788918598752,
+      "kind": "review",
+      "title": "今日复习 · 9 月 9 日",
+      "wordCount": 8,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "how are you"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "l've got a dog"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "nice to see you"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "pink"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "red"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "rose"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "weather"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "yellow"
+        }
+      ],
+      "scope": "day"
+    },
+    {
+      "id": "print_1788915327718",
+      "printedAt": 1788915327718,
+      "kind": "review",
+      "title": "复习 · 9 月 10 日",
+      "wordCount": 8,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "how are you"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "l've got a dog"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "nice to see you"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "pink"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "red"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "rose"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "weather"
+        },
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "yellow"
+        }
+      ],
+      "scope": "day"
+    },
+    {
+      "id": "print_1788861156558",
+      "printedAt": 1788861156558,
+      "kind": "review",
+      "title": "复习 · 9 月 15 日",
+      "wordCount": 1,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "Amy Learn",
+          "word": "motorbike"
+        }
+      ],
+      "scope": "day"
+    },
+    {
+      "id": "print_1788832136202",
+      "printedAt": 1788832136202,
+      "kind": "start",
+      "title": "默认列表 · 9 月 8 日 批次",
+      "wordCount": 6,
+      "items": [
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "ball"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "good moring"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "how are you"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "l've got a monster"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "monster"
+        },
+        {
+          "listId": "default",
+          "listName": "默认列表",
+          "word": "weather"
+        }
+      ],
+      "scope": "day",
+      "reviewedAt": 1788843495080,
+      "reviewAction": "done",
+      "reviewedCount": 4,
+      "reviewCount": 1
+    },
+    {
       "id": "print_1788509523157",
       "printedAt": 1788509523157,
       "kind": "review",

@@ -7,8 +7,8 @@ const BASE = SERVER + '/api/print-batches'
 /** 记一次卡片导出。一批词可能跨列表（复习计划里的词就是），所以按列表分组传 */
 export interface PrintRecordInput {
   title: string
-  /** start = 挑新词那一批 / review = 复习面板导出的那一批 */
-  kind: 'start' | 'review'
+  /** start = 挑新词 / review = 复习计划 / custom = 自由挑选打印 */
+  kind: 'start' | 'review' | 'custom'
   /** 打印时的粒度，整批打卡默认沿用它 */
   scope?: StudyMarkScope
   /** 缺省用服务端当前时间；挑新词时传开始学习时间，和卡片上印的对齐 */
@@ -20,6 +20,8 @@ export interface PrintReviewOptions {
   scope?: StudyMarkScope
   /** 这一周的最后一毫秒；不传服务端按 scope 自己算 */
   through?: number
+  /** 批次内每个词独立的复习任务幂等键。 */
+  requestIds?: Record<string, string>
 }
 
 type Result = { ok: true } | { ok: false; error: string }
@@ -91,6 +93,7 @@ export function usePrintBatches() {
       action,
       scope: options?.scope,
       through: options?.through,
+      requestIds: options?.requestIds,
     })
     if (res.ok) await refresh()
     return res

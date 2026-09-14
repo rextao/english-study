@@ -17,7 +17,7 @@ interface BatchReply {
   incomplete?: string[]
 }
 
-/** 一次把一批词的缓存条目读回来，列表页拿它显示音标和释义 */
+/** 一次把一批词的缓存条目读回来，列表页拿它显示音标 */
 export function useDictBatch(words: string[]) {
   const [entries, setEntries] = useState<Map<string, DictionaryEntry>>(new Map())
   const [missing, setMissing] = useState<string[]>([])

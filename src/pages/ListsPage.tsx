@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { StudyListApi } from '../hooks/useStudyList'
 import { useDictBatch } from '../hooks/useDictBatch'
-import { useDictPrefetch } from '../hooks/useDictPrefetch'
 import type { StudyWordItem } from '../types/vocab'
 import { PageHeader } from '../components/PageHeader'
-import { SensePicker } from '../components/SensePicker'
-import { Button, Checkbox, Input, Popconfirm, Popover, Tag } from '../ui'
-import { pickSenses } from '../utils/flashcards'
+import { formatTranslationOptions, selectedTranslationOptions } from '../utils/translations'
+import { Button, Checkbox, Input, Popconfirm, Tag } from '../ui'
 import './ListsPage.css'
 
 const DEFAULT_LIST_ID = 'default'
+
+function displayTextOf(item: StudyWordItem): string {
+  return item.type === 'sentence' && item.displayText?.trim()
+    ? item.displayText.trim()
+    : item.word
+}
 
 interface ListsPageProps {
   getLabelById: (id: string) => string
@@ -19,7 +23,7 @@ interface ListsPageProps {
 export function ListsPage({ getLabelById, study }: ListsPageProps) {
   const {
     lists, loading, createList, renameList, deleteList,
-    fetchListWords, removeItem, removeItems, updateItemSenses,
+    fetchListWords, removeItem, removeItems,
   } = study
 
   const [selectedId, setSelectedId]     = useState(DEFAULT_LIST_ID)
@@ -60,13 +64,22 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
     return () => { alive = false }
   }, [selectedId, fetchListWords])
 
+  // 删除成功只做短暂提示，不占用页面内容区域。
+  useEffect(() => {
+    if (!notice) return
+    const timer = window.setTimeout(() => setNotice(''), 2600)
+    return () => window.clearTimeout(timer)
+  }, [notice])
+
   const current   = lists.find(l => l.id === selectedId)
   const isDefault = selectedId === DEFAULT_LIST_ID
 
   const visibleWords = useMemo(() => {
     const k = keyword.trim().toLowerCase()
     const sorted = [...words].sort((a, b) => b.addedAt - a.addedAt)
-    return k ? sorted.filter(w => w.word.includes(k)) : sorted
+    return k ? sorted.filter(w => (
+      w.word.toLowerCase().includes(k) || displayTextOf(w).toLowerCase().includes(k)
+    )) : sorted
   }, [words, keyword])
 
   // 选中项以列表里真实存在的词条为准：某个词被别处删掉后这里自动跟着消失
@@ -76,10 +89,19 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
   )
   const allVisibleSelected = visibleWords.length > 0 && visibleWords.every(w => selected.has(w.word))
 
-  // 音标 / 释义来自词典缓存，列表本身只存要背的释义 id
+  // 新数据优先用加入列表时保存的快照，旧数据再回退词典缓存
   const wordTexts = useMemo(() => words.map(w => w.word), [words])
   const dict      = useDictBatch(wordTexts)
-  const prefetch  = useDictPrefetch(dict.reload)
+
+  function selectedTranslation(item: StudyWordItem) {
+    if (item.translation) return item.translation
+    const entry = dict.getEntry(item.word)
+    if (item.translationIds?.length && entry?.translations) {
+      const selected = selectedTranslationOptions(entry.translations, item.translationIds)
+      if (selected.length > 0) return formatTranslationOptions(selected)
+    }
+    return entry?.translation
+  }
 
   function closeCreate() {
     setAdding(false)
@@ -167,24 +189,6 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
       + (res.missing > 0 ? '，另有 ' + res.missing + ' 条已经不在列表里' : ''))
   }
 
-  /** 把缺音标 / 缺释义的词重新抓一遍，抓完自动刷新这一页的显示 */
-  async function handleRepair() {
-    setError('')
-    setNotice('')
-    const res = await prefetch.repair(wordTexts)
-    if (!res.ok) { setError(res.error); return }
-    // 一个词都没排队，说明这批词的音标和释义都已经在缓存里了
-    if (res.queued === 0) setNotice('这个列表的音标和释义都是齐的，不用补')
-  }
-
-  /** 保存这个词这一阶段要背的释义 */
-  async function handlePickSenses(text: string, senseIds: string[]) {
-    setError('')
-    const saved = await updateItemSenses(selectedId, text, senseIds)
-    if (!saved) { setError('保存释义失败，请确认本地服务已启动'); return }
-    setWords(prev => prev.map(w => (w.word === text ? saved : w)))
-  }
-
   return (
     <div className="page lists-page">
       <PageHeader
@@ -238,7 +242,12 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
       </div>
 
       {error && <div className="callout callout--error lists-alert">{error}</div>}
-      {!error && notice && <div className="callout callout--success lists-alert">{notice}</div>}
+      {!error && notice && (
+        <div className="lists-toast" role="status" aria-live="polite">
+          <span className="lists-toast__mark" aria-hidden="true">✓</span>
+          <span>{notice}</span>
+        </div>
+      )}
 
       {loading && <p className="empty">加载中...</p>}
       {!loading && lists.length === 0 && <p className="empty">还没有任何学习列表</p>}
@@ -292,19 +301,6 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
               onClick={() => { setDraftName(current.name); setRenaming(true) }}
             >
               重命名
-            </Button>
-            <Button
-              size="small"
-              loading={prefetch.busy}
-              disabled={words.length === 0}
-              title="把缺音标或缺英文释义的词重新抓一遍"
-              onClick={handleRepair}
-            >
-              {prefetch.busy
-                ? (prefetch.state.total > 0
-                    ? '补齐中 ' + prefetch.state.done + '/' + prefetch.state.total
-                    : '补齐中...')
-                : dict.pending.length > 0 ? '补齐释义 ' + dict.pending.length : '补齐释义'}
             </Button>
             <Popconfirm
               title="删除这个列表？"
@@ -371,16 +367,14 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
       <ul className="word-rows">
         {visibleWords.map(item => {
           const entry = dict.getEntry(item.word)
-          const picked = item.senseIds ?? []
-          // 词条下面那句灰字：中文 + 这一阶段要背的英文释义
-          const gloss = [entry?.translation, ...pickSenses(entry, picked)]
-            .filter(Boolean).join(' · ')
+          const translation = selectedTranslation(item)
+          const phonetic = item.phonetic || entry?.phonetic
           // 词 + 音标；多选模式下把它塞进勾选框的 label，点词本身也能勾上
           const head = (
             <>
-              <span className="word-row__text">{item.word}</span>
-              {entry?.phonetic && (
-                <span className="word-row__phonetic">{entry.phonetic}</span>
+              <span className="word-row__text">{displayTextOf(item)}</span>
+              {phonetic && (
+                <span className="word-row__phonetic">{phonetic}</span>
               )}
             </>
           )
@@ -402,25 +396,6 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
                 {item.sourceIds.map(id => (
                   <Tag key={id} color="blue">{getLabelById(id)}</Tag>
                 ))}
-                <Popover
-                  wide
-                  placement="bottomRight"
-                  title={'要背的释义 · ' + item.word}
-                  render={close => (
-                    <SensePicker
-                      entry={entry}
-                      value={picked}
-                      onSubmit={async ids => {
-                        await handlePickSenses(item.word, ids)
-                        close()
-                      }}
-                    />
-                  )}
-                >
-                  <Button type="text" size="small" className="word-row__pick">
-                    {picked.length > 0 ? '释义 ' + picked.length : '释义'}
-                  </Button>
-                </Popover>
                 {/* 多选模式下藏掉单条的 ×，免得和勾选框抢操作 */}
                 {!selectMode && (
                   <Button
@@ -436,7 +411,17 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
                   </Button>
                 )}
               </div>
-              {gloss && <p className="word-row__gloss">{gloss}</p>}
+              <div className="word-row__detail">
+                {translation && (
+                  <span className="word-row__translation">{translation}</span>
+                )}
+                <span
+                  className="word-row__stats"
+                  aria-label={'知义 ' + (item.reviewCount ?? 0) + ' 次，会拼 ' + (item.rememberedCount ?? 0) + ' 次'}
+                >
+                  知义 {item.reviewCount ?? 0} · 会拼 {item.rememberedCount ?? 0}
+                </span>
+              </div>
             </li>
           )
         })}

@@ -7,6 +7,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import zlib from 'node:zlib'
+import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -15,6 +16,7 @@ process.env.DICT_DATA_DIR = dataDir
 process.env.DICT_SERVER_NO_LISTEN = '1'
 // 测试不联网：词典查询只走本地缓存，结果才可复现
 process.env.DICT_NO_NETWORK = '1'
+process.env.BAIDU_TRANSLATE_API_KEY = ''
 // 本地词典产物也放到临时目录：此刻还不存在，所以前面的用例行为跟以前一样
 process.env.DICT_ECDICT_DIR = path.join(dataDir, 'ecdict')
 
@@ -23,7 +25,7 @@ console.log = () => {}
 const { server } = await import(path.join(__dirname, 'dict-server.mjs'))
 console.log = origLog
 
-function call(method, url, body) {
+function callOn(target, method, url, body) {
   return new Promise((resolve) => {
     const req = Readable.from(body === undefined ? [] : [JSON.stringify(body)])
     req.method = method
@@ -43,14 +45,23 @@ function call(method, url, body) {
     }
     const silence = console.log
     console.log = () => {}
-    Promise.resolve(server.emit('request', req, res)).finally(() => { console.log = silence })
+    Promise.resolve(target.emit('request', req, res)).finally(() => { console.log = silence })
   })
+}
+
+function call(method, url, body) {
+  return callOn(server, method, url, body)
 }
 
 /** 等后台补齐队列跑空，免得它在断言之后回写缓存文件 */
 async function waitForPrefetch(limit) {
+  return waitForPrefetchOn(server, limit)
+}
+
+/** 等指定服务实例的后台补齐队列跑空。 */
+async function waitForPrefetchOn(target, limit) {
   for (let i = 0; i < (limit || 200); i++) {
-    const state = await call('GET', '/api/dict/prefetch')
+    const state = await callOn(target, 'GET', '/api/dict/prefetch')
     if (state.body?.finished) return state.body
     await new Promise(go => setTimeout(go, 10))
   }
@@ -73,6 +84,118 @@ function hasProgressShape(body) {
   return nums.every(key => Number.isFinite(body[key])) && typeof body.finished === 'boolean'
 }
 
+/** 永久成果接口按单词返回汇总；这里兼容直接数组，便于测试错误响应时给出完整上下文。 */
+function achievementItems(body) {
+  if (Array.isArray(body)) return body
+  if (Array.isArray(body?.items)) return body.items
+  return []
+}
+
+function achievementOf(body, word) {
+  const key = String(word).trim().toLowerCase()
+  return achievementItems(body).find(item => String(item?.word ?? item?.wordKey).trim().toLowerCase() === key)
+}
+
+/** 永久历史可以按单词分组返回；管理页只需展开每组的 events。 */
+function historyEvents(body, word) {
+  const key = String(word ?? '').trim().toLowerCase()
+  const direct = Array.isArray(body?.events) ? body.events : []
+  const items = Array.isArray(body?.items) ? body.items : []
+  const nested = items.flatMap(item => {
+    if (Array.isArray(item?.events)) {
+      return item.events.map(event => ({ ...event, word: event.word ?? item.word ?? item.wordKey }))
+    }
+    return item?.action ? [item] : []
+  })
+  return [...direct, ...nested].filter(event => {
+    if (!key) return true
+    return String(event?.word ?? event?.wordKey).trim().toLowerCase() === key
+  })
+}
+
+function eventAt(event) {
+  return Number(event?.at ?? event?.occurredAt)
+}
+
+function meaningIdentity(event) {
+  if (event?.meaningProfileId) return String(event.meaningProfileId)
+  if (event?.meaningKey) return String(event.meaningKey)
+  if (event?.selectionKey) return String(event.selectionKey)
+  if (Array.isArray(event?.meaningKeys)) return JSON.stringify([...event.meaningKeys].sort())
+  if (Array.isArray(event?.meanings)) {
+    return JSON.stringify(event.meanings.map(item => item?.meaningKey ?? item?.id ?? item).sort())
+  }
+  return ''
+}
+
+/**
+ * 在全新的 Node 进程里驱动一次服务，用于验证真正重启后的 SQLite 持久化与迁移幂等。
+ * 子进程只读写传入的临时目录，不接触开发者的真实 cache。
+ */
+function runHistoryProbe(probeDir, mode) {
+  const moduleUrl = new URL('./dict-server.mjs', import.meta.url).href
+  const script = `
+    import { Readable } from 'node:stream'
+    const { server } = await import(${JSON.stringify(moduleUrl)})
+    function call(method, url, body) {
+      return new Promise(resolve => {
+        const req = Readable.from(body === undefined ? [] : [JSON.stringify(body)])
+        req.method = method
+        req.url = url
+        req.headers = { 'content-type': 'application/json' }
+        let status = 200
+        const chunks = []
+        const res = {
+          setHeader() {},
+          writeHead(code) { status = code; return res },
+          end(chunk) {
+            if (chunk) chunks.push(chunk)
+            let parsed = null
+            try { parsed = JSON.parse(chunks.join('')) } catch {}
+            resolve({ status, body: parsed })
+          },
+        }
+        server.emit('request', req, res)
+      })
+    }
+    const mode = process.env.HISTORY_PROBE_MODE
+    if (mode === 'seed') {
+      const made = await call('POST', '/api/lists', { name: 'Restart persistence' })
+      const listId = made.body?.id
+      await call('POST', '/api/lists/' + listId + '/import', {
+        items: [{ text: 'restart-history', translation: 'n. 重启记录', translationIds: ['translation#0'] }],
+      })
+      await call('POST', '/api/lists/' + listId + '/start', { words: ['restart-history'], startedAt: 1700000000000 })
+      await call('POST', '/api/lists/' + listId + '/review', {
+        words: ['restart-history'], action: 'done', requestIds: { 'restart-history': 'restart-history-done-1' },
+      })
+    }
+    const history = await call('GET', '/api/study/history?word=restart-history&limit=100')
+    const achievements = await call('GET', '/api/study/achievements')
+    process.stdout.write('\\n__HISTORY_PROBE__' + JSON.stringify({ history, achievements }))
+    process.exit(0)
+  `
+  const child = spawnSync(process.execPath, ['--input-type=module', '--eval', script], {
+    encoding: 'utf8',
+    timeout: 20000,
+    env: {
+      ...process.env,
+      DICT_DATA_DIR: probeDir,
+      DICT_ECDICT_DIR: path.join(probeDir, 'ecdict'),
+      DICT_SERVER_NO_LISTEN: '1',
+      DICT_NO_NETWORK: '1',
+      HISTORY_PROBE_MODE: mode,
+    },
+  })
+  const marker = '__HISTORY_PROBE__'
+  const start = child.stdout.lastIndexOf(marker)
+  if (child.status !== 0 || start < 0) {
+    return { error: child.error?.message || child.stderr || child.stdout, status: child.status }
+  }
+  try { return JSON.parse(child.stdout.slice(start + marker.length)) }
+  catch (error) { return { error: error.message, stdout: child.stdout, stderr: child.stderr } }
+}
+
 let r = await call('GET', '/api/lists')
 check('GET /api/lists 自动创建 default', r.status === 200 && r.body.length === 1 && r.body[0].id === 'default', r.body)
 
@@ -86,14 +209,47 @@ check('重名列表 -> 409', r.status === 409 && r.body.ok === false, r.body)
 r = await call('GET', '/api/lists')
 check('现在有 2 个列表', r.body.length === 2, r.body)
 
-r = await call('POST', '/api/lists/default/words', { text: '  ApPle ', sourceIds: ['a2-key-2020'] })
-check('加词并归一化', r.body?.ok === true && r.body.item.word === 'apple' && r.body.item.type === 'word', r.body)
+// 首页加入学习直接保存搜索结果快照，不由写列表接口重新查询词典。
+fs.writeFileSync(path.join(dataDir, 'dict-cache.json'), JSON.stringify({
+  apple: {
+    word: 'apple', phonetic: '/ˈæpəl/', translation: '苹果',
+    senses: [{ id: 'noun#0', pos: 'noun', definition: 'a fruit' }],
+    cachedAt: Date.now(), status: 'ok', source: 'api',
+  },
+}), 'utf8')
+r = await call('POST', '/api/lists/default/words', {
+  text: '  ApPle ', sourceIds: ['a2-key-2020'], phonetic: '/ˈæpəl/', translation: 'n. 苹果',
+  translationIds: ['api#0::0'],
+})
+check('加词并归一化且保存中文翻译',
+  r.body?.ok === true && r.body.item.word === 'apple'
+  && r.body.item.type === 'word' && r.body.item.translation === 'n. 苹果'
+  && r.body.item.phonetic === '/ˈæpəl/'
+  && JSON.stringify(r.body.item.translationIds) === '["api#0::0"]', r.body)
+
+r = await call('POST', '/api/lists/default/words', {
+  text: "i've got a dog", translation: '我有一只狗。',
+})
+check('加句子直接保存前端中文快照，不依赖词典缓存',
+  r.body?.ok === true && r.body.item.translation === '我有一只狗。', r.body)
+check('单条添加句子保留小写主键并返回首字母大写展示文本',
+  r.body?.item?.word === "i've got a dog"
+  && r.body?.item?.displayText === "I've got a dog", r.body)
+
+r = await call('PATCH', '/api/lists/default/words/' + encodeURIComponent("I've got a dog"), {
+  translationIds: ['baidu#0'], translation: '我养了一只狗。',
+})
+check('补充中文词义直接更新前端快照',
+  r.body?.ok === true && r.body.item.translation === '我养了一只狗。'
+  && JSON.stringify(r.body.item.translationIds) === '["baidu#0"]', r.body)
 
 r = await call('POST', '/api/lists/default/words', { text: 'apple' })
 check('重复词跳过', r.body?.ok === false && r.body.reason === 'already exists', r.body)
 
 r = await call('POST', '/api/lists/default/words', { text: '  How   are  you? ' })
-check('句子识别 + 空白压缩', r.body?.item?.type === 'sentence' && r.body.item.word === 'how are you?', r.body)
+check('句子识别 + 空白压缩，同时返回首字母大写展示文本',
+  r.body?.item?.type === 'sentence' && r.body.item.word === 'how are you?'
+  && r.body.item.displayText === 'How are you?', r.body)
 
 r = await call('POST', '/api/lists/default/words', { text: 'a few', sourceIds: ['a2-key-2020'] })
 check('命中词库的短语算 word 而非句子', r.body?.item?.type === 'word', r.body)
@@ -102,15 +258,32 @@ r = await call('DELETE', '/api/lists/default/words/' + encodeURIComponent('a few
 check('移除短语', r.body?.ok === true, r.body)
 
 r = await call('GET', '/api/lists/default/words')
-check('default 有 2 条', r.body.length === 2, r.body)
+check('default 有 3 条', r.body.length === 3, r.body)
 
 r = await call('GET', '/api/word-lists?word=APPLE')
 check('查词所属列表（忽略大小写）', JSON.stringify(r.body.listIds) === '["default"]', r.body)
 
+r = await call('GET', '/api/word-lists?word=' + encodeURIComponent('HOW ARE YOU?'))
+check('句子仍可用任意大小写按小写主键匹配所属列表',
+  JSON.stringify(r.body.listIds) === '["default"]', r.body)
+
 r = await call('POST', '/api/lists/' + newId + '/import', {
-  items: [{ text: 'apple' }, { text: 'Banana', sourceIds: ['a2-key-2020'] }, { text: 'apple' }, { text: '   ' }],
+  items: [
+    { text: 'apple' },
+    { text: 'Banana', sourceIds: ['a2-key-2020'] },
+    { text: 'we enjoy coding.', translation: '我们喜欢编程。' },
+    { text: 'apple' },
+    { text: '   ' },
+  ],
 })
-check('批量导入 added=2 skipped=1', r.body?.added === 2 && r.body.skipped === 1, r.body)
+check('批量导入 added=3 skipped=1', r.body?.added === 3 && r.body.skipped === 1, r.body)
+
+const importedDisplayWords = await call('GET', '/api/lists/' + newId + '/words')
+const importedSentence = importedDisplayWords.body?.find(item => item.word === 'we enjoy coding.')
+check('批量导入句子保留小写主键并提供首字母大写展示文本',
+  importedSentence?.type === 'sentence'
+  && importedSentence?.displayText === 'We enjoy coding.'
+  && importedSentence?.translation === '我们喜欢编程。', importedDisplayWords.body)
 
 r = await call('GET', '/api/word-lists?word=apple')
 check('apple 同时属于 2 个列表', r.body.listIds.length === 2, r.body)
@@ -119,10 +292,13 @@ r = await call('DELETE', '/api/lists/default/words/apple')
 check('移除单词', r.body?.ok === true, r.body)
 
 r = await call('GET', '/api/lists/default/words')
-check('default 剩 1 条', r.body.length === 1, r.body)
+check('default 剩 2 条', r.body.length === 2, r.body)
 
 r = await call('DELETE', '/api/lists/default/words/' + encodeURIComponent('how are you?'))
 check('移除句子（含空格/问号）', r.body?.ok === true, r.body)
+
+r = await call('DELETE', '/api/lists/default/words/' + encodeURIComponent("I've got a dog"))
+check('移除带缩写的句子', r.body?.ok === true, r.body)
 
 r = await call('DELETE', '/api/lists/default')
 check('default 不可删除', r.status === 400 && r.body.ok === false, r.body)
@@ -198,18 +374,65 @@ check('start 没给词 -> 400', r.status === 400, r.body)
 r = await call('GET', '/api/lists/' + studyId + '/words')
 let melon = r.body.find(w => w.word === 'melon')
 check('词条返回 state / nextDueAt',
-  melon?.state === 'due' && melon.nextDueAt === startOfDayMs(threeDaysAgo) + DAY_MS, melon)
+  melon?.state === 'due' && melon.nextDueAt === startOfDayMs(threeDaysAgo), melon)
 check('没开始学的词 state=new', r.body.find(w => w.word === 'lemon')?.state === 'new', r.body)
+check('旧数据缺少独立计数字段时按 0 返回',
+  melon?.spellingCount === 0 && melon?.rememberedCount === 0, melon)
+
+const today = startOfDayMs(Date.now())
+r = await call('POST', '/api/lists/' + studyId + '/start', { words: ['lemon'] })
+let lemon = r.body?.items?.find(w => w.word === 'lemon')
+check('今天开始学习后立即进入今天待复习',
+  lemon?.stage === 0 && lemon.state === 'due' && lemon.nextDueAt === today, lemon)
+
+r = await call('POST', '/api/lists/' + studyId + '/review', { words: ['lemon'], action: 'done' })
+lemon = r.body?.items?.find(w => w.word === 'lemon')
+check('首次真正打卡后才进入第一个 1 天间隔',
+  lemon?.stage === 1 && lemon.state === 'scheduled' && lemon.nextDueAt === today + DAY_MS, lemon)
+
+r = await call('POST', '/api/lists/' + studyId + '/review', { words: ['lemon'], action: 'stop' })
+check('回归用词停止学习后恢复 new',
+  r.body?.items?.find(w => w.word === 'lemon')?.state === 'new', r.body)
+
+const spellingRequestId = [studyId, 'melon', melon?.stage ?? 0, melon?.nextDueAt ?? 'new', 'spelling', 'day'].join('|')
+r = await call('POST', '/api/lists/' + studyId + '/review', {
+  words: ['melon'], action: 'done', successKind: 'spelling', requestIds: { melon: spellingRequestId },
+})
+melon = r.body?.items?.find(w => w.word === 'melon')
+check('会拼写按记住处理并累计次数、推进复习',
+  r.body?.updated === 1 && melon?.spellingCount === 1
+  && melon?.rememberedCount === 1 && melon?.reviewCount === 1
+  && melon.stage === 1 && melon.nextDueAt === startOfDayMs(threeDaysAgo) + DAY_MS
+  && melon.marks?.at(-1)?.action === 'spelling', melon)
+
+r = await call('POST', '/api/lists/' + studyId + '/review', {
+  words: ['melon'], action: 'done', successKind: 'spelling', requestIds: { melon: spellingRequestId },
+})
+melon = r.body?.items?.find(w => w.word === 'melon')
+check('重复提交会拼写任务不重复统计', r.body?.updated === 0 && melon?.spellingCount === 1 && melon?.reviewCount === 1, melon)
 
 r = await call('POST', '/api/lists/' + studyId + '/review', { words: ['melon'], action: 'done' })
 melon = r.body?.items?.find(w => w.word === 'melon')
-check('记住了 -> 进入第 2 轮间隔',
-  r.body?.updated === 1 && melon.stage === 1 && melon.nextDueAt === startOfDayMs(threeDaysAgo) + 2 * DAY_MS, melon)
+check('记住了 -> 累计记住次数并进入第 2 轮间隔',
+  r.body?.updated === 1 && melon.rememberedCount === 2
+  && melon.stage === 2 && melon.nextDueAt === startOfDayMs(threeDaysAgo) + 2 * DAY_MS, melon)
 
-r = await call('POST', '/api/lists/' + studyId + '/review', { words: ['melon'], action: 'again' })
+const againRequestId = [studyId, 'melon', melon?.stage ?? 0, melon?.nextDueAt ?? 'new', 'again', 'day'].join('|')
+r = await call('POST', '/api/lists/' + studyId + '/review', {
+  words: ['melon'], action: 'again', requestIds: { melon: againRequestId },
+})
 melon = r.body?.items?.find(w => w.word === 'melon')
 check('没记住 -> 轮次归零并从今天重开',
-  melon?.stage === 0 && melon.state === 'scheduled' && melon.reviewedAt.length === 2, melon)
+  melon?.stage === 0 && melon.state === 'due' && melon.nextDueAt === startOfDayMs(Date.now())
+  && melon.reviewedAt.length === 3
+  && melon.rememberedCount === 2 && melon.forgottenCount === 1
+  && melon.marks?.at(-1)?.action === 'again', melon)
+
+r = await call('POST', '/api/lists/' + studyId + '/review', {
+  words: ['melon'], action: 'again', requestIds: { melon: againRequestId },
+})
+melon = r.body?.items?.find(w => w.word === 'melon')
+check('重复提交没记住任务不重复统计', r.body?.updated === 0 && melon?.forgottenCount === 1 && melon?.reviewCount === 3, melon)
 
 r = await call('POST', '/api/lists/' + studyId + '/review', { words: ['grape'], action: 'stop' })
 check('停止学习 -> 回到 new', r.body?.items?.find(w => w.word === 'grape')?.state === 'new', r.body)
@@ -217,11 +440,12 @@ check('停止学习 -> 回到 new', r.body?.items?.find(w => w.word === 'grape')
 r = await call('GET', '/api/lists/' + studyId + '/words')
 check('停止学习后不再落盘 startedAt', r.body.find(w => w.word === 'grape')?.startedAt === undefined, r.body)
 
-for (let i = 0; i < 7; i++) {
+for (let i = 0; i < 8; i++) {
   r = await call('POST', '/api/lists/' + studyId + '/review', { words: ['melon'], action: 'done' })
 }
 melon = r.body?.items?.find(w => w.word === 'melon')
-check('走完 7 轮 -> 毕业', melon?.state === 'mastered' && melon.nextDueAt === null, melon)
+check('首次打卡及 7 段间隔全部完成 -> 毕业',
+  melon?.state === 'mastered' && melon.nextDueAt === null, melon)
 
 r = await call('POST', '/api/lists/' + studyId + '/review', { words: ['melon'], action: 'sleep' })
 check('未知复习动作 -> 400', r.status === 400, r.body)
@@ -255,23 +479,23 @@ r = await call('POST', '/api/lists/' + weekId + '/start',
   { words: ['mango', 'papaya', 'guava'], startedAt: monday, scope: 'week' })
 check('按周开始学习 3 个词', r.body?.ok === true && r.body.started === 3, r.body)
 
-// 周一开始：第 1 / 2 / 4 天（周二 / 周三 / 周五）都落在这一周内，按周打卡一次过完
+// 周一首次打卡后，第 1 / 2 / 4 天（周二 / 周三 / 周五）都落在这一周内，按周一次过完
 r = await call('POST', '/api/lists/' + weekId + '/review',
   { words: ['mango'], action: 'done', scope: 'week', through: weekEnd })
 let mango = r.body?.items?.find(w => w.word === 'mango')
 check('按周打卡把这周内排到的轮次一次过完',
-  mango?.stage === 3 && mango.nextDueAt === monday + 7 * DAY_MS, mango)
+  mango?.stage === 4 && mango.nextDueAt === monday + 7 * DAY_MS, mango)
 check('按周连过多轮也只算一次打卡', mango?.reviewCount === 1 && mango.reviewedAt.length === 1, mango)
 
 r = await call('POST', '/api/lists/' + weekId + '/review', { words: ['papaya'], action: 'done' })
 let papaya = r.body?.items?.find(w => w.word === 'papaya')
 check('按天打卡仍然只前进一轮',
-  papaya?.stage === 1 && papaya.nextDueAt === monday + 2 * DAY_MS, papaya)
+  papaya?.stage === 1 && papaya.nextDueAt === monday + DAY_MS, papaya)
 
 r = await call('POST', '/api/lists/' + weekId + '/mark', { words: ['papaya'], action: 'print', scope: 'week' })
 check('打标接口只记日志', r.body?.ok === true && r.body.marked === 1, r.body)
 papaya = r.body?.items?.find(w => w.word === 'papaya')
-check('打标不动复习排期', papaya?.stage === 1 && papaya.nextDueAt === monday + 2 * DAY_MS, papaya)
+check('打标不动复习排期', papaya?.stage === 1 && papaya.nextDueAt === monday + DAY_MS, papaya)
 
 r = await call('POST', '/api/lists/' + weekId + '/mark', { words: ['papaya'], action: 'done' })
 check('打标接口不接受复习动作 -> 400', r.status === 400, r.body)
@@ -324,9 +548,275 @@ check('给不存在的词改释义 -> 404', r.status === 404, r.body)
 r = await call('POST', '/api/lists/' + studyId + '/import', { items: [{ text: 'peach', senseIds: ['noun#0'] }] })
 check('批量导入带释义并排队补齐', r.body?.added === 1 && typeof r.body.queued === 'number', r.body)
 
+r = await call('POST', '/api/lists/' + studyId + '/import', {
+  items: [{ text: 'nectarine', phonetic: '/ˈnektəriːn/', translation: 'n. 油桃', translationIds: ['translation#0'] }],
+})
+check('批量导入直接保存前端中文快照',
+  r.body?.added === 1 && typeof r.body.queued === 'number', r.body)
+
 r = await call('GET', '/api/lists/' + studyId + '/words')
 check('导入时选的释义已落盘',
   JSON.stringify(r.body.find(w => w.word === 'peach')?.senseIds) === '["noun#0"]', r.body)
+check('批量导入的中文快照已落盘',
+  r.body.find(w => w.word === 'nectarine')?.translation === 'n. 油桃'
+  && r.body.find(w => w.word === 'nectarine')?.phonetic === '/ˈnektəriːn/'
+  && JSON.stringify(r.body.find(w => w.word === 'nectarine')?.translationIds) === '["translation#0"]', r.body)
+
+// ── SQLite 永久学习历史 ───────────────────────────────────────────────────
+// 学习列表只保存当前排期；成果和每次操作的具体时间由独立事件账本负责。
+
+r = await call('POST', '/api/lists', { name: 'Permanent history' })
+const historyListId = r.body?.id
+r = await call('POST', '/api/lists/' + historyListId + '/import', {
+  items: [
+    {
+      text: 'archive-one', sourceIds: ['a2-key-2020'], translation: 'n. 归档一',
+      translationIds: ['translation#0'], senseIds: ['noun#0'],
+    },
+    { text: 'archive-list', sourceIds: ['a2-key-2020'], translation: 'n. 归档列表' },
+  ],
+})
+check('永久历史：准备删除词与删除列表两个场景',
+  r.body?.added === 2 && typeof historyListId === 'string', r.body)
+
+const archiveStartedAt = 1700000000123
+r = await call('POST', '/api/lists/' + historyListId + '/start', {
+  words: ['archive-one', 'archive-list'], startedAt: archiveStartedAt,
+})
+check('永久历史：start 成功', r.body?.started === 2, r.body)
+
+const archiveDoneId = 'permanent-archive-one-done-1'
+r = await call('POST', '/api/lists/' + historyListId + '/review', {
+  words: ['archive-one'], action: 'done', requestIds: { 'archive-one': archiveDoneId },
+})
+check('永久历史：done 成功', r.body?.updated === 1, r.body)
+
+r = await call('POST', '/api/lists/' + historyListId + '/review', {
+  words: ['archive-one'], action: 'again', requestIds: { 'archive-one': 'permanent-archive-one-again-1' },
+})
+check('永久历史：again 成功', r.body?.updated === 1, r.body)
+
+r = await call('GET', '/api/study/history?word=archive-one&limit=100')
+let archiveEvents = historyEvents(r.body, 'archive-one')
+check('学习记录管理默认只返回 done / again / spelling',
+  r.status === 200
+  && ['done', 'again'].every(action => archiveEvents.some(event => event.action === action))
+  && archiveEvents.every(event => ['done', 'again', 'spelling'].includes(event.action)),
+  r.body)
+check('永久事件保存每次具体时间',
+  archiveEvents.length === 2
+  && archiveEvents.every(event => Number.isFinite(eventAt(event)) && eventAt(event) > 0)
+  && archiveEvents.some(event => event.action === 'done'),
+  archiveEvents)
+
+r = await call('GET', '/api/study/history?word=melon&action=spelling&limit=100')
+const spellingOnlyEvents = historyEvents(r.body, 'melon')
+check('学习记录可单独筛选背过',
+  spellingOnlyEvents.length === 1 && spellingOnlyEvents[0]?.action === 'spelling', r.body)
+
+r = await call('GET', '/api/study/achievements')
+let archiveAchievement = achievementOf(r.body, 'archive-one')
+check('成果按单词聚合 done / again 次数',
+  archiveAchievement?.reviewCount === 2
+  && archiveAchievement.rememberedCount === 1
+  && archiveAchievement.forgottenCount === 1, archiveAchievement)
+
+r = await call('DELETE', '/api/lists/' + historyListId + '/words/archive-one')
+check('永久历史：从学习列表移除单词', r.body?.ok === true, r.body)
+r = await call('GET', '/api/study/achievements')
+archiveAchievement = achievementOf(r.body, 'archive-one')
+check('移除学习列表单词后成果仍存在',
+  archiveAchievement?.rememberedCount === 1 && archiveAchievement?.forgottenCount === 1, archiveAchievement)
+
+r = await call('POST', '/api/lists/' + historyListId + '/review', {
+  words: ['archive-list'], action: 'done', requestIds: { 'archive-list': 'permanent-archive-list-done-1' },
+})
+check('永久历史：删除列表前先产生一次成果', r.body?.updated === 1, r.body)
+r = await call('DELETE', '/api/lists/' + historyListId)
+check('永久历史：删除整个学习列表', r.body?.ok === true, r.body)
+r = await call('GET', '/api/study/achievements')
+check('删除整个学习列表后成果仍存在',
+  achievementOf(r.body, 'archive-list')?.rememberedCount === 1, r.body)
+
+// 同一个单词更换词义再学习：底层身份不同，成果页仍只能把每次事件算一次。
+r = await call('POST', '/api/lists', { name: 'Meaning profiles' })
+const meaningListId = r.body?.id
+r = await call('POST', '/api/lists/' + meaningListId + '/words', {
+  text: 'meaning-word', translation: 'n. 第一义', translationIds: ['translation#0'], senseIds: ['noun#0'],
+})
+r = await call('POST', '/api/lists/' + meaningListId + '/start', { words: ['meaning-word'], startedAt: 1700000100000 })
+r = await call('POST', '/api/lists/' + meaningListId + '/review', {
+  words: ['meaning-word'], action: 'done', requestIds: { 'meaning-word': 'meaning-profile-done-a' },
+})
+check('词义身份：第一组词义产生事件', r.body?.updated === 1, r.body)
+r = await call('PATCH', '/api/lists/' + meaningListId + '/words/meaning-word', {
+  translation: 'v. 第二义', translationIds: ['translation#1'], senseIds: ['verb#0'],
+})
+r = await call('POST', '/api/lists/' + meaningListId + '/review', {
+  words: ['meaning-word'], action: 'again', requestIds: { 'meaning-word': 'meaning-profile-again-b' },
+})
+check('词义身份：第二组词义产生事件', r.body?.updated === 1, r.body)
+r = await call('GET', '/api/study/history?word=meaning-word&limit=100')
+const meaningReviewEvents = historyEvents(r.body, 'meaning-word')
+  .filter(event => event.action === 'done' || event.action === 'again')
+const meaningIdentities = new Set(meaningReviewEvents.map(meaningIdentity).filter(Boolean))
+check('不同 translationIds / senseIds 形成不同的永久词义身份',
+  meaningReviewEvents.length === 2 && meaningIdentities.size === 2, meaningReviewEvents)
+r = await call('GET', '/api/study/achievements')
+const meaningAchievement = achievementOf(r.body, 'meaning-word')
+check('成果页按事件聚合，不因一次事件关联多个词义而重复计数',
+  meaningAchievement?.reviewCount === 2
+  && meaningAchievement.rememberedCount === 1
+  && meaningAchievement.forgottenCount === 1, meaningAchievement)
+
+// 删除单条永久事件后，聚合必须由剩余事件重新计算。
+const eventToDelete = meaningReviewEvents.find(event => event.action === 'done')
+r = await call('DELETE', '/api/study/history/events/' + encodeURIComponent(eventToDelete?.id ?? ''))
+check('永久历史：可删除单条事件', r.status === 200 && r.body?.ok === true, r.body)
+r = await call('GET', '/api/study/achievements')
+const afterEventDelete = achievementOf(r.body, 'meaning-word')
+check('删除单条事件后成果统计重算',
+  afterEventDelete?.reviewCount === 1
+  && afterEventDelete.rememberedCount === 0
+  && afterEventDelete.forgottenCount === 1, afterEventDelete)
+
+// 清空某词历史只管理成果，不能反向删除词条或重置复习排期。
+r = await call('GET', '/api/lists/' + meaningListId + '/words')
+const scheduleBeforeClear = r.body?.find(item => item.word === 'meaning-word')
+r = await call('DELETE', '/api/study/history/words/' + encodeURIComponent('meaning-word'))
+check('永久历史：可清空某个单词的历史', r.status === 200 && r.body?.ok === true, r.body)
+r = await call('GET', '/api/study/achievements')
+check('清空某词历史后成果中不再显示该词',
+  achievementOf(r.body, 'meaning-word') === undefined, r.body)
+r = await call('GET', '/api/lists/' + meaningListId + '/words')
+const scheduleAfterClear = r.body?.find(item => item.word === 'meaning-word')
+check('清空某词历史不删除学习列表词条', scheduleAfterClear !== undefined, r.body)
+check('清空某词历史不改变当前复习排期',
+  scheduleAfterClear?.startedAt === scheduleBeforeClear?.startedAt
+  && scheduleAfterClear?.stage === scheduleBeforeClear?.stage
+  && scheduleAfterClear?.nextDueAt === scheduleBeforeClear?.nextDueAt
+  && scheduleAfterClear?.state === scheduleBeforeClear?.state,
+  { before: scheduleBeforeClear, after: scheduleAfterClear })
+
+// 旧实现只保留 40 条 marks/reviewedAt；永久事件账本必须完整保存更多记录。
+r = await call('POST', '/api/lists', { name: 'Long history' })
+const longHistoryListId = r.body?.id
+r = await call('POST', '/api/lists/' + longHistoryListId + '/words', {
+  text: 'long-history', translation: 'n. 长历史', translationIds: ['translation#0'],
+})
+r = await call('POST', '/api/lists/' + longHistoryListId + '/start', { words: ['long-history'], startedAt: 1700000200000 })
+for (let index = 0; index < 45; index++) {
+  r = await call('POST', '/api/lists/' + longHistoryListId + '/review', {
+    words: ['long-history'],
+    action: index % 2 === 0 ? 'again' : 'done',
+    requestIds: { 'long-history': 'long-history-event-' + index },
+  })
+}
+r = await call('GET', '/api/study/history?word=long-history&limit=200')
+const longHistoryEvents = historyEvents(r.body, 'long-history')
+check('超过 40 条后永久历史仍可查询全部事件',
+  longHistoryEvents.filter(event => event.action === 'done' || event.action === 'again').length === 45,
+  { count: longHistoryEvents.length, body: r.body })
+check('超过 40 条后每条事件的具体时间仍保留',
+  longHistoryEvents.length === 45 && longHistoryEvents.every(event => Number.isFinite(eventAt(event)) && eventAt(event) > 0),
+  longHistoryEvents)
+
+const idempotentRequestId = 'long-history-idempotent-request'
+r = await call('POST', '/api/lists/' + longHistoryListId + '/review', {
+  words: ['long-history'], action: 'again', requestIds: { 'long-history': idempotentRequestId },
+})
+const firstIdempotentResponse = r.body
+r = await call('POST', '/api/lists/' + longHistoryListId + '/review', {
+  words: ['long-history'], action: 'again', requestIds: { 'long-history': idempotentRequestId },
+})
+check('同一个 requestId 重试不重复执行复习',
+  firstIdempotentResponse?.updated === 1 && r.body?.updated === 0, r.body)
+r = await call('GET', '/api/study/history?word=long-history&limit=200')
+check('同一个 requestId 重试不重复插入永久事件',
+  historyEvents(r.body, 'long-history').filter(event => event.requestId === idempotentRequestId).length === 1, r.body)
+
+// 物理删除按单词清除 SQLite 事件及 JSON 次数镜像，但保留当前复习排期。
+r = await call('GET', '/api/lists/' + longHistoryListId + '/words')
+const scheduleBeforePurge = r.body?.find(item => item.word === 'long-history')
+const backupDir = path.join(dataDir, 'backups')
+const backupsBeforePurge = fs.existsSync(backupDir) ? fs.readdirSync(backupDir).length : 0
+r = await call('POST', '/api/study/history/purge', { words: ['long-history'] })
+check('物理删除选中单词返回删除数量并创建备份',
+  r.status === 200 && r.body?.ok === true && r.body?.deletedEvents >= 46
+  && fs.readdirSync(backupDir).length >= backupsBeforePurge + 2, r.body)
+r = await call('GET', '/api/study/history?word=long-history&limit=100')
+check('物理删除包含正常和已逻辑删除的历史行',
+  historyEvents(r.body, 'long-history').length === 0 && r.body?.total === 0, r.body)
+r = await call('GET', '/api/lists/' + longHistoryListId + '/words')
+const scheduleAfterPurge = r.body?.find(item => item.word === 'long-history')
+check('物理删除不改变学习列表和当前复习排期',
+  scheduleAfterPurge?.startedAt === scheduleBeforePurge?.startedAt
+  && scheduleAfterPurge?.stage === scheduleBeforePurge?.stage,
+  { before: scheduleBeforePurge, after: scheduleAfterPurge })
+check('物理删除同步清理学习列表次数镜像',
+  scheduleAfterPurge?.reviewCount === 0 && scheduleAfterPurge?.spellingCount === 0
+  && scheduleAfterPurge?.rememberedCount === 0 && scheduleAfterPurge?.forgottenCount === 0,
+  scheduleAfterPurge)
+
+r = await call('POST', '/api/study/history/purge', { words: [] })
+check('物理删除拒绝空单词数组', r.status === 400 && r.body?.ok === false, r.body)
+r = await call('POST', '/api/study/history/purge', { words: ['ok', 3] })
+check('物理删除拒绝非字符串单词', r.status === 400 && r.body?.ok === false, r.body)
+
+const listsBeforePurgeAll = await call('GET', '/api/lists')
+r = await call('POST', '/api/study/history/purge', { all: true })
+check('全部物理删除成功', r.status === 200 && r.body?.ok === true, r.body)
+const afterPurgeAll = await call('GET', '/api/study/achievements')
+check('全部物理删除后学习成果为空', achievementItems(afterPurgeAll.body).length === 0, afterPurgeAll.body)
+const listsAfterPurgeAll = await call('GET', '/api/lists')
+check('全部物理删除不删除学习列表',
+  JSON.stringify(listsAfterPurgeAll.body.map(item => item.id))
+  === JSON.stringify(listsBeforePurgeAll.body.map(item => item.id)), listsAfterPurgeAll.body)
+try {
+  const { DatabaseSync } = await import('node:sqlite')
+  const historyDatabase = new DatabaseSync(path.join(dataDir, 'study-history.sqlite'), { readOnly: true })
+  const migrationCount = Number(historyDatabase.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get()?.count || 0)
+  const eventCount = Number(historyDatabase.prepare('SELECT COUNT(*) AS count FROM learning_events').get()?.count || 0)
+  const eventMeaningCount = Number(historyDatabase.prepare('SELECT COUNT(*) AS count FROM learning_event_meanings').get()?.count || 0)
+  const meaningCount = Number(historyDatabase.prepare('SELECT COUNT(*) AS count FROM meaning_profiles').get()?.count || 0)
+  historyDatabase.close()
+  check('全部物理删除清空历史表但保留迁移标记',
+    migrationCount > 0 && eventCount === 0 && eventMeaningCount === 0 && meaningCount === 0,
+    { migrationCount, eventCount, eventMeaningCount, meaningCount })
+} catch (error) {
+  check('全部物理删除数据库结构可读取', false, error.message)
+}
+
+// 真正拉起两个 Node 进程，验证重启持久化，以及旧 JSON -> SQLite 的启动迁移不会重复。
+const restartDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dict-history-restart-'))
+const restartSeed = runHistoryProbe(restartDir, 'seed')
+const restartRead = runHistoryProbe(restartDir, 'read')
+const restartSeedEvents = historyEvents(restartSeed.history?.body, 'restart-history')
+const restartReadEvents = historyEvents(restartRead.history?.body, 'restart-history')
+check('服务重启后永久历史仍存在',
+  restartRead.history?.status === 200
+  && restartReadEvents.some(event => event.action === 'done')
+  && restartReadEvents.every(event => ['done', 'again', 'spelling'].includes(event.action))
+  && achievementOf(restartRead.achievements?.body, 'restart-history')?.rememberedCount === 1,
+  restartRead)
+check('重复启动迁移幂等，不重复导入历史',
+  restartSeedEvents.length > 0 && restartReadEvents.length === restartSeedEvents.length,
+  { first: restartSeedEvents, second: restartReadEvents })
+
+const sqliteFile = path.join(restartDir, 'study-history.sqlite')
+let integrityResult = ''
+let integrityError = ''
+try {
+  const { DatabaseSync } = await import('node:sqlite')
+  const database = new DatabaseSync(sqliteFile, { readOnly: true })
+  integrityResult = String(database.prepare('PRAGMA integrity_check').get()?.integrity_check ?? '')
+  database.close()
+} catch (error) {
+  integrityError = error.message
+}
+check('永久历史使用独立 SQLite 文件', fs.existsSync(sqliteFile), { sqliteFile, restartSeed, restartRead })
+check('SQLite integrity_check = ok', integrityResult === 'ok', { integrityResult, integrityError })
+fs.rmSync(restartDir, { recursive: true, force: true })
 
 // ── 词典缓存：音标 / 释义全集 / 抓齐与否 ───────────────────────────────────
 
@@ -408,11 +898,30 @@ check('重复重置仍返回 ok', r.body?.ok === true && r.body.existed === fals
 r = await call('GET', '/api/vocab-labels')
 check('只剩 1 条标签覆写', JSON.stringify(r.body.labels) === '{"b1-pet":"PET"}', r.body)
 
+r = await call('GET', '/api/vocab-print-labels')
+check('打印标签初始为空', r.status === 200 && JSON.stringify(r.body.printLabels) === '{}', r.body)
+
+r = await call('PATCH', '/api/vocab-print-labels/a2-key-2020', { label: '  KET PRINT  ' })
+check('打印标签保存并去掉首尾空白', r.body?.ok === true && r.body.label === 'KET PRINT', r.body)
+
+r = await call('PATCH', '/api/vocab-print-labels/a2-key-2020', { label: '   ' })
+check('空打印标签 -> 400', r.status === 400 && r.body.ok === false, r.body)
+
+r = await call('POST', '/api/vocab-print-labels', { printLabels: { 'b1-pet': 'PET PRINT' } })
+check('批量合并打印标签', r.body?.ok === true && r.body.printLabels['b1-pet'] === 'PET PRINT', r.body)
+
+r = await call('DELETE', '/api/vocab-print-labels/a2-key-2020')
+check('重置打印标签', r.body?.ok === true && r.body.existed === true, r.body)
+
+r = await call('GET', '/api/vocab-print-labels')
+check('打印标签重置后只剩一条', JSON.stringify(r.body.printLabels) === '{"b1-pet":"PET PRINT"}', r.body)
+
 const saved = JSON.parse(fs.readFileSync(path.join(dataDir, 'study-lists.json'), 'utf8'))
 check('已落盘', Array.isArray(saved.lists) && saved.lists[0].id === 'default', saved)
 
 const savedLabels = JSON.parse(fs.readFileSync(path.join(dataDir, 'vocab-labels.json'), 'utf8'))
 check('标签已落盘', savedLabels.labels['b1-pet'] === 'PET', savedLabels)
+check('打印标签已落盘', savedLabels.printLabels['b1-pet'] === 'PET PRINT', savedLabels)
 
 // ── 学习目标（目标 = 某个词库） ────────────────────────────────────────────
 
@@ -475,6 +984,61 @@ r = await call('POST', '/api/print-batches', { groups: [{ listId: printListId, w
 const printB = r.body?.batch
 check('标题缺省按词数生成', printB?.title === '打印 1 词' && printB.scope === undefined, printB)
 
+r = await call('POST', '/api/print-batches', {
+  title: '自由挑选打印',
+  kind: 'custom',
+  printedAt: monday + 123,
+  groups: [{ listId: printListId, words: ['fig'] }],
+})
+const customPrint = r.body?.batch
+check('自由挑选打印使用独立的批次类型', customPrint?.kind === 'custom', customPrint)
+r = await call('DELETE', '/api/print-batches/' + customPrint?.id)
+check('清理自由挑选打印测试记录', r.body?.ok === true, r.body)
+
+r = await call('POST', '/api/lists', { name: 'Printed Other' })
+const otherPrintListId = r.body?.id
+r = await call('POST', '/api/lists/' + otherPrintListId + '/import', { items: [{ text: 'pear' }] })
+check('打印去重：准备另一个列表的词', r.body?.added === 1, r.body)
+
+r = await call('POST', '/api/print-batches', {
+  title: '跨列表旧批次',
+  kind: 'custom',
+  printedAt: monday + 200,
+  groups: [
+    { listId: printListId, words: ['plum'] },
+    { listId: otherPrintListId, words: ['pear'] },
+  ],
+})
+const oldCrossListPrint = r.body?.batch
+r = await call('POST', '/api/print-batches', {
+  title: '跨列表最新批次',
+  kind: 'review',
+  printedAt: monday + 300,
+  groups: [
+    { listId: otherPrintListId, words: [' PEAR '] },
+    { listId: printListId, words: ['PLUM'] },
+  ],
+})
+const latestCrossListPrint = r.body?.batch
+check('相同跨列表词组忽略次序和单词格式，只保留最新记录',
+  latestCrossListPrint?.id !== oldCrossListPrint?.id, { oldCrossListPrint, latestCrossListPrint })
+
+r = await call('GET', '/api/print-batches')
+check('相同词组的旧打印记录已移除，其他批次仍保留',
+  r.body?.total === 3
+  && !r.body.batches.some(b => b.id === oldCrossListPrint?.id)
+  && r.body.batches.some(b => b.id === latestCrossListPrint?.id)
+  && r.body.batches.some(b => b.id === printA?.id)
+  && r.body.batches.some(b => b.id === printB?.id), r.body)
+
+const dedupedPrints = JSON.parse(fs.readFileSync(path.join(dataDir, 'print-batches.json'), 'utf8'))
+check('最新的相同词组记录落盘在最前', dedupedPrints.batches[0]?.id === latestCrossListPrint?.id, dedupedPrints)
+
+r = await call('DELETE', '/api/print-batches/' + latestCrossListPrint?.id)
+check('清理跨列表打印去重测试记录', r.body?.ok === true, r.body)
+r = await call('DELETE', '/api/lists/' + otherPrintListId)
+check('清理跨列表打印去重测试列表', r.body?.ok === true, r.body)
+
 r = await call('GET', '/api/print-batches')
 check('打印记录新的在前',
   r.body?.total === 2 && r.body.batches[0].id === printB?.id && r.body.batches[1].id === printA?.id, r.body)
@@ -485,10 +1049,23 @@ check('打印记录带上现算的进度',
 r = await call('POST', '/api/print-batches/' + printA?.id + '/review', { action: 'done' })
 check('整批打卡沿用打印时的按周粒度，一次过完周内轮次',
   r.body?.ok === true && r.body.updated === 2
-  && r.body.items.every(i => i.stage === 3 && i.marks === undefined), r.body)
+  && r.body.items.every(i => i.stage === 4 && i.marks === undefined), r.body)
 check('整批打卡回写批次上的打卡信息',
   r.body.batch?.reviewAction === 'done' && r.body.batch.reviewedCount === 2
   && r.body.batch.reviewCount === 1 && typeof r.body.batch.reviewedAt === 'number', r.body?.batch)
+
+const printRetryIds = {}
+for (const item of printA.items) {
+  printRetryIds[item.listId + '|' + item.word] = [
+    printA.id, item.listId, item.word, 0, monday, 'done', 'week', '',
+  ].join('|')
+}
+r = await call('POST', '/api/print-batches/' + printA?.id + '/review', {
+  action: 'done', requestIds: printRetryIds,
+})
+check('重复提交打印批次不重复统计',
+  r.body?.ok === true && r.body.updated === 0 && r.body.batch?.reviewCount === 1
+  && r.body.batch?.reviewedCount === 2, r.body)
 
 r = await call('POST', '/api/print-batches/' + printA?.id + '/review', { action: 'nope' })
 check('整批打卡非法动作 -> 400', r.status === 400 && r.body.ok === false, r.body)
@@ -525,7 +1102,7 @@ check('只剩另一条打印记录', r.body?.total === 1 && r.body.batches[0].id
 
 r = await call('GET', '/api/lists/' + printListId + '/words')
 plum = r.body.find(w => w.word === 'plum')
-check('删记录不动词的学习进度', plum?.stage === 3, plum)
+check('删记录不动词的学习进度', plum?.stage === 4, plum)
 
 r = await call('DELETE', '/api/lists/' + printListId)
 check('清理打印批次测试用的列表', r.body?.ok === true, r.body)
@@ -570,6 +1147,8 @@ check('英文释义按字面量 \\n 拆成两条', eApple?.senses.length === 2, 
 check('词性缩写 n. 映射成 noun 并剥掉前缀',
   eApple?.senses[0].pos === 'noun' && eApple.senses[0].definition.startsWith('fruit with red'), eApple?.senses[0])
 check('本地词条标 source=ecdict', eApple?.source === 'ecdict', eApple?.source)
+check('同一词性下的中文词义都保留词性',
+  eApple?.translations?.every(item => item.pos === 'noun'), eApple?.translations)
 
 const eApples = ecdictEntry('APPLES')
 check('变形词经 exchange 回原形取释义', eApples?.translation === 'n. 苹果, 家伙', eApples)
@@ -619,6 +1198,7 @@ check('释义 id 仍是词性 + 序号', r.body?.senses?.[0]?.id === 'noun#0', r
 r = await call('GET', '/api/dict?word=apple&refresh=1')
 check('refresh=1 也不去网上重抓（本地够用）',
   r.body?.source === 'ecdict' && r.body?.translation === 'n. 苹果, 家伙', r.body)
+check('本地词典命中的单词标记为拼写有效', r.body?.spellingStatus === 'valid', r.body)
 
 r = await call('GET', '/api/dict?word=a%20few')
 check('短语也能从本地词典查到', r.body?.status === 'ok' && r.body?.source === 'ecdict', r.body)
@@ -668,6 +1248,237 @@ r = await call('GET', '/api/dict/sources')
 check('来源接口报本地词典就绪',
   r.body?.local?.ready === true && r.body?.local?.count === 10, r.body)
 check('来源接口报当前不联网', r.body?.network === false, r.body)
+
+// ── 百度翻译链路（本地 mock，不访问真实网络）──────────────────────────────
+
+console.log('')
+console.log('百度翻译链路（mock）')
+
+const baiduDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dict-baidu-test-'))
+const oldEnv = {
+  data: process.env.DICT_DATA_DIR,
+  noNetwork: process.env.DICT_NO_NETWORK,
+  key: process.env.BAIDU_TRANSLATE_API_KEY,
+  appId: process.env.BAIDU_TRANSLATE_APP_ID,
+  url: process.env.BAIDU_TRANSLATE_API_URL,
+  timeout: process.env.DICT_NETWORK_TIMEOUT_MS,
+}
+const oldFetch = globalThis.fetch
+const fetchCalls = []
+globalThis.fetch = async (url, options = {}) => {
+  const target = String(url)
+  fetchCalls.push({ url: target, options })
+  if (target.includes('dictionaryapi.dev')) {
+    const token = decodeURIComponent(target.split('/').pop())
+    if (token === 'slow') return new Promise(() => {})
+    if (token === 'got') {
+      return { ok: false, status: 404, async json() { return { title: 'No entry found' } } }
+    }
+    if (['how', 'are', 'you', "i've", 'a', 'dog'].includes(token)) {
+      const phonetics = {
+        how: '/haʊ/', are: '/ɑːr/', you: '/juː/',
+        "i've": '/aɪv/', a: '/ə/', dog: '/dɔːɡ/',
+      }
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return [{ word: token, phonetic: phonetics[token], meanings: [] }]
+        },
+      }
+    }
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+      return [{
+          word: 'kiwi',
+          phonetic: '/ˈkiːwi/',
+          meanings: [{ partOfSpeech: 'noun', definitions: [{ definition: 'a small fruit' }] }],
+      }]
+      },
+    }
+  }
+  if (target === 'http://baidu.mock/translate') {
+    const payload = JSON.parse(options.body)
+    const translation = payload.q === 'kiwi'
+      ? '猕猴桃'
+      : (payload.q === 'untranslatable' ? 'untranslatable' : '你今天好吗？')
+    return {
+      ok: true,
+      status: 200,
+      async json() { return { result: { trans_result: [{ src: payload.q, dst: translation }] } } },
+    }
+  }
+  throw new Error('unexpected mock URL: ' + target)
+}
+process.env.DICT_DATA_DIR = baiduDir
+process.env.DICT_NO_NETWORK = '0'
+process.env.BAIDU_TRANSLATE_API_KEY = 'test-key-not-real'
+process.env.BAIDU_TRANSLATE_APP_ID = 'test-app-id-not-real'
+process.env.BAIDU_TRANSLATE_API_URL = 'http://baidu.mock/translate'
+process.env.DICT_NETWORK_TIMEOUT_MS = '1000'
+const { server: baiduServer } = await import(path.join(__dirname, 'dict-server.mjs?baidu-test'))
+
+fetchCalls.length = 0
+r = await callOn(baiduServer, 'GET', '/api/dict?word=apple')
+check('ECDICT 命中的单词不调用百度',
+  r.body?.source === 'ecdict' && !fetchCalls.some(c => c.url === 'http://baidu.mock/translate'), fetchCalls)
+
+fetchCalls.length = 0
+r = await callOn(baiduServer, 'GET', '/api/dict?word=kiwi')
+check('本地词典没有的单词调用百度并返回中文',
+  r.body?.translation === '猕猴桃' && r.body?.status === 'ok'
+  && fetchCalls.some(c => c.url === 'http://baidu.mock/translate'), r.body)
+check('免费词典命中的单词标记为拼写有效', r.body?.spellingStatus === 'valid', r.body)
+const kiwiBaiduCall = fetchCalls.find(call => call.url === 'http://baidu.mock/translate')
+const kiwiBaiduBody = JSON.parse(kiwiBaiduCall?.options?.body || '{}')
+check('百度大模型翻译请求使用 appid/from/to/q 格式',
+  kiwiBaiduCall?.options?.headers?.Authorization === 'Bearer test-key-not-real'
+  && kiwiBaiduBody.appid === 'test-app-id-not-real'
+  && kiwiBaiduBody.from === 'en'
+  && kiwiBaiduBody.to === 'zh'
+  && kiwiBaiduBody.q === 'kiwi'
+  && kiwiBaiduBody.model === undefined, { headers: kiwiBaiduCall?.options?.headers, body: kiwiBaiduBody })
+const kiwiCache = JSON.parse(fs.readFileSync(path.join(baiduDir, 'dict-cache.json'), 'utf8'))
+check('百度中文会写入缓存', kiwiCache.kiwi?.translation === '猕猴桃', kiwiCache.kiwi)
+check('拼写状态会持久化到缓存', kiwiCache.kiwi?.spellingStatus === 'valid', kiwiCache.kiwi)
+
+fetchCalls.length = 0
+r = await callOn(baiduServer, 'GET', '/api/dict?word=got')
+check('本地未命中且免费词典明确 404 时标记为可能拼写错误',
+  r.body?.spellingStatus === 'suspect'
+  && r.body?.errors?.some(error => error.source === 'dictionaryapi' && error.code === 'not_found'), r.body)
+const suspectCache = JSON.parse(fs.readFileSync(path.join(baiduDir, 'dict-cache.json'), 'utf8'))
+check('可能拼写错误状态会持久化到缓存', suspectCache.got?.spellingStatus === 'suspect', suspectCache.got)
+
+fetchCalls.length = 0
+r = await callOn(baiduServer, 'POST', '/api/dict/search-batch', {
+  words: [' Kiwi ', 'untranslatable', 'KIWI', 'apple'],
+})
+const batchKiwi = r.body?.results?.find(item => item.word === 'kiwi')
+const batchMissing = r.body?.results?.find(item => item.word === 'untranslatable')
+const batchLocal = r.body?.results?.find(item => item.word === 'apple')
+check('批量查询归一化去重并复用单条查询结果',
+  r.status === 200 && r.body?.total === 3 && batchKiwi?.ok === true
+  && batchKiwi.entry.translation === '猕猴桃', r.body)
+check('批量查询中一项缺少中文不会使其他项目失败',
+  r.body?.succeeded === 2 && r.body?.failed === 1
+  && batchMissing?.ok === false && batchMissing?.error?.source === 'baidu'
+  && batchLocal?.ok === true && batchLocal.entry.translation === 'n. 苹果, 家伙', r.body)
+check('批量失败项仍返回已经取得的部分词典数据',
+  batchMissing?.entry?.phonetic === '/ˈkiːwi/'
+  && Array.isArray(batchMissing.entry.senses), batchMissing)
+
+r = await callOn(baiduServer, 'POST', '/api/dict/search-batch', { words: [] })
+check('批量查询没有有效输入 -> 400', r.status === 400 && r.body?.error === 'missing words', r.body)
+
+fetchCalls.length = 0
+r = await callOn(baiduServer, 'POST', '/api/lists/default/import', {
+  items: [{ text: 'We enjoy coding.', translation: '我们喜欢编程。', translationIds: ['baidu#0'] }],
+})
+await waitForPrefetchOn(baiduServer)
+const importFetchCalls = [...fetchCalls]
+const importedSnapshot = await callOn(baiduServer, 'GET', '/api/lists/default/words')
+check('批量导入立即保存前端中文快照，后台不重新调用百度',
+  r.body?.added === 1
+  && !importFetchCalls.some(call => call.url === 'http://baidu.mock/translate')
+  && importedSnapshot.body?.find(item => item.word === 'we enjoy coding.')?.translation === '我们喜欢编程。',
+  { response: r.body, fetchCalls: importFetchCalls, words: importedSnapshot.body })
+
+fetchCalls.length = 0
+r = await callOn(baiduServer, 'GET', '/api/dict?word=how%20are%20you%3F')
+const sentenceBaiduCall = fetchCalls.find(call => call.url === 'http://baidu.mock/translate')
+const sentenceBaiduBody = JSON.parse(sentenceBaiduCall?.options?.body || '{}')
+check('小写句子查询时以首字母大写形式调用百度翻译',
+  sentenceBaiduBody.q === 'How are you?', sentenceBaiduBody)
+check('小写英语句子直接调用百度翻译',
+  r.body?.translation === '你今天好吗？'
+  && r.body?.phonetic === '/haʊ/ /ɑːr/ /juː/?'
+  && fetchCalls.some(call => call.url === 'http://baidu.mock/translate')
+  && fetchCalls.filter(call => call.url.includes('dictionaryapi.dev')).length === 3, r)
+check('英语句子不执行整句拼写校验', r.body?.spellingStatus === 'unchecked', r.body)
+
+fetchCalls.length = 0
+r = await callOn(baiduServer, 'GET', '/api/dict?word=I%27ve%20got%20a%20dog')
+check('句子部分音标失败仍继续百度整句翻译',
+  r.body?.translation === '你今天好吗？'
+  && r.body?.phonetic?.includes('got')
+  && r.body?.phoneticStatus === 'partial'
+  && r.body?.errors?.some(error => error.source === 'dictionaryapi' && error.code === 'not_found' && error.target === 'got')
+  && fetchCalls.some(call => call.url === 'http://baidu.mock/translate'), r.body)
+
+fetchCalls.length = 0
+r = await callOn(baiduServer, 'POST', '/api/lists/default/words', {
+  text: "I've got a dog", translation: '我有一只狗。',
+})
+await waitForPrefetchOn(baiduServer)
+check('加入学习立即保存中文，后台只补音标且不重复调用百度',
+  r.body?.ok === true && r.body.item.translation === '我有一只狗。'
+  && !fetchCalls.some(call => call.url === 'http://baidu.mock/translate'), fetchCalls)
+r = await callOn(baiduServer, 'GET', '/api/lists/default/words')
+check('后台补音标不覆盖加入时保存的中文快照',
+  r.body?.find(item => item.word === "i've got a dog")?.translation === '我有一只狗。', r.body)
+
+fetchCalls.length = 0
+r = await callOn(baiduServer, 'GET', '/api/dict?word=slow')
+check('免费词典超时后仍能独立完成百度翻译',
+  r.body?.translation === '你今天好吗？'
+  && r.body?.errors?.some(error => error.source === 'dictionaryapi' && error.code === 'timeout')
+  && fetchCalls.some(call => call.url === 'http://baidu.mock/translate'), r.body)
+check('免费词典网络异常时不误判为拼写错误', r.body?.spellingStatus === 'unknown', r.body)
+
+fetchCalls.length = 0
+r = await callOn(baiduServer, 'POST', '/api/dict/batch', { words: ['How are you?'] })
+check('批量查询把缺句子音标的缓存标为 incomplete',
+  r.body?.incomplete?.length === 0, r.body)
+
+// 已有中文但缺句子音标的旧缓存需要重新补齐。
+const baiduCacheFile = path.join(baiduDir, 'dict-cache.json')
+const sentenceCache = JSON.parse(fs.readFileSync(baiduCacheFile, 'utf8'))
+delete sentenceCache['how are you?'].phonetic
+fs.writeFileSync(baiduCacheFile, JSON.stringify(sentenceCache), 'utf8')
+fetchCalls.length = 0
+r = await callOn(baiduServer, 'POST', '/api/dict/batch', { words: ['How are you?'] })
+check('批量查询把缺句子音标的缓存标为 incomplete',
+  r.body?.incomplete?.includes('how are you?'), r.body)
+
+// 旧的 ECDICT 句子缓存也不能挡住百度翻译
+const baiduCache = JSON.parse(fs.readFileSync(baiduCacheFile, 'utf8'))
+baiduCache['how are you?'] = {
+  word: 'how are you?', phonetic: '/old/', translation: '旧中文', senses: [],
+  cachedAt: Date.now(), status: 'ok', source: 'ecdict',
+}
+fs.writeFileSync(baiduCacheFile, JSON.stringify(baiduCache), 'utf8')
+fetchCalls.length = 0
+r = await callOn(baiduServer, 'GET', '/api/dict?word=How%20are%20you%3F')
+check('旧的句子缓存也会更新为百度结果',
+  r.body?.translation === '你今天好吗？'
+  && r.body?.phonetic === '/haʊ/ /ɑːr/ /juː/?'
+  && fetchCalls.some(call => call.url === 'http://baidu.mock/translate')
+  && fetchCalls.filter(call => call.url.includes('dictionaryapi.dev')).length === 3, r.body)
+
+r = await callOn(baiduServer, 'POST', '/api/lists/default/import', {
+  items: [{ text: 'kiwi' }, { text: 'How are you?' }],
+})
+await waitForPrefetchOn(baiduServer)
+r = await callOn(baiduServer, 'GET', '/api/lists/default/words')
+check('批量导入词条能同步保存中文翻译',
+  r.body?.find(item => item.word === 'kiwi')?.translation === '猕猴桃'
+  && r.body?.find(item => item.word === 'how are you?')?.translation === '你今天好吗？', r.body)
+
+await new Promise(resolve => baiduServer.close(resolve))
+globalThis.fetch = oldFetch
+process.env.DICT_DATA_DIR = oldEnv.data
+process.env.DICT_NO_NETWORK = oldEnv.noNetwork
+process.env.BAIDU_TRANSLATE_API_KEY = oldEnv.key
+if (oldEnv.appId === undefined) delete process.env.BAIDU_TRANSLATE_APP_ID
+else process.env.BAIDU_TRANSLATE_APP_ID = oldEnv.appId
+if (oldEnv.url === undefined) delete process.env.BAIDU_TRANSLATE_API_URL
+else process.env.BAIDU_TRANSLATE_API_URL = oldEnv.url
+if (oldEnv.timeout === undefined) delete process.env.DICT_NETWORK_TIMEOUT_MS
+else process.env.DICT_NETWORK_TIMEOUT_MS = oldEnv.timeout
+fs.rmSync(baiduDir, { recursive: true, force: true })
 
 // ── 解 zip（ecdict-fetch 的零依赖解压）────────────────────────────────────
 

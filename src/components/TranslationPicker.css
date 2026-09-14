@@ -1,0 +1,11 @@
+.translation-picker { display: flex; flex-direction: column; gap: 12px; }
+.translation-picker__head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.translation-picker__phonetic { font-family: var(--font-mono); color: var(--color-text-muted); }
+.translation-picker__count { margin-left: auto; color: var(--color-text-subtle); font-size: 12px; }
+.translation-picker__list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: min(48vh, 420px); overflow-y: auto; padding: 2px; }
+.translation-picker__list .ui-checkbox { align-items: flex-start; padding: 9px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+.translation-picker__pos { margin-left: 6px; color: var(--color-text-subtle); font-size: 11px; }
+.translation-picker__tip { margin: 0; }
+.translation-picker__footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; }
+.translation-picker__buttons { display: flex; gap: 8px; }
+@media (max-width: 640px) { .translation-picker__list { grid-template-columns: 1fr; } }

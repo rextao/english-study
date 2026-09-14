@@ -2,6 +2,7 @@
  * dict-server.mjs
  *
 * GET  /api/dict?word=&refresh=1  词典查询（缓存优先；上次只拿到一半会自动重取）
+* POST /api/dict/search-batch 批量查询词典 { words } -> { results, total, succeeded, failed }
 * POST /api/dict/batch        批量读缓存 { words } -> { entries, missing, incomplete }
 * POST /api/dict/prefetch     后台补齐音标/释义 { words, force? }
 * GET  /api/dict/prefetch     补齐进度 { total, done, failed, pending, running, finished }
@@ -18,7 +19,7 @@
 * POST /api/lists/:id/words   添加单词/句子 { text, sourceIds?, senseIds? }
 * PATCH  /api/lists/:id/words/:text  改这个词要背的释义 { senseIds }
 * DELETE /api/lists/:id/words/:text  从列表移除
-* POST /api/lists/:id/import  批量导入 { items: [{ text, sourceIds?, senseIds? }] }
+* POST /api/lists/:id/import  批量导入 { items: [{ text, sourceIds?, senseIds?, translationIds?, translation? }] }
 * POST /api/lists/:id/remove  批量移除词条 { words: [] }
 *
 * GET  /api/word-lists?word=  查询某个词在哪些列表中
@@ -38,14 +39,17 @@
  * POST /api/vocab-labels        批量合并标签 { labels }（用于从 localStorage 迁移）
  * PATCH  /api/vocab-labels/:id  修改某个词库的标签 { label }
  * DELETE /api/vocab-labels/:id  重置为默认标签（删除覆写）
+ * GET|POST /api/vocab-print-labels        读取 / 批量合并打印标签
+ * PATCH|DELETE /api/vocab-print-labels/:id 修改 / 重置打印标签
 */
 
 import http from 'node:http'
 import fs   from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { normalizeText } from './text.mjs'
+import { capitalizeSentence, normalizeText } from './text.mjs'
 import { ecdictEntry, ecdictInfo, ecdictDir } from './ecdict.mjs'
+import { createStudyHistoryStore } from './study-history.mjs'
 
 const __dirname  = path.dirname(fileURLToPath(import.meta.url))
 // 数据目录：默认 ../cache，可用 DICT_DATA_DIR 覆盖（便于测试 / 后续迁移到云端）
@@ -59,6 +63,8 @@ const PORT       = Number(process.env.DICT_PORT) || 3456
 
 fs.mkdirSync(DATA_DIR, { recursive: true })
 
+const studyHistory = createStudyHistoryStore({ dataDir: DATA_DIR, listsFile: LISTS_FILE })
+
 /** 默认列表：始终存在，不允许删除 */
 const DEFAULT_LIST_ID = 'default'
 
@@ -68,24 +74,41 @@ const DEFAULT_LIST_ID = 'default'
 const MAX_SENSES_PER_POS = 12
 /** 一个词条最多缓存多少条释义（缓存存全集，够挑就行） */
 const MAX_SENSES = 40
+/** 批量查询页一次最多处理 200 个去重后的单词或句子，与前端预览上限一致。 */
+const MAX_BATCH_SEARCH_ITEMS = 200
+/** 控制外部接口并发，避免批量导入时瞬间触发免费词典或百度限流。 */
+const BATCH_SEARCH_CONCURRENCY = 2
 /** 学习列表里一个词最多勾选多少条释义 */
 const MAX_PICKED_SENSES = 12
+/** 学习列表里一个词最多勾选多少条中文词义 */
+const MAX_PICKED_TRANSLATIONS = 12
 /** 离线模式：不访问外部词典，只用本地缓存（测试和断网时用） */
 const NO_NETWORK = process.env.DICT_NO_NETWORK === '1'
 /** 关掉本地词典（DICT_ECDICT_OFF=1）：只走外部接口，用来对比效果 */
 const LOCAL_DICT_OFF = process.env.DICT_ECDICT_OFF === '1'
+/** 百度大模型翻译 API 密钥只从环境变量读取，绝不写入代码或缓存 */
+const BAIDU_TRANSLATE_API_KEY = process.env.BAIDU_TRANSLATE_API_KEY || ''
+/** 百度翻译应用 ID，与 API Key 分开配置 */
+const BAIDU_TRANSLATE_APP_ID = process.env.BAIDU_TRANSLATE_APP_ID || ''
+/** 可用环境变量覆盖地址，便于切换百度控制台中实际开通的翻译接口 */
+const BAIDU_TRANSLATE_API_URL = process.env.BAIDU_TRANSLATE_API_URL
+  || 'https://fanyi-api.baidu.com/ait/api/aiTextTranslate'
+/** 外部词典和百度请求的最长等待时间；可用环境变量覆盖，避免请求一直挂住。 */
+const NETWORK_TIMEOUT_MS = Math.max(1000, Number(process.env.DICT_NETWORK_TIMEOUT_MS) || 10000)
 
 // ── 艾宾浩斯复习进度 ───────────────────────────────────────────────────────
 
 const DAY = 86400000
 
-/** 复习节奏（天）：开始学习后第 1 / 2 / 4 / 7 / 15 / 30 / 60 天各复习一次 */
+/** 复习节奏（天）：首次打卡后第 1 / 2 / 4 / 7 / 15 / 30 / 60 天各复习一次 */
 const REVIEW_INTERVALS = [1, 2, 4, 7, 15, 30, 60]
 
-/** 一个词最多留多少条打标日志（界面不显示，只给后续功能用） */
+/** 当前学习列表的兼容镜像上限；完整历史永久写入独立 SQLite，不受这里限制。 */
 const MAX_MARKS = 40
+/** 复习请求幂等键保留窗口，覆盖网络重试但避免学习列表无限增长。 */
+const MAX_REVIEW_KEYS = 80
 /** 只记打标、不动复习排期的动作 */
-const PURE_MARK_ACTIONS = new Set(['print'])
+const PURE_MARK_ACTIONS = new Set(['print', 'spelling'])
 /** 复习打卡动作 */
 const REVIEW_ACTIONS = new Set(['done', 'again', 'stop'])
 /** 打标粒度：按天 / 按周 */
@@ -118,7 +141,7 @@ function normalizeScope(input) {
 
 /**
  * 追加一条打标日志：记时间、动作、粒度和当时轮次。
- * marks 只留最近 MAX_MARKS 条，markCount 记总次数所以截断也不丢。
+ * marks 只作为当前排期的兼容镜像保留最近 MAX_MARKS 条；永久事件由 SQLite 保存。
  */
 function pushMark(item, action, at, extra) {
   const mark = { at, action }
@@ -139,24 +162,54 @@ function withoutMarks(item) {
   return out
 }
 
-/** 下一次该复习的日期；轮次走完返回 null（视为已毕业） */
+/** 兼容旧数据：缺失、非法或负数计数都按 0。 */
+function countOf(value) {
+  const count = Number(value)
+  return Number.isFinite(count) && count >= 0 ? Math.floor(count) : 0
+}
+
+function hasReviewKey(item, key) {
+  return Boolean(key)
+    && Array.isArray(item.processedReviewKeys)
+    && item.processedReviewKeys.includes(key)
+}
+
+function rememberReviewKey(item, key) {
+  if (!key) return
+  const history = Array.isArray(item.processedReviewKeys) ? item.processedReviewKeys : []
+  if (!history.includes(key)) history.push(key)
+  item.processedReviewKeys = history.slice(-MAX_REVIEW_KEYS)
+}
+
+/**
+ * 下一次该复习的日期；轮次走完返回 null（视为已毕业）。
+ * stage=0 是“刚开始、今天待首次打卡”，首次 done 后 stage=1，才按第一个 1 天间隔排期。
+ */
 function nextDueAt(item) {
   if (!item.startedAt) return null
   const stage = item.stage || 0
-  if (stage >= REVIEW_INTERVALS.length) return null
-  return startOfDay(item.startedAt) + REVIEW_INTERVALS[stage] * DAY
+  if (stage > REVIEW_INTERVALS.length) return null
+  if (stage === 0) return startOfDay(item.startedAt)
+  return startOfDay(item.startedAt) + REVIEW_INTERVALS[stage - 1] * DAY
 }
 
 /** new 未开始 / due 今天该复习 / scheduled 已排期 / mastered 已毕业 */
 function studyState(item, now) {
   if (!item.startedAt) return 'new'
-  if ((item.stage || 0) >= REVIEW_INTERVALS.length) return 'mastered'
+  if ((item.stage || 0) > REVIEW_INTERVALS.length) return 'mastered'
   return nextDueAt(item) <= startOfDay(now) ? 'due' : 'scheduled'
 }
 
 /** 词条 + 派生的复习信息，前端不用自己算日期 */
 function enrichItem(item, now) {
-  return Object.assign({}, item, { nextDueAt: nextDueAt(item), state: studyState(item, now) })
+  return Object.assign({}, item, {
+    reviewCount: countOf(item.reviewCount),
+    spellingCount: countOf(item.spellingCount),
+    rememberedCount: countOf(item.rememberedCount),
+    forgottenCount: countOf(item.forgottenCount),
+    nextDueAt: nextDueAt(item),
+    state: studyState(item, now),
+  })
 }
 
 /**
@@ -180,15 +233,24 @@ function applyReview(list, targets, action, options) {
   const scope   = normalizeScope(opts.scope)
   const through = resolveThrough(scope, opts.through, now)
   const catchUp = through > 0
+  const successKind = opts.successKind === 'spelling' ? 'spelling' : undefined
+  const requestIds = opts.requestIds instanceof Map ? opts.requestIds : new Map()
   let updated = 0
   const items = []
   for (const item of list.words) {
     if (!targets.has(item.word)) continue
+    const requestId = requestIds.get(item.word)
+    if (hasReviewKey(item, requestId) || (requestId && opts.hasRequest?.(requestId))) {
+      items.push(enrichItem(item, now))
+      continue
+    }
     if (action === 'stop') {
       delete item.startedAt
       delete item.stage
       delete item.reviewedAt
       pushMark(item, 'stop', now, { scope })
+      opts.onEvent?.({ item, action: 'stop', at: now, scope, stage: undefined, requestId })
+      rememberReviewKey(item, requestId)
       updated++
     } else if (item.startedAt) {
       const history = Array.isArray(item.reviewedAt) ? item.reviewedAt : []
@@ -197,21 +259,29 @@ function applyReview(list, targets, action, options) {
       // 一次坐下来复习算一次打卡，即使按周把多个轮次一起过完
       item.reviewCount = (Number(item.reviewCount) || 0) + 1
       if (action === 'done') {
-        item.stage = Math.min((item.stage || 0) + 1, REVIEW_INTERVALS.length)
+        if (successKind === 'spelling') item.spellingCount = countOf(item.spellingCount) + 1
+        item.rememberedCount = countOf(item.rememberedCount) + 1
+        item.stage = Math.min((item.stage || 0) + 1, REVIEW_INTERVALS.length + 1)
         // 按周打卡：界限之前还排到的后续轮次一并算过
         if (catchUp) {
           for (let guard = 0; guard < REVIEW_INTERVALS.length; guard++) {
             const due = nextDueAt(item)
             if (due === null || due > through) break
-            item.stage = Math.min(item.stage + 1, REVIEW_INTERVALS.length)
+            item.stage = Math.min(item.stage + 1, REVIEW_INTERVALS.length + 1)
           }
         }
       } else {
         // 没记住：记忆周期从今天重新开始
         item.stage = 0
         item.startedAt = now
+        item.forgottenCount = countOf(item.forgottenCount) + 1
       }
-      pushMark(item, action, now, { scope, stage: item.stage })
+      pushMark(item, successKind === 'spelling' ? 'spelling' : action, now, { scope, stage: item.stage })
+      opts.onEvent?.({
+        item, action: successKind === 'spelling' ? 'spelling' : action, at: now, scope,
+        stage: item.stage, requestId,
+      })
+      rememberReviewKey(item, requestId)
       updated++
     }
     items.push(enrichItem(item, now))
@@ -226,7 +296,30 @@ function loadJson(file, fallback) {
   catch { return fallback }
 }
 function saveJson(file, data) {
-  fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8')
+  const temp = file + '.tmp-' + process.pid + '-' + Date.now()
+  const fd = fs.openSync(temp, 'wx', 0o600)
+  try {
+    fs.writeFileSync(fd, JSON.stringify(data, null, 2), 'utf8')
+    fs.fsyncSync(fd)
+  } finally {
+    fs.closeSync(fd)
+  }
+  try {
+    fs.renameSync(temp, file)
+    const dirFd = fs.openSync(path.dirname(file), 'r')
+    try { fs.fsyncSync(dirFd) } finally { fs.closeSync(dirFd) }
+  } catch (error) {
+    try { fs.unlinkSync(temp) } catch {}
+    throw error
+  }
+}
+
+function recordStudyEvent(list, event) {
+  return studyHistory.record({
+    item: event.item, listId: list.id, listName: list.name, action: event.action,
+    at: event.at, scope: event.scope, stage: event.stage, requestId: event.requestId,
+    eventKey: event.eventKey, metadata: event.metadata,
+  })
 }
 
 // normalizeText 从 ./text.mjs 引进来：本地词典（ecdict.mjs）也要用同一套主键规则
@@ -254,11 +347,74 @@ function normalizeSenseIds(input) {
   return out
 }
 
+/** 中文词义 id：去空、去重、限量；空数组表示使用默认中文摘要。 */
+function normalizeTranslationIds(input) {
+  if (!Array.isArray(input)) return []
+  const out = []
+  for (const raw of input) {
+    const id = String(raw ?? '').trim()
+    if (!id || out.includes(id)) continue
+    out.push(id)
+    if (out.length >= MAX_PICKED_TRANSLATIONS) break
+  }
+  return out
+}
+
+const TRANSLATION_POS_LABELS = {
+  noun: 'n.', n: 'n.', verb: 'v.', v: 'v.', vt: 'vt.', vi: 'vi.',
+  adjective: 'a.', adj: 'a.', adverb: 'ad.', adv: 'ad.',
+  preposition: 'prep.', prep: 'prep.', conjunction: 'conj.', conj: 'conj.',
+  pronoun: 'pron.', pron: 'pron.', interjection: 'int.', int: 'int.',
+}
+
+function translationPosLabel(pos) {
+  const value = String(pos ?? '').trim().toLowerCase().replace(/\.$/, '')
+  return TRANSLATION_POS_LABELS[value] || (value ? value + '.' : '')
+}
+
+function splitTranslationGroups(text) {
+  return String(text ?? '').split(/[；;]\s*(?=[a-zA-Z]{1,8}\.\s*)/).map(value => value.trim()).filter(Boolean)
+}
+
+function translationParts(text, fallbackPos) {
+  return splitTranslationGroups(text).flatMap(group => {
+    const match = /^([a-zA-Z]{1,8})\.\s*(.+)$/.exec(group)
+    const pos = match ? match[1].toLowerCase() : String(fallbackPos ?? '').trim()
+    const body = match ? match[2] : group
+    return body.split(/[，,]/).map(value => ({ text: value.trim(), pos })).filter(item => item.text)
+  })
+}
+
+function expandedTranslations(choices) {
+  let previousPos = ''
+  return (Array.isArray(choices) ? choices : []).flatMap(item => {
+    const parts = translationParts(item?.text, item?.pos || previousPos)
+    const lastPart = parts[parts.length - 1]
+    if (lastPart?.pos) previousPos = lastPart.pos
+    return parts.map((part, index) => ({ id: parts.length === 1 ? item.id : item.id + '::' + index, ...part }))
+  })
+}
+
+function formatSelectedTranslations(options) {
+  const groups = []
+  for (const option of options) {
+    const text = String(option?.text ?? '').trim()
+    if (!text) continue
+    const pos = String(option?.pos ?? '').trim().toLowerCase()
+    let group = groups.find(item => item.pos === pos)
+    if (!group) { group = { pos, texts: [] }; groups.push(group) }
+    if (!group.texts.includes(text)) group.texts.push(text)
+  }
+  return groups.filter(group => group.texts.length > 0)
+    .map(group => (group.pos ? translationPosLabel(group.pos) + ' ' : '') + group.texts.join(','))
+    .join('；')
+}
+
 function makeDefaultList() {
   return { id: DEFAULT_LIST_ID, name: '默认列表', createdAt: Date.now(), words: [] }
 }
 
-/** { lists: [ { id, name, createdAt, words: [{word, type, sourceIds, addedAt}] } ] } */
+/** { lists: [ { id, name, createdAt, words: [{word, type, sourceIds, addedAt, translation?}] } ] } */
 function loadLists() {
   const data = loadJson(LISTS_FILE, null)
   if (!data || !Array.isArray(data.lists)) {
@@ -276,11 +432,24 @@ function loadLists() {
     for (const item of list.words) {
       if (!Array.isArray(item.sourceIds)) item.sourceIds = []
       if (!item.type) item.type = detectType(item.word, item.sourceIds)
+      if (item.type === 'sentence') item.displayText = capitalizeSentence(item.displayText || item.word)
+      else delete item.displayText
+      // 中文翻译是加入列表时保存的快照；兼容旧词条和空值
+      if ('translation' in item) {
+        const translation = String(item.translation ?? '').trim()
+        if (translation) item.translation = translation
+        else delete item.translation
+      }
       // 只背某几条释义；空数组不落盘，字段缺省 = 自动（中文 + 第一条英文释义）
       if ('senseIds' in item) {
         const ids = normalizeSenseIds(item.senseIds)
         if (ids.length) item.senseIds = ids
         else delete item.senseIds
+      }
+      if ('translationIds' in item) {
+        const ids = normalizeTranslationIds(item.translationIds)
+        if (ids.length) item.translationIds = ids
+        else delete item.translationIds
       }
       // 复习进度字段只在开始学习后才写，未开始的词保持精简
       if (item.startedAt) {
@@ -293,24 +462,66 @@ function loadLists() {
 }
 function saveLists(data) { saveJson(LISTS_FILE, data) }
 
+/** 把词典里已经拿到的中文翻译同步到学习列表词条；不改变列表页面的展示规则。 */
+function selectedTranslation(entry, ids) {
+  const choices = expandedTranslations(entry?.translations)
+  const wanted = normalizeTranslationIds(ids)
+  if (wanted.length > 0) {
+    const selected = wanted.flatMap(id => {
+      const exact = choices.find(item => item.id === id)
+      if (exact) return [exact]
+      // 兼容旧数据：旧版把同一词性下的逗号释义保存成一个基础 ID。
+      return choices.filter(item => item.id.startsWith(String(id) + '::'))
+    })
+    if (selected.length > 0) return formatSelectedTranslations(selected)
+  }
+  return String(entry?.translation ?? '').trim()
+}
+
+/** 只给没有中文快照的旧词条 / 导入词条补翻译；搜索页保存的快照不被后台覆盖。 */
+function syncListTranslation(word, entry) {
+  const target = normalizeText(word)
+  if (!target) return false
+  const data = loadLists()
+  let changed = false
+  for (const list of data.lists) {
+    for (const item of list.words) {
+      if (item.word !== target) continue
+      if (String(item.translation ?? '').trim()) continue
+      const value = selectedTranslation(entry, item.translationIds)
+      if (!value) continue
+      item.translation = value
+      changed = true
+    }
+  }
+  if (changed) saveLists(data)
+  return changed
+}
+
 // ── Vocab label helpers ───────────────────────────────────────────────────
 
 /** 标签长度上限，避免把整段描述塞进标签里 */
 const MAX_LABEL_LENGTH = 40
 
 /**
- * 词库显示标签：{ labels: { [词库id]: 标签 } }
+ * 词库标签：{ labels: { [词库id]: 显示标签 }, printLabels: { [词库id]: 打印标签 } }
  * 词库本体由前端在构建期打包 vocab/*.json，服务端只存「标签覆写」，没有覆写就用词库 id。
  */
 function loadLabels() {
   const data = loadJson(LABELS_FILE, null)
   const labels = {}
+  const printLabels = {}
   if (data && typeof data.labels === 'object' && data.labels !== null) {
     for (const [id, label] of Object.entries(data.labels)) {
       if (typeof label === 'string' && label.trim()) labels[id] = label.trim()
     }
   }
-  return { labels }
+  if (data && typeof data.printLabels === 'object' && data.printLabels !== null) {
+    for (const [id, label] of Object.entries(data.printLabels)) {
+      if (typeof label === 'string' && label.trim()) printLabels[id] = label.trim()
+    }
+  }
+  return { labels, printLabels }
 }
 function saveLabels(data) { saveJson(LABELS_FILE, data) }
 
@@ -337,8 +548,8 @@ const MAX_PRINT_BATCHES = 60
 const DEFAULT_PRINT_LIMIT = 20
 /** 批次标题长度上限 */
 const MAX_PRINT_TITLE = 80
-/** 批次来源：start 挑新词那一批 / review 复习面板导出的那一批 */
-const PRINT_KINDS = new Set(['start', 'review'])
+/** 批次来源：start 挑新词 / review 复习计划 / custom 自由挑选打印 */
+const PRINT_KINDS = new Set(['start', 'review', 'custom'])
 
 /**
  * { batches: [ { id, printedAt, kind, scope?, title, wordCount, items: [{ listId, listName, word }] } ] }
@@ -361,6 +572,20 @@ function uniquePrintId(batches, printedAt) {
   let id = base
   for (let i = 1; batches.some(b => b.id === id); i++) id = base + '_' + i
   return id
+}
+
+/**
+ * 打印批次按 listId + 规范化后的 word 判定内容是否相同。排序后再序列化，
+ * 因此跨列表的同一组词即使传入顺序不同，也只保留最近创建的一条记录。
+ */
+function printBatchItemsKey(items) {
+  if (!Array.isArray(items)) return ''
+  return items
+    .map(item => [String(item?.listId ?? '').trim(), normalizeText(item?.word)])
+    .filter(([listId, word]) => listId && word)
+    .map(pair => JSON.stringify(pair))
+    .sort()
+    .join('\n')
 }
 
 /** 批次 + 每个词的当前进度：dueCount / markableCount / missingCount 都是现算的，不落盘 */
@@ -406,12 +631,46 @@ function enrichBatch(batch, lists, now) {
  * 学习列表再从里面挑这一阶段要背的几条（item.senseIds）。
  * sense.id = 词性 + '#' + 该词性下的序号（如 noun#0），重新抓取后 id 依然对得上。
  * status: ok = 音标/释义/中文都拿到了；partial = 有一部分没拿到，下次还要再试。
+ * spellingStatus: valid = 词典明确命中；suspect = 本地未命中且免费词典明确 404；
+ *                 unknown = 网络异常等原因尚未确认；unchecked = 含空格的句子或短语不校验。
  */
 function normalizeEntry(word, raw) {
   const src = raw && typeof raw === 'object' ? raw : {}
   const w = normalizeText(word || src.word)
   const phonetic = String(src.phonetic ?? '').trim() || undefined
   const translation = String(src.translation ?? '').trim() || undefined
+  const translations = []
+  const translationTexts = new Set()
+  let previousTranslationPos = ''
+  const pushTranslation = (text, pos, source) => {
+    const values = translationParts(text, pos || previousTranslationPos)
+    const lastValue = values[values.length - 1]
+    if (lastValue?.pos) previousTranslationPos = lastValue.pos
+    for (const value of values) {
+      const key = value.pos + '\u0000' + value.text
+      if (translationTexts.has(key) || translations.length >= MAX_SENSES) continue
+      translationTexts.add(key)
+      translations.push({
+        id: 'translation#' + translations.length,
+        text: value.text,
+        ...(value.pos ? { pos: value.pos } : {}),
+        ...(source === 'ecdict' || source === 'api' ? { source } : {}),
+      })
+    }
+  }
+  if (Array.isArray(src.translations)) {
+    for (const item of src.translations) {
+      if (typeof item === 'string') pushTranslation(item, undefined, src.source)
+      else pushTranslation(item?.text, item?.pos, item?.source || src.source)
+    }
+  }
+  // 兼容旧缓存：旧 translation 是摘要，作为一个不可拆分的候选保留。
+  if (translations.length === 0 && translation) pushTranslation(translation, undefined, src.source)
+  // translation 是兼容旧缓存和卡片的摘要，保留来源提供的原始摘要（例如词性前缀）；
+  // translations 则是给用户逐条勾选的中文候选，不把展示信息混回摘要。
+  const normalizedTranslation = translation || (translations.length > 0
+    ? formatSelectedTranslations(translations)
+    : undefined)
 
   const senses = []
   const seats = {}
@@ -437,17 +696,60 @@ function normalizeEntry(word, raw) {
   const dictOk = isPhrase(w) || !!phonetic || senses.length > 0
   const status = src.status === 'ok' || src.status === 'partial'
     ? src.status
-    : (dictOk && translation ? 'ok' : 'partial')
+    : (dictOk && normalizedTranslation ? 'ok' : 'partial')
+
+  const validPhoneticStatuses = new Set(['complete', 'partial', 'missing'])
+  const phoneticStatus = validPhoneticStatuses.has(src.phoneticStatus)
+    ? src.phoneticStatus
+    : (phonetic ? 'complete' : 'missing')
+  const validTranslationStatuses = new Set(['ok', 'error', 'missing'])
+  const translationStatus = validTranslationStatuses.has(src.translationStatus)
+    ? src.translationStatus
+    : (normalizedTranslation ? 'ok' : 'missing')
+  const validSpellingStatuses = new Set(['valid', 'suspect', 'unchecked', 'unknown'])
+  let spellingStatus
+  if (isPhrase(w)) spellingStatus = 'unchecked'
+  else if (validSpellingStatuses.has(src.spellingStatus)) spellingStatus = src.spellingStatus
+  // 兼容旧缓存：本地词典来源一定有效；旧外部词典结果有音标或英文释义时也视为明确命中。
+  else if (src.source === 'ecdict' || (src.source === 'api' && (phonetic || senses.length > 0))) spellingStatus = 'valid'
+  else spellingStatus = 'unknown'
+  const errors = []
+  const validErrorCodes = new Set(['timeout', 'http_error', 'network_error', 'invalid_response', 'not_found', 'not_configured'])
+  if (Array.isArray(src.errors)) {
+    for (const item of src.errors.slice(0, 20)) {
+      const source = item?.source === 'baidu' || item?.source === 'dictionaryapi' ? item.source : null
+      const code = validErrorCodes.has(item?.code) ? item.code : null
+      const message = String(item?.message ?? '').trim()
+      if (!source || !code || !message) continue
+      errors.push({
+        source,
+        code,
+        message,
+        ...(Number.isInteger(item?.status) ? { status: item.status } : {}),
+        ...(String(item?.target ?? '').trim() ? { target: String(item.target).trim() } : {}),
+      })
+    }
+  }
 
   // 固定字段顺序，缓存文件 diff 起来干净
+  // 候选数组按输入顺序生成，ID 从 translation#0 开始且可跨重抓结果复用。
+  for (let i = 0; i < translations.length; i++) translations[i].id = 'translation#' + i
+
   const entry = { word: w }
   if (phonetic) entry.phonetic = phonetic
-  if (translation) entry.translation = translation
+  if (normalizedTranslation) entry.translation = normalizedTranslation
+  if (translations.length > 0) entry.translations = translations
   entry.senses = senses
   entry.cachedAt = Number(src.cachedAt) || Date.now()
   entry.status = status
+  entry.phoneticStatus = phoneticStatus
+  entry.translationStatus = translationStatus
+  entry.spellingStatus = spellingStatus
+  if (errors.length > 0) entry.errors = errors
   // 这条释义是本地词典给的还是外部接口给的，界面上要标一下
   if (src.source === 'ecdict' || src.source === 'api') entry.source = src.source
+  // 句子翻译来源单独记录，避免旧缓存（即使 status=ok）绕过百度翻译。
+  if (src.translationSource === 'baidu') entry.translationSource = 'baidu'
   return entry
 }
 
@@ -483,22 +785,85 @@ function putCache(entry) {
   return entry
 }
 
-async function fetchJson(url) {
-  const res = await fetch(url)
-  if (!res.ok) {
-    const err = new Error('HTTP ' + res.status)
-    err.status = res.status
-    throw err
+function makeNetworkError(source, code, status) {
+  const messages = {
+    timeout: '请求超时（超过 ' + Math.round(NETWORK_TIMEOUT_MS / 1000) + ' 秒）',
+    http_error: '请求失败（HTTP ' + status + '）',
+    network_error: '网络请求失败',
+    invalid_response: '返回格式无效',
+    not_found: '未找到词条',
+    not_configured: '未完整配置百度翻译 API Key 和 App ID',
   }
-  return res.json()
+  const error = new Error(messages[code] || '请求失败')
+  error.source = source
+  error.code = code
+  if (Number.isInteger(status)) error.status = status
+  return error
+}
+
+function publicNetworkError(error, source, target) {
+  const actualSource = error?.source === 'baidu' || error?.source === 'dictionaryapi'
+    ? error.source
+    : source
+  const code = ['timeout', 'http_error', 'network_error', 'invalid_response', 'not_found', 'not_configured'].includes(error?.code)
+    ? error.code
+    : 'network_error'
+  const result = {
+    source: actualSource,
+    code,
+    message: error?.message || '请求失败',
+  }
+  if (Number.isInteger(error?.status)) result.status = error.status
+  if (String(target ?? '').trim()) result.target = String(target).trim()
+  return result
+}
+
+async function fetchJson(url, options = {}) {
+  const source = options.source === 'baidu' ? 'baidu' : 'dictionaryapi'
+  const requestOptions = { ...options }
+  delete requestOptions.source
+  const controller = new AbortController()
+  let timer
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort()
+      reject(makeNetworkError(source, 'timeout'))
+    }, NETWORK_TIMEOUT_MS)
+  })
+  try {
+    const request = fetch(url, { ...requestOptions, signal: controller.signal })
+    const res = await Promise.race([request, timeout])
+    if (!res.ok) {
+      throw makeNetworkError(source, res.status === 404 ? 'not_found' : 'http_error', res.status)
+    }
+    try {
+      return await res.json()
+    } catch {
+      throw makeNetworkError(source, 'invalid_response')
+    }
+  } catch (error) {
+    if (error?.source && error?.code) throw error
+    if (error?.name === 'AbortError') throw makeNetworkError(source, 'timeout')
+    throw makeNetworkError(source, 'network_error')
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /** 含空白 = 短语或句子，dictionaryapi.dev 查不到，别浪费一次请求 */
 function isPhrase(word) { return /\s/.test(word) }
 
 /**
- * 译文可信吗？mymemory 配额用完时会把一句英文警告当译文返回，
- * 所以「一个汉字都没有」的结果一律当失败，下次重试。
+ * 句子直接走百度翻译；短的固定短语仍允许命中 ECDICT（例如 a few）。
+ * 没有本地词条的多词输入同样会走百度，因此不会再走旧的免费机翻接口。
+ */
+function isSentence(word) {
+  const parts = normalizeText(word).split(/\s+/).filter(Boolean)
+  return parts.length >= 3 || /[.!?！？。；;]/.test(word)
+}
+
+/**
+ * 译文至少要包含中文；百度返回错误提示或原文时不写入缓存。
  */
 function isBadTranslation(text, word) {
   const t = String(text ?? '').trim()
@@ -507,21 +872,136 @@ function isBadTranslation(text, word) {
   return !/[\u4e00-\u9fff]/.test(t)
 }
 
-/** 抓一次外部接口：音标 + 英文释义全集（dictionaryapi.dev）+ 中文（mymemory） */
+/**
+ * 句子没有可直接查询的整句音标，所以按单词查音标再按原句拼回去。
+ * 本地 ECDICT 优先，缺少的单词才调用 dictionaryapi.dev。
+ */
+async function fetchSentencePhonetic(text) {
+  const matches = [...String(text).matchAll(/[A-Za-z]+(?:['’][A-Za-z]+)*/g)]
+  if (matches.length === 0) return { phonetic: undefined, complete: false, missing: [], errors: [] }
+
+  const tokens = [...new Set(matches.map(match => match[0].toLowerCase()))]
+  const phonetics = new Map()
+  const missing = []
+  const errors = []
+  await Promise.all(tokens.map(async token => {
+    const local = localEntry(token)
+    if (local?.phonetic) {
+      phonetics.set(token, local.phonetic)
+      return
+    }
+    if (NO_NETWORK) { missing.push(token); return }
+    try {
+      const data = await fetchJson(
+        'https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(token),
+        { source: 'dictionaryapi' },
+      )
+      const entry = Array.isArray(data) ? data[0] : null
+      const phonetic = entry?.phonetic || entry?.phonetics?.find(item => item.text)?.text
+      if (phonetic) phonetics.set(token, phonetic)
+      else {
+        missing.push(token)
+        errors.push(publicNetworkError(makeNetworkError('dictionaryapi', 'invalid_response'), 'dictionaryapi', token))
+      }
+    } catch (e) {
+      // 单个单词查不到只影响这一处音标，不能阻塞整句翻译。
+      missing.push(token)
+      errors.push(publicNetworkError(e, 'dictionaryapi', token))
+      if (e.code !== 'not_found') console.warn('[sentence-phonetic]', token, e.message)
+    }
+  }))
+
+  let cursor = 0
+  let result = ''
+  for (const match of matches) {
+    result += text.slice(cursor, match.index) + (phonetics.get(match[0].toLowerCase()) || match[0])
+    cursor = match.index + match[0].length
+  }
+  return {
+    phonetic: phonetics.size > 0 ? (result + text.slice(cursor)).trim() : undefined,
+    complete: phonetics.size === tokens.length,
+    missing,
+    errors,
+  }
+}
+
+/**
+ * 调用百度大模型文本翻译 API。
+ * 使用百度大模型文本翻译接口的 Bearer API Key 鉴权；地址可通过环境变量调整，
+ * 避免把密钥、账号或特定部署方式写死在项目里。
+ */
+async function fetchBaiduTranslation(text) {
+  if (NO_NETWORK) return { translation: undefined, errors: [] }
+  if (!BAIDU_TRANSLATE_API_KEY || !BAIDU_TRANSLATE_APP_ID) {
+    return { translation: undefined, errors: [publicNetworkError(makeNetworkError('baidu', 'not_configured'), 'baidu')] }
+  }
+  try {
+    const headers = { 'Content-Type': 'application/json' }
+    headers.Authorization = 'Bearer ' + BAIDU_TRANSLATE_API_KEY
+    const data = await fetchJson(BAIDU_TRANSLATE_API_URL, {
+      source: 'baidu',
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        appid: BAIDU_TRANSLATE_APP_ID,
+        from: 'en',
+        to: 'zh',
+        q: text,
+      }),
+    })
+    // 兼容百度翻译接口和大模型网关常见的返回包装，统一只取最终译文。
+    const candidates = [
+      data?.result?.translation,
+      data?.result?.translated_text,
+      data?.result?.text,
+      data?.translation,
+      data?.translated_text,
+      data?.text,
+      ...(Array.isArray(data?.result?.trans_result) ? data.result.trans_result.map(x => x?.dst) : []),
+      ...(Array.isArray(data?.trans_result) ? data.trans_result.map(x => x?.dst) : []),
+      data?.choices?.[0]?.message?.content,
+      data?.choices?.[0]?.text,
+    ]
+    const translation = candidates.find(value => !isBadTranslation(value, normalizeText(text)))
+    if (!translation) throw makeNetworkError('baidu', 'invalid_response')
+    return { translation: String(translation).trim(), errors: [] }
+  } catch (e) {
+    console.warn('[baidu-translate]', normalizeText(text), e.message)
+    return { translation: undefined, errors: [publicNetworkError(e, 'baidu')] }
+  }
+}
+
+/** 抓一次外部接口：单词的音标 + 英文释义（dictionaryapi.dev）+ 中文（百度） */
 async function fetchDictEntry(word) {
+  const queryText = String(word ?? '').trim().replace(/\s+/g, ' ')
   const w = normalizeText(word)
   if (NO_NETWORK) return normalizeEntry(w, { status: 'partial' })
 
   let phonetic, translation
+  let phoneticStatus = 'missing'
+  let translationStatus = 'missing'
+  const errors = []
   const senses = []
   let dictOk = isPhrase(w)
+  let spellingStatus = isPhrase(w) ? 'unchecked' : 'unknown'
 
-  if (!dictOk) {
+  if (isSentence(w)) {
+    const sentence = await fetchSentencePhonetic(capitalizeSentence(queryText))
+    phonetic = sentence.phonetic
+    phoneticStatus = sentence.complete ? 'complete' : (phonetic ? 'partial' : 'missing')
+    errors.push(...sentence.errors)
+    // 句子音标允许部分成功；整句中文翻译必须继续执行。
+    dictOk = true
+  }
+
+  if (!isPhrase(w)) {
     try {
       const data = await fetchJson(
-        'https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(w)
+        'https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(w),
+        { source: 'dictionaryapi' },
       )
       const e = Array.isArray(data) ? data[0] : null
+      if (!e || typeof e !== 'object') throw makeNetworkError('dictionaryapi', 'invalid_response')
       phonetic = e?.phonetic || e?.phonetics?.find(p => p.text)?.text
       // 释义全集：不再每个词性只留 3 条，勾选要背哪几条是前端的事
       for (const m of e?.meanings ?? []) {
@@ -529,28 +1009,37 @@ async function fetchDictEntry(word) {
           senses.push({ pos: m.partOfSpeech, definition: d.definition })
         }
       }
+      phoneticStatus = phonetic ? 'complete' : 'missing'
       dictOk = true
+      spellingStatus = 'valid'
     } catch (e) {
       // 404 = 词典确认没这个词，不用反复重试；超时/限流留着下次补
-      if (e.status === 404) dictOk = true
+      if (e.code === 'not_found') {
+        dictOk = true
+        spellingStatus = 'suspect'
+      }
       else console.warn('[dict-api]', w, e.message)
+      errors.push(publicNetworkError(e, 'dictionaryapi', w))
     }
   }
 
-  try {
-    const data = await fetchJson(
-      'https://api.mymemory.translated.net/get?q=' + encodeURIComponent(w) + '&langpair=en|zh'
-    )
-    if (Number(data?.responseStatus) !== 200) throw new Error('responseStatus ' + data?.responseStatus)
-    const t = data?.responseData?.translatedText
-    if (!isBadTranslation(t, w)) translation = String(t).trim()
-  } catch (e) { console.warn('[mymemory]', w, e.message) }
+  const baidu = await fetchBaiduTranslation(isSentence(w) ? capitalizeSentence(queryText) : w)
+  translation = baidu.translation
+  translationStatus = translation ? 'ok' : (baidu.errors.some(error => error.code === 'not_configured') ? 'missing' : 'error')
+  errors.push(...baidu.errors)
 
   return normalizeEntry(w, {
-    phonetic, translation, senses,
+    phonetic, translation,
+    translations: translation ? [{ text: translation, source: 'api' }] : [],
+    senses,
     cachedAt: Date.now(),
     status: dictOk && translation ? 'ok' : 'partial',
+    phoneticStatus,
+    translationStatus,
+    spellingStatus,
+    errors,
     source: 'api',
+    translationSource: translation ? 'baidu' : undefined,
   })
 }
 
@@ -593,19 +1082,44 @@ function staleAgainstLocal(entry) {
 
 /**
  * 合并三份来源。音标和中文一律 本地 > 这次抓的 > 旧缓存：
- * ECDICT 是人工整理的词典，mymemory 是机器翻译还会限流，本地的更可信。
+ * ECDICT 是人工整理的词典，百度翻译负责外部文本和句子翻译。
  */
 function mergeEntry(word, sources) {
   const { local, fresh, old } = sources
   const senses = pickSenses(local, fresh, old)
   const phonetic    = local?.phonetic    || fresh?.phonetic    || old?.phonetic
+  const translations = local?.translations?.length
+    ? local.translations
+    : (fresh?.translations?.length ? fresh.translations : old?.translations)
   const translation = local?.translation || fresh?.translation || old?.translation
-  const dictOk = isPhrase(word) || !!phonetic || senses.length > 0
+    || (translations?.length ? translations.map(item => item.text).join('；') : undefined)
+  const translationSource = local?.translation
+    ? undefined
+    : (fresh?.translationSource === 'baidu' || old?.translationSource === 'baidu' ? 'baidu' : undefined)
+  const phoneticStatus = local?.phonetic
+    ? 'complete'
+    : (fresh?.phoneticStatus || (fresh?.phonetic ? 'complete' : undefined) || old?.phoneticStatus
+      || (old?.phonetic ? 'complete' : 'missing'))
+  const translationStatus = translation
+    ? 'ok'
+    : (fresh?.translationStatus || old?.translationStatus || 'missing')
+  const errors = fresh
+    ? (fresh.errors || [])
+    : (local ? [] : (old?.errors || []))
+  const spellingStatus = isPhrase(word)
+    ? 'unchecked'
+    : (local ? 'valid' : (fresh?.spellingStatus || old?.spellingStatus || 'unknown'))
+  const dictOk = isSentence(word) ? true : isPhrase(word) || !!phonetic || senses.length > 0
   return normalizeEntry(word, {
-    phonetic, translation, senses,
+    phonetic, translation, translations, senses,
     cachedAt: Date.now(),
     status: dictOk && translation ? 'ok' : 'partial',
+    phoneticStatus,
+    translationStatus,
+    spellingStatus,
+    errors,
     source: local ? 'ecdict' : (fresh?.source || old?.source),
+    translationSource,
   })
 }
 
@@ -617,16 +1131,23 @@ function mergeEntry(word, sources) {
  * 返回 network 标记，补齐队列据此决定要不要限速。
  */
 async function resolveEntry(word, force) {
+  const queryText = String(word ?? '').trim().replace(/\s+/g, ' ')
   const w = normalizeText(word)
   if (!w) throw new Error('missing word')
   const old = getCache()[w]
-  if (old && old.status === 'ok' && !force) {
-    const upgrade = staleAgainstLocal(old) ? localEntry(w) : null
+  // 旧版本可能把句子按固定短语写成了 ECDICT 缓存；句子现在必须由百度翻译，不能被这条缓存短路挡住。
+  const sentenceNeedsRefresh = isSentence(w)
+    && (old?.translationSource !== 'baidu' || !old?.phonetic
+      || old?.phoneticStatus === 'partial' || old?.translationStatus !== 'ok')
+  if (old && old.status === 'ok' && !force && !sentenceNeedsRefresh) {
+    const upgrade = !isSentence(w) && staleAgainstLocal(old) ? localEntry(w) : null
     if (!upgrade || upgrade.status !== 'ok') return { entry: old, network: false }
     return { entry: putCache(mergeEntry(w, { local: upgrade, old })), network: false }
   }
 
-  const local = localEntry(w)
+  // 多词句子不使用 ECDICT 的固定短语释义，中文统一由百度翻译；
+  // 两词固定搭配（例如 a few）仍可使用本地词典。
+  const local = isSentence(w) ? null : localEntry(w)
   if (local && local.status === 'ok') {
     // 本地词典就够了：force 也不打网络，不然刷新一次又被机翻译文盖回去
     return { entry: putCache(mergeEntry(w, { local, old })), network: false }
@@ -636,8 +1157,67 @@ async function resolveEntry(word, force) {
     return { entry: putCache(mergeEntry(w, { local, old })), network: false }
   }
 
-  const fresh = await fetchDictEntry(w)
+  const fresh = await fetchDictEntry(queryText || w)
   return { entry: putCache(mergeEntry(w, { local, fresh, old })), network: true }
+}
+
+/**
+ * 加入学习后的后台任务只补音标，不重新翻译中文，也不改动已缓存的中文候选。
+ * 搜索阶段已经负责完整查询，这里只是处理搜索结果仍缺音标的降级情况。
+ */
+async function resolvePhoneticOnly(word) {
+  const w = normalizeText(word)
+  if (!w) throw new Error('missing word')
+  const old = getCache()[w]
+  if (old?.phonetic && old.phoneticStatus !== 'partial') return { entry: old, network: false }
+
+  if (isSentence(w)) {
+    if (NO_NETWORK) return { entry: old || normalizeEntry(w, { status: 'partial' }), network: false }
+    const sentence = await fetchSentencePhonetic(capitalizeSentence(w))
+    if (!sentence.phonetic && !old) return { entry: normalizeEntry(w, { status: 'partial' }), network: true }
+    const errors = [
+      ...(old?.errors || []).filter(error => error.source !== 'dictionaryapi'),
+      ...sentence.errors,
+    ]
+    const entry = putCache(normalizeEntry(w, {
+      ...old,
+      phonetic: sentence.phonetic || old?.phonetic,
+      phoneticStatus: sentence.complete ? 'complete' : (sentence.phonetic || old?.phonetic ? 'partial' : 'missing'),
+      errors,
+      cachedAt: Date.now(),
+    }))
+    return { entry, network: true }
+  }
+
+  const local = localEntry(w)
+  if (local?.phonetic) {
+    const entry = putCache(normalizeEntry(w, {
+      ...old,
+      phonetic: local.phonetic,
+      phoneticStatus: 'complete',
+      spellingStatus: 'valid',
+      cachedAt: Date.now(),
+    }))
+    return { entry, network: false }
+  }
+  if (NO_NETWORK) return { entry: old || normalizeEntry(w, { status: 'partial' }), network: false }
+
+  const data = await fetchJson(
+    'https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(w),
+    { source: 'dictionaryapi' },
+  )
+  const source = Array.isArray(data) ? data[0] : null
+  const phonetic = source?.phonetic || source?.phonetics?.find(item => item.text)?.text
+  if (!phonetic) throw makeNetworkError('dictionaryapi', 'invalid_response')
+  const entry = putCache(normalizeEntry(w, {
+    ...old,
+    phonetic,
+    phoneticStatus: 'complete',
+    spellingStatus: 'valid',
+    errors: (old?.errors || []).filter(error => error.source !== 'dictionaryapi'),
+    cachedAt: Date.now(),
+  }))
+  return { entry, network: true }
 }
 
 /** 保留原签名给别处用 */
@@ -654,7 +1234,7 @@ function fillFromLocal(words) {
   const cache = getCache()
   let filled = 0
   for (const word of words) {
-    const local = localEntry(word)
+    const local = isSentence(word) ? null : localEntry(word)
     if (!local) continue
     cache[word] = mergeEntry(word, { local, old: cache[word] })
     filled++
@@ -668,7 +1248,7 @@ function fillFromLocal(words) {
 
 // ── 后台补齐队列 ──────────────────────────────────────────────────────────
 
-/** 两个免费接口都有限流，慢点跑别把人家打挂 */
+/** 外部词典和百度翻译接口都可能有限流，慢点跑避免触发限制 */
 const PREFETCH_CONCURRENCY = 2
 const PREFETCH_PACE_MS = NO_NETWORK ? 0 : 250
 
@@ -689,6 +1269,8 @@ function prefetchState() {
 function needsFetch(word, force) {
   if (force) return true
   const entry = getCache()[normalizeText(word)]
+  if (isSentence(word) && (entry?.translationSource !== 'baidu' || !entry?.phonetic
+    || entry?.phoneticStatus === 'partial' || entry?.translationStatus !== 'ok')) return true
   return !entry || entry.status !== 'ok'
 }
 
@@ -701,7 +1283,13 @@ async function runPrefetchWorker() {
       const job = prefetch.queue.shift()
       prefetch.inQueue.delete(job.word)
       let network = false
-      try { network = (await resolveEntry(job.word, job.force)).network }
+      try {
+        const resolved = job.phoneticOnly
+          ? await resolvePhoneticOnly(job.word)
+          : await resolveEntry(job.word, job.force)
+        network = resolved.network
+        if (!job.phoneticOnly) syncListTranslation(job.word, resolved.entry)
+      }
       catch (e) { prefetch.failed++; console.warn('[prefetch]', job.word, e.message) }
       prefetch.done++
       // 只有真打了外部接口才需要限速；本地词典命中的词一个接一个过就行
@@ -736,6 +1324,30 @@ function enqueuePrefetch(words, force) {
   return queued
 }
 
+/** 只把缺失 / 不完整音标排进后台，不触发中文翻译。 */
+function enqueuePhoneticPrefetch(words) {
+  if (prefetch.queue.length === 0 && prefetch.running === 0) {
+    prefetch.total = 0
+    prefetch.done = 0
+    prefetch.failed = 0
+  }
+  let queued = 0
+  for (const raw of Array.isArray(words) ? words : []) {
+    const word = normalizeText(raw)
+    if (!word || prefetch.inQueue.has(word)) continue
+    const entry = getCache()[word]
+    if (entry?.phonetic && entry.phoneticStatus !== 'partial') continue
+    prefetch.inQueue.add(word)
+    prefetch.queue.push({ word, force: false, phoneticOnly: true })
+    prefetch.total++
+    queued++
+  }
+  while (prefetch.running < PREFETCH_CONCURRENCY && prefetch.running < prefetch.queue.length) {
+    runPrefetchWorker()
+  }
+  return queued
+}
+
 // ── HTTP helpers ──────────────────────────────────────────────────────────
 
 function cors(res) {
@@ -757,6 +1369,32 @@ function readBody(req) {
   })
 }
 
+/**
+ * 保持输入顺序的有限并发映射。每一项由 task 自己转成成功或失败结果，
+ * 因此一项查询失败不会 reject 整批，也不会阻止其他 worker 继续处理。
+ */
+async function mapConcurrent(items, concurrency, task) {
+  const results = new Array(items.length)
+  let cursor = 0
+  async function worker() {
+    while (cursor < items.length) {
+      const index = cursor++
+      results[index] = await task(items[index], index)
+    }
+  }
+  const count = Math.min(items.length, Math.max(1, concurrency))
+  await Promise.all(Array.from({ length: count }, () => worker()))
+  return results
+}
+
+/** 中文没有拿到时，把搜索链路已有的明确错误透传给批量页。 */
+function batchSearchError(entry) {
+  const errors = Array.isArray(entry?.errors) ? entry.errors : []
+  const detail = errors.find(error => error?.source === 'baidu') || errors[0]
+  if (detail) return { ...detail }
+  return { code: 'no_translation', message: '未获取到中文翻译' }
+}
+
 // ── Router ────────────────────────────────────────────────────────────────
 
 const server = http.createServer(async (req, res) => {
@@ -767,19 +1405,23 @@ const server = http.createServer(async (req, res) => {
 
   // ── Dict ──────────────────────────────────────────────────────────────
   if (method === 'GET' && pathname === '/api/dict') {
-    const word = normalizeText(url.searchParams.get('word'))
+    const queryText = String(url.searchParams.get('word') ?? '').trim().replace(/\s+/g, ' ')
+    const word = normalizeText(queryText)
     if (!word) return sendJson(res, { error: 'missing ?word=' }, 400)
     const refresh = url.searchParams.get('refresh') === '1'
     const cached  = getCache()[word]
     // 只有「抓齐了」而且已经是本地词典那份的缓存才敢直接用；
     // 上次半路失败的、装词典之前抓的都往下走一遍（下面那条路只查本地，不打网络）
-    if (cached && cached.status === 'ok' && !refresh && !staleAgainstLocal(cached)) {
+    const sentenceNeedsRefresh = isSentence(word)
+      && (cached?.translationSource !== 'baidu' || !cached?.phonetic
+        || cached?.phoneticStatus === 'partial' || cached?.translationStatus !== 'ok')
+    if (cached && cached.status === 'ok' && !refresh && !sentenceNeedsRefresh && !staleAgainstLocal(cached)) {
       console.log('[cache hit]', word)
       return sendJson(res, Object.assign({}, cached, { fromCache: true }))
     }
     console.log('[fetch]    ', word)
     try {
-      const entry = await ensureEntry(word, refresh)
+      const entry = await ensureEntry(queryText, refresh)
       return sendJson(res, Object.assign({}, entry, { fromCache: false }))
     } catch (e) {
       console.warn('[dict]', word, e.message)
@@ -787,6 +1429,51 @@ const server = http.createServer(async (req, res) => {
       if (cached) return sendJson(res, Object.assign({}, cached, { fromCache: true }))
       return sendJson(res, { error: 'fetch failed' }, 502)
     }
+  }
+
+  // POST /api/dict/search-batch  — 批量执行与首页相同的完整查询链路。
+  // body: { words: string[] }
+  // 每个结果独立返回 ok；没有中文时仍附带 partial entry，便于页面展示已拿到的音标和错误。
+  if (method === 'POST' && pathname === '/api/dict/search-batch') {
+    let body
+    try { body = await readBody(req) } catch { return sendJson(res, { error: 'invalid JSON' }, 400) }
+    if (!Array.isArray(body?.words)) return sendJson(res, { error: 'missing words' }, 400)
+
+    const words = []
+    const seen = new Set()
+    for (const raw of body.words) {
+      const word = normalizeText(raw)
+      if (!word || seen.has(word)) continue
+      seen.add(word)
+      words.push({ word, queryText: String(raw ?? '').trim().replace(/\s+/g, ' ') })
+    }
+    if (words.length === 0) return sendJson(res, { error: 'missing words' }, 400)
+    if (words.length > MAX_BATCH_SEARCH_ITEMS) {
+      return sendJson(res, { error: 'too many words', max: MAX_BATCH_SEARCH_ITEMS }, 400)
+    }
+
+    const results = await mapConcurrent(words, BATCH_SEARCH_CONCURRENCY, async ({ word, queryText }) => {
+      try {
+        // ensureEntry 是首页 GET /api/dict 使用的同一条缓存 → ECDICT → 外部接口链路。
+        const entry = await ensureEntry(queryText || word, false)
+        if (String(entry?.translation ?? '').trim()) return { word, ok: true, entry }
+        return { word, ok: false, entry, error: batchSearchError(entry) }
+      } catch (error) {
+        console.warn('[dict-batch]', word, error?.message || error)
+        return {
+          word,
+          ok: false,
+          error: { code: 'fetch_failed', message: error?.message || '查询失败' },
+        }
+      }
+    })
+    const succeeded = results.filter(result => result.ok).length
+    return sendJson(res, {
+      results,
+      total: results.length,
+      succeeded,
+      failed: results.length - succeeded,
+    })
   }
 
   if (method === 'GET' && pathname === '/api/cache/stats') {
@@ -817,7 +1504,9 @@ const server = http.createServer(async (req, res) => {
       if (!word || seenWant.has(word)) continue
       seenWant.add(word)
       const entry = getCache()[word]
-      if (!entry || entry.status !== 'ok' || staleAgainstLocal(entry)) want.push(word)
+      if (!entry || entry.status !== 'ok' || staleAgainstLocal(entry)
+        || (isSentence(word) && (!entry.phonetic || entry.phoneticStatus === 'partial'
+          || entry.translationStatus !== 'ok'))) want.push(word)
     }
     if (want.length > 0) fillFromLocal(want)
     const cache = getCache()
@@ -834,7 +1523,8 @@ const server = http.createServer(async (req, res) => {
       }
       entries[word] = entry
       // 在缓存里但没抓齐：前端可以据此提示「还能补齐」
-      if (entry.status !== 'ok') incomplete.push(word)
+      if (entry.status !== 'ok' || (isSentence(word) && (!entry.phonetic
+        || entry.phoneticStatus === 'partial' || entry.translationStatus !== 'ok'))) incomplete.push(word)
     }
     return sendJson(res, { entries, missing, incomplete })
   }
@@ -949,19 +1639,27 @@ const server = http.createServer(async (req, res) => {
       }
       const sourceIds = Array.isArray(body.sourceIds) ? body.sourceIds : []
       const senseIds  = normalizeSenseIds(body?.senseIds)
+      const translationIds = normalizeTranslationIds(body?.translationIds)
+      const type = detectType(word, sourceIds)
       const item = {
         word,
-        type: detectType(word, sourceIds),
+        type,
         sourceIds,
         addedAt: Date.now(),
       }
+      if (type === 'sentence') item.displayText = capitalizeSentence(body?.text ?? body?.word ?? word)
+      const phonetic = String(body?.phonetic ?? '').trim()
+      if (phonetic) item.phonetic = phonetic
       if (senseIds.length) item.senseIds = senseIds
+      if (translationIds.length) item.translationIds = translationIds
+      const translation = String(body?.translation ?? '').trim()
+      if (translation) item.translation = translation
       list.words.push(item)
       saveLists(data)
+      // 加入学习只保存搜索页传来的快照；缺失的音标等数据交给后台补齐，不阻塞响应。
+      const queued = enqueuePhoneticPrefetch([word])
       console.log('[word +]   ', word, '->', listId)
-      // 加词时顺手把音标/释义落盘，之后打印卡片才有东西可印
-      const entry = await ensureEntry(word).catch(() => null)
-      return sendJson(res, { ok: true, item, entry })
+      return sendJson(res, { ok: true, item, queued })
     }
 
     // DELETE /api/lists/:id/words/:text  — remove one item
@@ -977,18 +1675,30 @@ const server = http.createServer(async (req, res) => {
     }
 
     // PATCH /api/lists/:id/words/:text  — 改这个词这一阶段要背的释义
-    // body: { senseIds: [] }，传空数组 = 恢复自动（中文 + 第一条英文释义）
+    // body: { senseIds?: [], translationIds?: [], translation?: string }，传空数组 = 恢复自动
     if (method === 'PATCH' && wordPathMatch) {
       let body
       try { body = await readBody(req) } catch { return sendJson(res, { error: 'invalid JSON' }, 400) }
       const target = normalizeText(decodeURIComponent(wordPathMatch[1]))
       const item = list.words.find(w => w.word === target)
       if (!item) return sendJson(res, { ok: false, reason: 'not found' }, 404)
-      const senseIds = normalizeSenseIds(body?.senseIds)
-      if (senseIds.length) item.senseIds = senseIds
-      else delete item.senseIds
+      if ('senseIds' in (body || {})) {
+        const senseIds = normalizeSenseIds(body?.senseIds)
+        if (senseIds.length) item.senseIds = senseIds
+        else delete item.senseIds
+      }
+      if ('translationIds' in (body || {})) {
+        const translationIds = normalizeTranslationIds(body?.translationIds)
+        if (translationIds.length) item.translationIds = translationIds
+        else delete item.translationIds
+      }
+      if ('translation' in (body || {})) {
+        const translation = String(body?.translation ?? '').trim()
+        if (translation) item.translation = translation
+        else delete item.translation
+      }
       saveLists(data)
-      console.log('[word ~]   ', target, senseIds.length, 'senses')
+      console.log('[word ~]   ', target, 'updated selections')
       return sendJson(res, { ok: true, item: enrichItem(item, Date.now()) })
     }
 
@@ -1014,7 +1724,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     // POST /api/lists/:id/import  — bulk import
-    // body: { items: [{ text, sourceIds?, senseIds? }] }  或旧格式 { words: string[], sourceIds? }
+    // body: { items: [{ text, sourceIds?, senseIds?, translationIds?, translation? }] }
+    // 或旧格式 { words: string[], sourceIds? }
     if (method === 'POST' && subpath === 'import') {
       let body
       try { body = await readBody(req) } catch { return sendJson(res, { error: 'invalid JSON' }, 400) }
@@ -1029,21 +1740,32 @@ const server = http.createServer(async (req, res) => {
         if (!word || seen.has(word)) { if (word) skipped++; continue }
         const sourceIds = Array.isArray(entry?.sourceIds) ? entry.sourceIds : []
         const senseIds  = normalizeSenseIds(entry?.senseIds)
+        const translationIds = normalizeTranslationIds(entry?.translationIds)
+        const type = detectType(word, sourceIds)
         const item = {
           word,
-          type: detectType(word, sourceIds),
+          type,
           sourceIds,
           addedAt: Date.now(),
         }
+        if (type === 'sentence') item.displayText = capitalizeSentence(entry?.text ?? entry ?? word)
+        const phonetic = String(entry?.phonetic ?? '').trim()
+        if (phonetic) item.phonetic = phonetic
         if (senseIds.length) item.senseIds = senseIds
+        if (translationIds.length) item.translationIds = translationIds
+        // 批量查询页已经完成查词和中文选择：优先原样保存前端快照。
+        // 旧调用方没有传 translation 时，仍可复用当前缓存，但这里绝不发起查询。
+        const snapshot = String(entry?.translation ?? '').trim()
+        const selected = snapshot || selectedTranslation(getCache()[word], translationIds)
+        if (selected) item.translation = selected
         list.words.push(item)
         seen.add(word)
         fresh.push(word)
         added++
       }
       saveLists(data)
-      // 音标和释义在后台慢慢补，导入本身立刻返回，不然几百个词要等很久
-      const queued = enqueuePrefetch(fresh)
+      // 中文已在批量查询阶段确定；导入后最多后台补音标，不重新翻译、不覆盖中文快照。
+      const queued = enqueuePhoneticPrefetch(fresh)
       console.log('[import]   ', added, 'added,', skipped, 'skipped ->', listId)
       return sendJson(res, { ok: true, added, skipped, queued })
     }
@@ -1072,6 +1794,7 @@ const server = http.createServer(async (req, res) => {
           item.stage = 0
           item.reviewedAt = []
           pushMark(item, again ? 'restart' : 'start', at, { scope, stage: 0 })
+          recordStudyEvent(list, { item, action: again ? 'restart' : 'start', at, scope, stage: 0 })
           started++
         }
         items.push(enrichItem(item, at))
@@ -1092,10 +1815,31 @@ const server = http.createServer(async (req, res) => {
       const raw = Array.isArray(body?.words) ? body.words : []
       const targets = new Set(raw.map(normalizeText).filter(Boolean))
       if (targets.size === 0) return sendJson(res, { error: 'missing words' }, 400)
+      const rawIds = body?.requestIds && typeof body.requestIds === 'object' ? body.requestIds : {}
+      const requestIds = new Map()
+      for (const word of targets) {
+        const supplied = typeof rawIds[word] === 'string' ? rawIds[word] : ''
+        const current = list.words.find(item => item.word === word)
+        const fallback = [
+          listId,
+          word,
+          current?.stage ?? 0,
+          current ? nextDueAt(current) ?? 'new' : 'new',
+          action,
+          body?.scope || '',
+          body?.through || '',
+          body?.successKind || '',
+        ].join('|')
+        requestIds.set(word, supplied || fallback)
+      }
       const { updated, items } = applyReview(list, targets, action, {
         scope: body?.scope,
         through: body?.through,
+        successKind: body?.successKind,
+        requestIds,
         now: Date.now(),
+        hasRequest: requestId => studyHistory.hasRequest(requestId),
+        onEvent: event => recordStudyEvent(list, event),
       })
       saveLists(data)
       console.log('[study ~]  ', action, updated, '->', listId)
@@ -1103,7 +1847,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // POST /api/lists/:id/mark  — 只记一次打标，不动复习排期
-    // body: { words: [], action?: 'print', scope?: 'day' | 'week' }
+    // body: { words: [], action?: 'print' | 'spelling', scope?: 'day' | 'week' }
     if (method === 'POST' && subpath === 'mark') {
       let body
       try { body = await readBody(req) } catch { return sendJson(res, { error: 'invalid JSON' }, 400) }
@@ -1118,9 +1862,20 @@ const server = http.createServer(async (req, res) => {
       const now = Date.now()
       let marked = 0
       const items = []
+      const rawIds = body?.requestIds && typeof body.requestIds === 'object' ? body.requestIds : {}
       for (const item of list.words) {
         if (!targets.has(item.word)) continue
+        const requestId = typeof rawIds[item.word] === 'string'
+          ? rawIds[item.word]
+          : [listId, item.word, action, scope || ''].join('|')
+        if (hasReviewKey(item, requestId) || studyHistory.hasRequest(requestId)) {
+          items.push(enrichItem(item, now))
+          continue
+        }
         pushMark(item, action, now, { scope, stage: item.stage })
+        if (action === 'spelling') item.spellingCount = countOf(item.spellingCount) + 1
+        recordStudyEvent(list, { item, action, at: now, scope, stage: item.stage, requestId })
+        rememberReviewKey(item, requestId)
         marked++
         items.push(enrichItem(item, now))
       }
@@ -1165,6 +1920,55 @@ const server = http.createServer(async (req, res) => {
       return da === db ? a.word.localeCompare(b.word) : da - db
     })
     return sendJson(res, { intervals: REVIEW_INTERVALS, today: startOfDay(now), items })
+  }
+
+  // ── 永久学习成果与历史 ───────────────────────────────────────────────
+
+  if (method === 'GET' && pathname === '/api/study/achievements') {
+    return sendJson(res, studyHistory.achievements({ libraryId: url.searchParams.get('libraryId') }))
+  }
+
+  if (method === 'GET' && pathname === '/api/study/history') {
+    return sendJson(res, studyHistory.history({
+      libraryId: url.searchParams.get('libraryId'), word: url.searchParams.get('word'),
+      action: url.searchParams.get('action'), limit: url.searchParams.get('limit'),
+      offset: url.searchParams.get('offset'),
+    }))
+  }
+
+  if (method === 'GET' && pathname === '/api/study/history/integrity') {
+    return sendJson(res, { ok: studyHistory.integrityCheck() === 'ok', result: studyHistory.integrityCheck() })
+  }
+
+  if (method === 'POST' && pathname === '/api/study/history/purge') {
+    let body
+    try { body = await readBody(req) } catch { return sendJson(res, { ok: false, error: 'invalid JSON' }, 400) }
+    const all = body?.all === true
+    const rawWords = body?.words
+    if (!all && !Array.isArray(rawWords)) {
+      return sendJson(res, { ok: false, error: 'words 必须是字符串数组' }, 400)
+    }
+    if (Array.isArray(rawWords) && (rawWords.length > 500 || rawWords.some(word => typeof word !== 'string'))) {
+      return sendJson(res, { ok: false, error: 'words 必须是不超过 500 项的字符串数组' }, 400)
+    }
+    const words = Array.isArray(rawWords) ? rawWords.map(word => word.trim()).filter(Boolean) : []
+    if (!all && words.length === 0) {
+      return sendJson(res, { ok: false, error: '至少选择一个单词' }, 400)
+    }
+    const result = studyHistory.purge({ all, words })
+    return sendJson(res, { ok: true, ...result })
+  }
+
+  const historyEventMatch = pathname.match(/^\/api\/study\/history\/events\/([^/]+)$/)
+  if (method === 'DELETE' && historyEventMatch) {
+    const result = studyHistory.deleteEvent(decodeURIComponent(historyEventMatch[1]))
+    return sendJson(res, { ok: true, ...result })
+  }
+
+  const historyWordMatch = pathname.match(/^\/api\/study\/history\/words\/([^/]+)$/)
+  if (method === 'DELETE' && historyWordMatch) {
+    const result = studyHistory.clearWord(decodeURIComponent(historyWordMatch[1]))
+    return sendJson(res, { ok: true, ...result })
   }
 
   // GET /api/study/goal  — 当前学习目标
@@ -1233,6 +2037,10 @@ const server = http.createServer(async (req, res) => {
         if (!item) { missing.push(word); continue }
         // 打印本身也是一次打标：记时间、粒度和当时轮次
         pushMark(item, 'print', printedAt, { scope, stage: item.stage })
+        recordStudyEvent(list, {
+          item, action: 'print', at: printedAt, scope, stage: item.stage,
+          eventKey: ['print', printedAt, list.id, item.word].join('|'),
+        })
         items.push({ listId: list.id, listName: list.name, word: item.word })
       }
     }
@@ -1246,12 +2054,12 @@ const server = http.createServer(async (req, res) => {
       || ('打印 ' + items.length + ' 词')
     const batch = { id: uniquePrintId(store.batches, printedAt), printedAt, kind, title, wordCount: items.length, items }
     if (scope) batch.scope = scope
-    store.batches.push(batch)
-    // 只留最近 MAX_PRINT_BATCHES 条
-    store.batches.sort((a, b) => a.printedAt - b.printedAt)
-    if (store.batches.length > MAX_PRINT_BATCHES) {
-      store.batches = store.batches.slice(-MAX_PRINT_BATCHES)
-    }
+    const itemsKey = printBatchItemsKey(items)
+    const differentBatches = store.batches
+      .filter(saved => printBatchItemsKey(saved.items) !== itemsKey)
+      .sort((a, b) => b.printedAt - a.printedAt)
+    // 相同的一组打印单词只保留本次记录，并把本次记录放在最前。
+    store.batches = [batch, ...differentBatches].slice(0, MAX_PRINT_BATCHES)
     savePrints(store)
     console.log('[print +]  ', items.length, 'words', kind, scope || 'day', '->', batch.id)
     return sendJson(res, { ok: true, batch: enrichBatch(batch, data.lists, Date.now()), missing })
@@ -1276,22 +2084,51 @@ const server = http.createServer(async (req, res) => {
       const now   = Date.now()
       const scope = normalizeScope(body?.scope) || batch.scope
       const data  = loadLists()
+      const rawIds = body?.requestIds && typeof body.requestIds === 'object' ? body.requestIds : {}
       let updated = 0
       const items = []
       for (const list of data.lists) {
-        const targets = new Set(batch.items.filter(i => i.listId === list.id).map(i => i.word))
+        const batchItems = batch.items.filter(i => i.listId === list.id)
+        const targets = new Set(batchItems.map(i => i.word))
         if (targets.size === 0) continue
-        const result = applyReview(list, targets, action, { scope, through: body?.through, now })
+        const requestIds = new Map()
+        for (const item of batchItems) {
+          const supplied = typeof rawIds[list.id + '|' + item.word] === 'string'
+            ? rawIds[list.id + '|' + item.word]
+            : (typeof rawIds[item.word] === 'string' ? rawIds[item.word] : '')
+          const current = list.words.find(word => word.word === item.word)
+          const fallback = [
+            batchId,
+            list.id,
+            item.word,
+            current?.stage ?? 0,
+            current ? nextDueAt(current) ?? 'new' : 'new',
+            action,
+            scope || '',
+            body?.through || '',
+          ].join('|')
+          requestIds.set(item.word, supplied || fallback)
+        }
+        const result = applyReview(list, targets, action, {
+          scope,
+          through: body?.through,
+          requestIds,
+          now,
+          hasRequest: requestId => studyHistory.hasRequest(requestId),
+          onEvent: event => recordStudyEvent(list, event),
+        })
         updated += result.updated
         for (const item of result.items) {
           items.push(Object.assign(withoutMarks(item), { listId: list.id, listName: list.name }))
         }
       }
       saveLists(data)
-      batch.reviewedAt    = now
-      batch.reviewAction  = action
-      batch.reviewedCount = updated
-      batch.reviewCount   = (Number(batch.reviewCount) || 0) + 1
+      if (updated > 0) {
+        batch.reviewedAt    = now
+        batch.reviewAction  = action
+        batch.reviewedCount = updated
+        batch.reviewCount   = (Number(batch.reviewCount) || 0) + 1
+      }
       savePrints(store)
       console.log('[print ~]  ', action, updated, '->', batchId)
       return sendJson(res, { ok: true, updated, items, batch: enrichBatch(batch, data.lists, now) })
@@ -1330,6 +2167,57 @@ const server = http.createServer(async (req, res) => {
     saveLabels(data)
     console.log('[label ^]  ', merged, 'merged')
     return sendJson(res, { ok: true, merged, labels: data.labels })
+  }
+
+  // 打印标签与页面显示标签分开管理；未设置时由前端回落到显示标签。
+  if (method === 'GET' && pathname === '/api/vocab-print-labels') {
+    return sendJson(res, { printLabels: loadLabels().printLabels })
+  }
+
+  if (method === 'POST' && pathname === '/api/vocab-print-labels') {
+    let body
+    try { body = await readBody(req) } catch { return sendJson(res, { error: 'invalid JSON' }, 400) }
+    const incoming = body?.printLabels
+    if (!incoming || typeof incoming !== 'object') return sendJson(res, { error: 'missing printLabels' }, 400)
+    const data = loadLabels()
+    let merged = 0
+    for (const [id, label] of Object.entries(incoming)) {
+      const value = String(label ?? '').trim()
+      if (!id || !value || value.length > MAX_LABEL_LENGTH) continue
+      data.printLabels[id] = value
+      merged++
+    }
+    saveLabels(data)
+    console.log('[print-label ^]  ', merged, 'merged')
+    return sendJson(res, { ok: true, merged, printLabels: data.printLabels })
+  }
+
+  const printLabelMatch = pathname.match(/^\/api\/vocab-print-labels\/([^/]+)$/)
+  if (printLabelMatch) {
+    const libId = decodeURIComponent(printLabelMatch[1])
+    const data = loadLabels()
+
+    if (method === 'PATCH') {
+      let body
+      try { body = await readBody(req) } catch { return sendJson(res, { error: 'invalid JSON' }, 400) }
+      const label = String(body?.label ?? '').trim()
+      if (!label) return sendJson(res, { ok: false, error: '打印标签不能为空' }, 400)
+      if (label.length > MAX_LABEL_LENGTH) {
+        return sendJson(res, { ok: false, error: '打印标签最多 ' + MAX_LABEL_LENGTH + ' 个字符' }, 400)
+      }
+      data.printLabels[libId] = label
+      saveLabels(data)
+      console.log('[print-label ~]  ', libId, '->', label)
+      return sendJson(res, { ok: true, id: libId, label })
+    }
+
+    if (method === 'DELETE') {
+      const existed = libId in data.printLabels
+      delete data.printLabels[libId]
+      saveLabels(data)
+      console.log('[print-label -]  ', libId)
+      return sendJson(res, { ok: true, id: libId, existed })
+    }
   }
 
   const labelMatch = pathname.match(/^\/api\/vocab-labels\/([^/]+)$/)

@@ -1,12 +1,13 @@
 import './Nav.css'
 
-export type TabKey = 'search' | 'import' | 'lists' | 'libraries' | 'study'
+export type TabKey = 'search' | 'import' | 'lists' | 'libraries' | 'achievements' | 'records' | 'study'
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'search', label: '查词' },
   { key: 'import', label: '批量导入' },
   { key: 'lists',  label: '学习列表' },
   { key: 'libraries', label: '词库' },
+  { key: 'achievements', label: '学习成果' },
 ]
 
 interface NavProps {
@@ -21,6 +22,8 @@ interface NavProps {
 }
 
 export function Nav({ active, onChange, totalItems, libraryCount, dueToday }: NavProps) {
+  const visibleActive = active === 'records' ? 'achievements' : active
+
   return (
     <nav className="nav" aria-label="主导航">
       <div className="nav__inner">
@@ -36,7 +39,7 @@ export function Nav({ active, onChange, totalItems, libraryCount, dueToday }: Na
               <button
                 key={tab.key}
                 type="button"
-                className={'nav__tab' + (active === tab.key ? ' nav__tab--active' : '')}
+                className={'nav__tab' + (visibleActive === tab.key ? ' nav__tab--active' : '')}
                 aria-current={active === tab.key ? 'page' : undefined}
                 onClick={() => onChange(tab.key)}
               >

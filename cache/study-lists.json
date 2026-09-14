@@ -2,8 +2,3678 @@
   "lists": [
     {
       "id": "default",
-      "name": "默认列表",
+      "name": "Amy Learn",
       "createdAt": 1788429640123,
+      "words": [
+        {
+          "word": "come back early",
+          "type": "sentence",
+          "sourceIds": [],
+          "addedAt": 1788931581135,
+          "phonetic": "/kʌm/ /bæk/ /'ә:li/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "早点回来",
+          "startedAt": 1788932735175,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788932735175,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932735175,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932762975,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932982140,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932989542,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789123714414,
+              "action": "print",
+              "stage": 0
+            },
+            {
+              "at": 1789123731480,
+              "action": "print",
+              "stage": 0
+            }
+          ],
+          "markCount": 21,
+          "displayText": "Come back early"
+        },
+        {
+          "word": "ball",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1788931585931,
+          "phonetic": "/bɒ:l/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 球",
+          "startedAt": 1788932735175,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788932735175,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932735175,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932762975,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932982140,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932989542,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 19
+        },
+        {
+          "word": "monster",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1788931592154,
+          "phonetic": "/'mɒnstә/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 怪物",
+          "startedAt": 1788932735175,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788932735175,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932735175,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932762975,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932982140,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932989542,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 19
+        },
+        {
+          "word": "car",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1788931598571,
+          "phonetic": "/kɑ:/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 汽车",
+          "startedAt": 1788932735175,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788932735175,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932735175,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932762975,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932982140,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932989542,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 19
+        },
+        {
+          "word": "motorbike",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1788931700518,
+          "phonetic": "/'mәjtәbaik/",
+          "translationIds": [
+            "translation#1"
+          ],
+          "translation": "n. 摩托车",
+          "startedAt": 1788932735175,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788932735175,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932735175,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932762975,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932982140,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932989542,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 19
+        },
+        {
+          "word": "apple",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1788932489475,
+          "phonetic": "/'æpl/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 苹果",
+          "startedAt": 1788932735175,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788932735175,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932735175,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932762975,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932982140,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932989542,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 19
+        },
+        {
+          "word": "banana",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1788932502298,
+          "phonetic": "/bә'nɑ:nә/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 香蕉",
+          "startedAt": 1788932735175,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788932735175,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932735175,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932762975,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932982140,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932989542,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 19
+        },
+        {
+          "word": "cake",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1788932511354,
+          "phonetic": "/keik/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 蛋糕",
+          "startedAt": 1788932735175,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788932735175,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932735175,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932762975,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932982140,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932989542,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 19
+        },
+        {
+          "word": "candy",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1788932520891,
+          "phonetic": "/'kændi/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 糖果",
+          "startedAt": 1788932735175,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788932735175,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932735175,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932762975,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932982140,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932989542,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 19
+        },
+        {
+          "word": "egg",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1788932547122,
+          "phonetic": "/eg/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 蛋",
+          "startedAt": 1788932735175,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788932735175,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932735175,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932762975,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932982140,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932989542,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 19
+        },
+        {
+          "word": "i've got a car",
+          "type": "sentence",
+          "sourceIds": [],
+          "addedAt": 1788932655848,
+          "phonetic": "/aɪv/ /gɒt/ /ei/ /kɑ:/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "我有辆车",
+          "startedAt": 1788932735175,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788932735175,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932735175,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932762975,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932982140,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932989542,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789123714414,
+              "action": "print",
+              "stage": 0
+            }
+          ],
+          "markCount": 20,
+          "displayText": "I've got a car"
+        },
+        {
+          "word": "get up",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1788932673527,
+          "translationIds": [
+            "translation#0",
+            "translation#1"
+          ],
+          "translation": "other. (使)起床,(使)起立",
+          "startedAt": 1788932735175,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788932735175,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932735175,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932762975,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932982140,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932989542,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 19
+        },
+        {
+          "word": "wake up",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1788932679106,
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "other. 醒来",
+          "startedAt": 1788932735175,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788932735175,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932735175,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932762975,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932982140,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932989542,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 19
+        },
+        {
+          "word": "i go to school",
+          "type": "sentence",
+          "sourceIds": [],
+          "addedAt": 1788932688643,
+          "phonetic": "/ai/ /gou/ /tu:/ /sku:l/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "我去上学。",
+          "startedAt": 1788932735175,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788932735175,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932735175,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932762975,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932982140,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932989542,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789123714414,
+              "action": "print",
+              "stage": 0
+            },
+            {
+              "at": 1789123731480,
+              "action": "print",
+              "stage": 0
+            }
+          ],
+          "markCount": 21,
+          "displayText": "I go to school"
+        },
+        {
+          "word": "i've got a apple",
+          "type": "sentence",
+          "sourceIds": [],
+          "addedAt": 1788932720934,
+          "phonetic": "/aɪv/ /gɒt/ /ei/ /'æpl/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "我有一个苹果",
+          "startedAt": 1788932735175,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788932735175,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932735175,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932762975,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932982140,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788932989542,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789123714414,
+              "action": "print",
+              "stage": 0
+            },
+            {
+              "at": 1789123731480,
+              "action": "print",
+              "stage": 0
+            }
+          ],
+          "markCount": 21,
+          "displayText": "I've got a apple"
+        },
+        {
+          "word": "rose",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1788932798007,
+          "phonetic": "/rәuz/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 玫瑰",
+          "startedAt": 1788933022221,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788933022221,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 15
+        },
+        {
+          "word": "pink",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1788932802830,
+          "phonetic": "/piŋk/",
+          "translationIds": [
+            "translation#0",
+            "translation#6"
+          ],
+          "translation": "n. 粉红色；a. 粉红的",
+          "startedAt": 1788933022221,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788933022221,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 15
+        },
+        {
+          "word": "sun",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1788932836404,
+          "phonetic": "/sʌn/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 太阳",
+          "startedAt": 1788933022221,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788933022221,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 15
+        },
+        {
+          "word": "sunflower",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1788932854650,
+          "phonetic": "/'sʌnflauә/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 向日葵",
+          "startedAt": 1788933022221,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788933022221,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 15
+        },
+        {
+          "word": "these are yellow sunflowers",
+          "type": "sentence",
+          "sourceIds": [],
+          "addedAt": 1788932892466,
+          "phonetic": "/ði:z/ /ɑ:/ /'jelәu/ /ˈsʌnˌflauəz/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "这些是黄色的向日葵",
+          "startedAt": 1788933022221,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788933022221,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789123714414,
+              "action": "print",
+              "stage": 0
+            },
+            {
+              "at": 1789123731480,
+              "action": "print",
+              "stage": 0
+            }
+          ],
+          "markCount": 17,
+          "displayText": "These are yellow sunflowers"
+        },
+        {
+          "word": "i've got pink roses",
+          "type": "sentence",
+          "sourceIds": [],
+          "addedAt": 1788932923609,
+          "phonetic": "/aɪv/ /gɒt/ /piŋk/ roses",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "我收到了粉红色的玫瑰",
+          "startedAt": 1788933022221,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788933022221,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789123714414,
+              "action": "print",
+              "stage": 0
+            },
+            {
+              "at": 1789123731480,
+              "action": "print",
+              "stage": 0
+            }
+          ],
+          "markCount": 17,
+          "displayText": "I've got pink roses"
+        },
+        {
+          "word": "these are red cars",
+          "type": "sentence",
+          "sourceIds": [],
+          "addedAt": 1788932964942,
+          "phonetic": "/ði:z/ /ɑ:/ /red/ cars",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "这些是红色的车",
+          "startedAt": 1788933022221,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788933022221,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933025214,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789123714414,
+              "action": "print",
+              "stage": 0
+            },
+            {
+              "at": 1789123731480,
+              "action": "print",
+              "stage": 0
+            }
+          ],
+          "markCount": 17,
+          "displayText": "These are red cars"
+        },
+        {
+          "word": "home",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1788933066930,
+          "phonetic": "/hәum/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 家",
+          "startedAt": 1788933090607,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788933090607,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 14
+        },
+        {
+          "word": "lemon",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1788933079453,
+          "phonetic": "/'lemәn/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 柠檬",
+          "startedAt": 1788933090607,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1788933090607,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788933093389,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934059351,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788934496551,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788955074336,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1788966881245,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004253805,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789004264966,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005583288,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789005918259,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789017294116,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789025032193,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789100978142,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789103145280,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 14
+        },
+        {
+          "word": "bone",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789120368097,
+          "phonetic": "/bәun/",
+          "translationIds": [
+            "translation#0",
+            "translation#1"
+          ],
+          "translation": "n. 骨头,骨"
+        },
+        {
+          "word": "cone",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789120368097,
+          "phonetic": "/kәun/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 圆锥体"
+        },
+        {
+          "word": "hole",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789120368097,
+          "phonetic": "/hәul/",
+          "translationIds": [
+            "translation#1",
+            "translation#2"
+          ],
+          "translation": "n. 洞,穴"
+        },
+        {
+          "word": "rope",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789120368097,
+          "phonetic": "/rәup/",
+          "translationIds": [
+            "translation#0",
+            "translation#1"
+          ],
+          "translation": "n. 绳,索"
+        },
+        {
+          "word": "mole",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789120368097,
+          "phonetic": "/mәul/",
+          "translationIds": [
+            "translation#1"
+          ],
+          "translation": "n. 鼹鼠"
+        },
+        {
+          "word": "vote",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789120368097,
+          "phonetic": "/vәut/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 投票"
+        },
+        {
+          "word": "code",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789120368097,
+          "phonetic": "/kәud/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 代码"
+        },
+        {
+          "word": "joke",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789120368097,
+          "phonetic": "/dʒәuk/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 笑话"
+        },
+        {
+          "word": "chose",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789120368097,
+          "phonetic": "/tʃәuz/",
+          "translation": "n. 动产；choose的过去式"
+        },
+        {
+          "word": "hike",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789121029126,
+          "phonetic": "/haik/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 徒步旅行"
+        },
+        {
+          "word": "ride",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121029126,
+          "phonetic": "/raid/",
+          "translationIds": [
+            "translation#0",
+            "translation#1"
+          ],
+          "translation": "n. 骑马,乘坐"
+        },
+        {
+          "word": "wide",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121029126,
+          "phonetic": "/waid/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "a. 宽的"
+        },
+        {
+          "word": "drive",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121029126,
+          "phonetic": "/draiv/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 驾车"
+        },
+        {
+          "word": "pine",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789121029127,
+          "phonetic": "/pain/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 松树"
+        },
+        {
+          "word": "dive",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121029127,
+          "phonetic": "/daiv/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 潜水"
+        },
+        {
+          "word": "kite",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121029127,
+          "phonetic": "/kait/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 风筝"
+        },
+        {
+          "word": "time",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121029127,
+          "phonetic": "/taim/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 时间"
+        },
+        {
+          "word": "shine",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789121029127,
+          "phonetic": "/ʃain/",
+          "translationIds": [
+            "translation#1"
+          ],
+          "translation": "n. 阳光"
+        },
+        {
+          "word": "wife",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121029127,
+          "phonetic": "/waif/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 妻子"
+        },
+        {
+          "word": "side",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121029127,
+          "phonetic": "/said/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 旁边"
+        },
+        {
+          "word": "gate",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121142030,
+          "phonetic": "/geit/",
+          "translationIds": [
+            "translation#2",
+            "translation#0"
+          ],
+          "translation": "n. 大门,门"
+        },
+        {
+          "word": "wave",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789121142030,
+          "phonetic": "/weiv/",
+          "translationIds": [
+            "translation#1"
+          ],
+          "translation": "n. 波浪"
+        },
+        {
+          "word": "shape",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789121142030,
+          "phonetic": "/ʃeip/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 形状"
+        },
+        {
+          "word": "bake",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121142030,
+          "phonetic": "/beik/",
+          "translationIds": [
+            "translation#0",
+            "translation#2"
+          ],
+          "translation": "v. 烘焙,烤面包"
+        },
+        {
+          "word": "game",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121142030,
+          "phonetic": "/geim/",
+          "translationIds": [
+            "translation#0",
+            "translation#6"
+          ],
+          "translation": "n. 比赛,游戏"
+        },
+        {
+          "word": "cave",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789121142030,
+          "phonetic": "/keiv/",
+          "translationIds": [
+            "translation#0",
+            "translation#1"
+          ],
+          "translation": "n. 洞,穴"
+        },
+        {
+          "word": "name",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121142030,
+          "phonetic": "/neim/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 名字"
+        },
+        {
+          "word": "wake",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121142030,
+          "phonetic": "/weik/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "v. 叫醒"
+        },
+        {
+          "word": "made",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789121142030,
+          "phonetic": "/meid/",
+          "translation": "a. 人工制成的, 成功的, 创造的；make的过去式和过去分词"
+        },
+        {
+          "word": "baseball",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121142030,
+          "phonetic": "/'beisbɒ:l/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 棒球"
+        },
+        {
+          "word": "thank",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121276269,
+          "phonetic": "/θæŋk/",
+          "translationIds": [
+            "translation#1"
+          ],
+          "translation": "n. 感谢"
+        },
+        {
+          "word": "run",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121276269,
+          "phonetic": "/rʌn/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 跑"
+        },
+        {
+          "word": "and",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121276269,
+          "phonetic": "/ænd/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "conj. 和"
+        },
+        {
+          "word": "bell",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789121276269,
+          "phonetic": "/bel/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 铃"
+        },
+        {
+          "word": "witch",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789121276269,
+          "phonetic": "/witʃ/",
+          "translationIds": [
+            "translation#1"
+          ],
+          "translation": "n. 女巫"
+        },
+        {
+          "word": "hug",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789121276269,
+          "phonetic": "/hʌg/",
+          "translationIds": [
+            "translation#1"
+          ],
+          "translation": "n. 拥抱"
+        },
+        {
+          "word": "tent",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121276269,
+          "phonetic": "/tent/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 帐篷"
+        },
+        {
+          "word": "web",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121276269,
+          "phonetic": "/web/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 网"
+        },
+        {
+          "word": "vet",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789121276269,
+          "phonetic": "/vet/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 兽医"
+        },
+        {
+          "word": "hut",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789121276269,
+          "phonetic": "/hʌt/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 小屋"
+        },
+        {
+          "word": "puff",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789121276269,
+          "phonetic": "/pʌf/",
+          "translation": "n. 一阵喷烟, 肿块, 喘息；v. 喷出, 张开, 吹捧, (使)充气, 喘气, (使)骄傲, (使)膨胀"
+        },
+        {
+          "word": "rich",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121276269,
+          "phonetic": "/ri:tʃ/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "a. 富裕的"
+        },
+        {
+          "word": "long",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121276269,
+          "phonetic": "/lɒŋ/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "a. 长的"
+        },
+        {
+          "word": "wing",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121276269,
+          "phonetic": "/wiŋ/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 翅膀"
+        },
+        {
+          "word": "drink",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121276269,
+          "phonetic": "/driŋk/",
+          "translationIds": [
+            "translation#2"
+          ],
+          "translation": "v. 喝"
+        },
+        {
+          "word": "chick",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789121276269,
+          "phonetic": "/tʃik/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 小鸡"
+        },
+        {
+          "word": "shop",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121276269,
+          "phonetic": "/ʃɒp/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 商店"
+        },
+        {
+          "word": "ring",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121276269,
+          "phonetic": "/riŋ/",
+          "translationIds": [
+            "translation#0",
+            "translation#3"
+          ],
+          "translation": "n. 环,戒指"
+        },
+        {
+          "word": "sing",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121276269,
+          "phonetic": "/siŋ/",
+          "translationIds": [
+            "translation#1"
+          ],
+          "translation": "v. 唱歌"
+        },
+        {
+          "word": "ship",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121276269,
+          "phonetic": "/ʃip/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 船"
+        },
+        {
+          "word": "link",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789121276269,
+          "phonetic": "/liŋk/",
+          "translationIds": [
+            "translation#2"
+          ],
+          "translation": "n. 链接"
+        },
+        {
+          "word": "hang",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789121276269,
+          "phonetic": "/hæŋ/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 悬挂"
+        },
+        {
+          "word": "chin",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789121276269,
+          "phonetic": "/tʃin/",
+          "translation": "n. 下巴, 颏"
+        },
+        {
+          "word": "bed",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789121276269,
+          "phonetic": "/bed/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 床"
+        }
+      ]
+    },
+    {
+      "id": "list_1788915489647",
+      "name": "Lingo",
+      "createdAt": 1788915489647,
       "words": []
     }
   ]

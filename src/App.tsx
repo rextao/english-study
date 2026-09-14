@@ -8,6 +8,8 @@ import { ImportPage } from './pages/ImportPage'
 import { ListsPage } from './pages/ListsPage'
 import { LibrariesPage } from './pages/LibrariesPage'
 import { StudyPage } from './pages/StudyPage'
+import { AchievementsPage } from './pages/AchievementsPage'
+import { LearningRecordsPage } from './pages/LearningRecordsPage'
 import './App.css'
 
 export default function App() {
@@ -19,6 +21,10 @@ export default function App() {
     hasCustomLabel,
     updateLabel,
     resetLabel,
+    getPrintLabelById,
+    hasCustomPrintLabel,
+    updatePrintLabel,
+    resetPrintLabel,
   } = useVocabLibraries()
   // 学习列表状态提到最外层，三个页面共用一份，避免切换 tab 后数据不同步
   const study = useStudyList()
@@ -84,6 +90,10 @@ export default function App() {
             hasCustomLabel={hasCustomLabel}
             onRename={updateLabel}
             onReset={resetLabel}
+            getPrintLabelById={getPrintLabelById}
+            hasCustomPrintLabel={hasCustomPrintLabel}
+            onRenamePrintLabel={updatePrintLabel}
+            onResetPrintLabel={resetPrintLabel}
             offline={labelsOffline}
           />
         )}
@@ -93,6 +103,22 @@ export default function App() {
             study={study}
             plan={plan}
             getLabelById={getLabelById}
+            getPrintLabelById={getPrintLabelById}
+          />
+        )}
+        {tab === 'achievements' && (
+          <AchievementsPage
+            libraries={libraries}
+            getLabelById={getLabelById}
+            study={study}
+            onManageRecords={() => setTab('records')}
+          />
+        )}
+        {tab === 'records' && (
+          <LearningRecordsPage
+            libraries={libraries}
+            getLabelById={getLabelById}
+            onBack={() => setTab('achievements')}
           />
         )}
       </main>

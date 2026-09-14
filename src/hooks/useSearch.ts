@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import type { VocabLibrary } from '../types/vocab'
 
 /** Returns the vocab library IDs that contain this exact word */
@@ -15,9 +15,9 @@ export function useVocabMatch(libraries: VocabLibrary[]) {
     return map
   }, [libraries])
 
-  function getSourceIds(word: string): string[] {
+  const getSourceIds = useCallback((word: string): string[] => {
     return wordMap.get(word.trim().toLowerCase()) ?? []
-  }
+  }, [wordMap])
 
   return { getSourceIds }
 }

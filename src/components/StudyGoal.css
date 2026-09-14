@@ -22,8 +22,15 @@
 
 .study-goal__title { font-size: 17px; font-weight: 600; }
 
-.study-goal__picker { width: 220px; flex-shrink: 0; }
-.study-goal__picker .field-label { display: block; margin-bottom: 4px; }
+.study-goal__picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.study-goal__picker .field-label { flex-shrink: 0; }
+.study-goal__picker .ui-select { width: 220px; }
 
 /* 达成度：左边一个大百分比，右边进度条 + 三段分解 */
 .study-goal__hero {
@@ -126,6 +133,7 @@
 
 @media (max-width: 640px) {
   .study-goal__picker { width: 100%; }
+  .study-goal__picker .ui-select { flex: 1; width: auto; }
   .study-goal__hero { gap: 14px; }
   .study-goal__percent { font-size: 34px; }
 }

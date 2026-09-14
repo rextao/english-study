@@ -9,3 +9,8 @@
 export function normalizeText(input) {
   return String(input ?? '').trim().replace(/\s+/g, ' ').toLowerCase()
 }
+
+/** 保留原有大小写地整理空白，并把第一个英文字母改成大写。 */
+export function capitalizeSentence(input) {
+  return String(input ?? '').trim().replace(/\s+/g, ' ').replace(/[A-Za-z]/, letter => letter.toUpperCase())
+}

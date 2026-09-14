@@ -79,6 +79,28 @@
 
 .lists-alert { margin-bottom: 12px; }
 
+.lists-toast {
+  position: fixed;
+  z-index: 70;
+  left: 50%;
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 10px 15px;
+  border-radius: var(--radius);
+  background: #27272a;
+  box-shadow: var(--shadow-lg);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.5;
+  transform: translateX(-50%);
+}
+
+.lists-toast__mark { color: #86efac; font-weight: 700; }
+
 /* 当前列表的标题与操作条 */
 .lists-toolbar {
   display: flex;
@@ -161,6 +183,21 @@
   gap: 8px;
 }
 
+.word-row__detail {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.word-row__translation {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 /* 词 + 音标同一基线，占满剩余宽度，把标签和按钮挤到右边 */
 .word-row__head {
   flex: 1;
@@ -200,18 +237,17 @@
   min-width: 0;
 }
 
-/* 词条下面那行释义：中文 + 挑中的英文释义 */
-.word-row__gloss {
-  margin: 0;
-  padding-right: 28px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--color-text-muted);
-}
-
 .word-row .ui-tag { flex-shrink: 0; }
 
-.word-row .ui-btn.word-row__pick { flex-shrink: 0; }
+/* 学习累计放在词条右下角，仅作为弱提示文字 */
+.word-row__stats {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+}
 
 /* 圆形小移除按钮，覆盖 ui-btn 的默认内边距 */
 .word-row .ui-btn.word-row__remove {
@@ -240,4 +276,5 @@
   .lists-select { flex-wrap: wrap; gap: 8px; }
   .word-rows { margin: 0 -8px; }
   .ui-btn.word-row__remove { opacity: 1; }
+  .lists-toast { bottom: 16px; }
 }

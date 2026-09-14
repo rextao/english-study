@@ -2,9 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { useVocabMatch } from '../hooks/useSearch'
 import { useDictPrefetch } from '../hooks/useDictPrefetch'
 import type { StudyListApi, ImportItem } from '../hooks/useStudyList'
-import type { VocabLibrary } from '../types/vocab'
+import type { DictionaryEntry, VocabLibrary } from '../types/vocab'
+import {
+  formatTranslationOptions, selectedTranslationOptions,
+  translationOptions, translationPosLabel,
+} from '../utils/translations'
 import { PageHeader } from '../components/PageHeader'
-import { Button, Checkbox, Input, Select, Tag, TextArea } from '../ui'
+import { Button, Checkbox, Input, Modal, Select, Tag, TextArea } from '../ui'
 import type { SelectOption } from '../ui'
 import './ImportPage.css'
 
@@ -14,10 +18,17 @@ const ANY_LIB   = '__any__'
 
 /** 预览最多渲染多少行，避免粘贴几千行时卡住 */
 const PREVIEW_LIMIT = 200
+/** 与服务端单次批量查询上限一致；超过时自动分批，用户仍只操作一次。 */
+const SEARCH_BATCH_SIZE = 200
+const MAX_PICKED_TRANSLATIONS = 12
+
+const SERVER = 'http://127.0.0.1:3456'
 
 type RowState = 'keep' | 'filtered' | 'dup-text' | 'dup-list'
 
 interface Row {
+  /** 在原始输入中的行号，用于导入后只移除真正成功的那一次输入 */
+  inputIndex: number
   raw: string
   key: string
   type: 'word' | 'sentence'
@@ -35,9 +46,20 @@ interface FilterTag {
   count?: number
 }
 
+interface BatchSearchResult {
+  word: string
+  ok: boolean
+  entry?: DictionaryEntry
+  error?: { message?: string }
+}
+
 /** 与服务端保持一致的归一化规则：去首尾空白 + 压缩空白 + 小写 */
 function normalize(input: string): string {
   return input.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+function capitalizeSentence(input: string): string {
+  return input.trim().replace(/\s+/g, ' ').replace(/[A-Za-z]/, letter => letter.toUpperCase())
 }
 
 /** 把句子拆成单词，用来判断句子里有没有某个词库的词 */
@@ -88,12 +110,19 @@ export function ImportPage({ libraries, getLabelById, study }: ImportPageProps) 
   const [newListName, setNewListName]   = useState('')
   const [creating, setCreating]         = useState(false)
   const [importing, setImporting]       = useState(false)
-  const [result, setResult]             = useState<{ added: number; skipped: number; queued: number } | null>(null)
+  const [result, setResult]             = useState<{ added: number; skipped: number; queued: number; suspect: number } | null>(null)
   const [error, setError]               = useState('')
   const [existing, setExisting]         = useState<Set<string>>(new Set())
   const [reloadToken, setReloadToken]   = useState(0)
+  const [pickerRows, setPickerRows]     = useState<Row[]>([])
+  const [pickerEntries, setPickerEntries] = useState<Map<string, DictionaryEntry>>(new Map())
+  const [pickerErrors, setPickerErrors]   = useState<Map<string, string>>(new Map())
+  const [pickerSelected, setPickerSelected] = useState<Map<string, string[]>>(new Map())
+  const [pickerTargetList, setPickerTargetList] = useState('default')
+  const [pickerOpen, setPickerOpen]     = useState(false)
+  const [pickerSaving, setPickerSaving] = useState(false)
 
-  // 导入接口是立即返回的，音标 / 释义在服务端后台补，这里只盯进度
+  // 导入接口立即返回；中文已在查询阶段确定，这里只盯后台补音标的进度。
   const prefetch = useDictPrefetch()
 
   // 目标列表已有的词条，用于预览时标出「列表已有」
@@ -121,11 +150,10 @@ export function ImportPage({ libraries, getLabelById, study }: ImportPageProps) 
     return Array.from(ids)
   }
 
-  // getSourceIds 内部的索引只依赖 libraries，所以这里跟 libraries 走
   const rows = useMemo<Row[]>(() => {
     const seen = new Set<string>()
     const out: Row[] = []
-    for (const line of text.split('\n')) {
+    for (const [inputIndex, line] of text.split('\n').entries()) {
       const key = normalize(line)
       if (!key) continue
       const sourceIds = getSourceIds(key)
@@ -146,11 +174,11 @@ export function ImportPage({ libraries, getLabelById, study }: ImportPageProps) 
       if (state === 'keep' && existing.has(key)) state = 'dup-list'
 
       seen.add(key)
-      out.push({ raw: line.trim(), key, type, sourceIds, hitIds, state })
+      const raw = type === 'sentence' ? capitalizeSentence(line) : line.trim()
+      out.push({ inputIndex, raw, key, type, sourceIds, hitIds, state })
     }
     return out
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text, filterLibId, keepSentences, existing, libraries])
+  }, [text, filterLibId, keepSentences, existing, getSourceIds])
 
   const stats = useMemo(() => {
     let keep = 0, filtered = 0, dup = 0, sentences = 0
@@ -179,28 +207,154 @@ export function ImportPage({ libraries, getLabelById, study }: ImportPageProps) 
     setCreating(false)
   }
 
+  /** 批量执行与首页一致的完整查词链路；单项失败不会阻塞其他项目。 */
+  async function loadTranslationEntries(targetRows: Row[]) {
+    const words = targetRows.map(row => row.type === 'sentence' ? row.raw : row.key)
+    const next = new Map<string, DictionaryEntry>()
+    const errors = new Map<string, string>()
+    for (let start = 0; start < words.length; start += SEARCH_BATCH_SIZE) {
+      const response = await fetch(SERVER + '/api/dict/search-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ words: words.slice(start, start + SEARCH_BATCH_SIZE) }),
+      })
+      if (!response.ok) throw new Error('词义批量查询失败')
+      const batch = await response.json() as { results?: BatchSearchResult[] }
+      for (const result of batch.results ?? []) {
+        const key = normalize(result.word)
+        if (result.entry) next.set(key, result.entry)
+        if (!result.ok) errors.set(key, result.error?.message || '未获取到中文翻译')
+      }
+    }
+    return { entries: next, errors }
+  }
+
+  function openTranslationPicker(
+    targetRows: Row[], entries: Map<string, DictionaryEntry>, errors: Map<string, string>,
+  ) {
+    const selected = new Map<string, string[]>()
+    for (const row of targetRows) {
+      const choices = translationOptions(entries.get(row.key)?.translations ?? [])
+      selected.set(row.key, row.type === 'sentence' && choices.length === 1 ? [choices[0].id] : [])
+    }
+    setPickerRows(targetRows)
+    setPickerEntries(entries)
+    setPickerErrors(errors)
+    setPickerSelected(selected)
+    setPickerTargetList(targetList)
+    setPickerOpen(true)
+  }
+
+  function toggleTranslation(word: string, id: string) {
+    setPickerSelected(prev => {
+      const next = new Map(prev)
+      const current = next.get(word) ?? []
+      if (current.includes(id)) next.set(word, current.filter(item => item !== id))
+      else if (current.length < MAX_PICKED_TRANSLATIONS) next.set(word, current.concat(id))
+      return next
+    })
+  }
+
+  function toggleAllTranslations(word: string, entry?: DictionaryEntry) {
+    const available = translationOptions(entry?.translations ?? []).slice(0, MAX_PICKED_TRANSLATIONS)
+    setPickerSelected(prev => {
+      const next = new Map(prev)
+      const current = next.get(word) ?? []
+      const allSelected = available.length > 0 && available.every(item => current.includes(item.id))
+      next.set(word, allSelected ? [] : available.map(item => item.id))
+      return next
+    })
+  }
+
+  function isSpellingSuspect(row: Row, entry?: DictionaryEntry): boolean {
+    return !/\s/.test(row.key)
+      && row.sourceIds.length === 0
+      && entry?.spellingStatus === 'suspect'
+  }
+
   async function handleImport() {
     if (stats.keep === 0) return
     setImporting(true)
     setResult(null)
     setError('')
-    const items: ImportItem[] = rows
-      .filter(r => r.state === 'keep')
-      .map(r => ({ text: r.raw, sourceIds: r.sourceIds }))
-    const res = await importItems(targetList, items)
-    if (res) {
-      setResult(res)
-      setText('')
-      setReloadToken(t => t + 1)
-      if (res.queued > 0) prefetch.watch()
-    } else {
-      setError('导入失败，请确认本地服务已启动（npm run dev:all）')
+    try {
+      const targetRows = rows.filter(r => r.state === 'keep')
+      const { entries, errors } = await loadTranslationEntries(targetRows)
+      openTranslationPicker(targetRows, entries, errors)
+    } catch {
+      setError('词义查询失败，请确认本地服务已启动（npm run dev:all）')
     }
     setImporting(false)
   }
 
+  async function confirmImport() {
+    if (pickerRows.length === 0) return
+    setPickerSaving(true)
+    const candidates: { row: Row; item: ImportItem }[] = pickerRows.flatMap(row => {
+      const entry = pickerEntries.get(row.key)
+      if (!entry || pickerErrors.has(row.key) || !entry.translation || isSpellingSuspect(row, entry)) return []
+      const translationIds = pickerSelected.get(row.key) ?? []
+      const selected = formatTranslationOptions(
+        selectedTranslationOptions(entry.translations ?? [], translationIds),
+      )
+      return [{
+        row,
+        item: {
+          text: row.raw,
+          sourceIds: row.sourceIds,
+          phonetic: entry.phonetic,
+          translationIds,
+          translation: selected || entry.translation,
+        },
+      }]
+    })
+    if (candidates.length === 0) {
+      setError('没有成功获取中文词义的项目，暂时无法导入')
+      setPickerSaving(false)
+      return
+    }
+
+    // 弹窗打开后列表可能已在别处发生变化；提交前再确认一次，已有项不提交并继续留在输入框。
+    const latestItems = await fetchListWords(pickerTargetList)
+    const latestKeys = new Set(latestItems.map(item => normalize(item.word)))
+    const pendingCandidates = candidates.filter(({ row }) => !latestKeys.has(row.key))
+    const alreadyExistingCount = candidates.length - pendingCandidates.length
+    const res = pendingCandidates.length > 0
+      ? await importItems(pickerTargetList, pendingCandidates.map(({ item }) => item))
+      : { added: 0, skipped: 0, queued: 0 }
+    if (res) {
+      const suspect = pickerRows.filter(row => isSpellingSuspect(row, pickerEntries.get(row.key))).length
+      setResult({ ...res, skipped: res.skipped + alreadyExistingCount, suspect })
+
+      // 服务端按提交顺序处理；正常情况下 pendingCandidates 都会成功。若并发产生跳过，
+      // 只按返回的 added 数量移除前面的成功项，其余输入（含重复、筛选项和查询失败项）全部保留。
+      const addedInputIndexes = new Set(
+        pendingCandidates.slice(0, res.added).map(({ row }) => row.inputIndex),
+      )
+      setText(rows
+        .filter(row => !addedInputIndexes.has(row.inputIndex))
+        .map(row => row.raw)
+        .join('\n'))
+      setReloadToken(t => t + 1)
+      if (res.queued > 0) prefetch.watch()
+      setPickerOpen(false)
+    } else {
+      setError('导入失败，请确认本地服务已启动（npm run dev:all）')
+    }
+    setPickerSaving(false)
+  }
+
   const filterActive = filterLibId !== NO_FILTER
   const shown = rows.slice(0, PREVIEW_LIMIT)
+  const pickerImportableCount = pickerRows.filter(row => (
+    !pickerErrors.has(row.key)
+    && Boolean(pickerEntries.get(row.key)?.translation)
+    && !isSpellingSuspect(row, pickerEntries.get(row.key))
+  )).length
+  const pickerSuspectCount = pickerRows.filter(row => (
+    isSpellingSuspect(row, pickerEntries.get(row.key))
+  )).length
+  const pickerFailedCount = pickerRows.length - pickerImportableCount - pickerSuspectCount
 
   const filterTags: FilterTag[] = [
     { value: NO_FILTER, label: '全部', title: '不筛选，粘贴的内容全部导入' },
@@ -333,19 +487,20 @@ export function ImportPage({ libraries, getLabelById, study }: ImportPageProps) 
               loading={importing}
               onClick={handleImport}
             >
-              {importing ? '导入中...' : '导入 ' + stats.keep + ' 条'}
+              {importing ? '查询中...' : '查询 ' + stats.keep + ' 条'}
             </Button>
             {result && (
               <div className="callout callout--success import-actions__msg">
                 ✓ 成功导入 <strong>{result.added}</strong> 条，跳过重复 <strong>{result.skipped}</strong> 条
-                {result.queued > 0 && <> · 音标和释义正在后台补齐</>}
+                {result.suspect > 0 && <> · 疑似错误 <strong>{result.suspect}</strong> 条未导入</>}
+                {result.queued > 0 && <> · 缺失音标正在后台补齐</>}
               </div>
             )}
             {prefetch.busy && (
               <div className="callout callout--warn import-actions__msg">
                 {prefetch.state.total > 0
-                  ? '正在补齐音标和释义 ' + prefetch.state.done + '/' + prefetch.state.total
-                  : '正在补齐音标和释义...'}
+                  ? '正在补齐音标 ' + prefetch.state.done + '/' + prefetch.state.total
+                  : '正在补齐音标...'}
                 {prefetch.state.failed > 0 && <> · 失败 {prefetch.state.failed} 条</>}
               </div>
             )}
@@ -379,6 +534,93 @@ export function ImportPage({ libraries, getLabelById, study }: ImportPageProps) 
           )}
         </div>
       </div>
+
+      {pickerOpen && (
+        <Modal
+          open
+          width="wide"
+          title="选择要背的中文词义"
+          description={'导入到「' + (lists.find(list => list.id === pickerTargetList)?.name ?? pickerTargetList)
+            + '」；查询成功 ' + pickerImportableCount + ' 条'
+            + (pickerSuspectCount > 0 ? '，疑似错误 ' + pickerSuspectCount + ' 条默认不导入' : '')
+            + (pickerFailedCount > 0 ? '，查询失败 ' + pickerFailedCount + ' 条将保留以便重试' : '')}
+          onClose={() => setPickerOpen(false)}
+          footer={
+            <div className="import-translation-picker__footer">
+              <span className="hint">每个词最多选择 {MAX_PICKED_TRANSLATIONS} 条</span>
+              <div className="import-translation-picker__buttons">
+                <Button size="small" onClick={() => setPickerOpen(false)}>取消</Button>
+                <Button type="primary" size="small" loading={pickerSaving} disabled={pickerImportableCount === 0} onClick={() => { void confirmImport() }}>
+                  确认导入 {pickerImportableCount} 条
+                </Button>
+              </div>
+            </div>
+          }
+        >
+          <div className="import-translation-picker">
+            {pickerRows.map(row => {
+              const entry = pickerEntries.get(row.key)
+              const translations = entry?.translations ?? []
+              const selected = pickerSelected.get(row.key) ?? []
+              const failed = pickerErrors.get(row.key)
+              const spellingSuspect = isSpellingSuspect(row, entry)
+              const available = translationOptions(translations).slice(0, MAX_PICKED_TRANSLATIONS)
+              const allSelected = available.length > 0 && available.every(item => selected.includes(item.id))
+              return (
+                <div className="import-translation-row" key={row.key}>
+                  <div className="import-translation-row__word">
+                    <span>{row.raw}</span>
+                    {row.type === 'sentence' && <Tag color="default">句子</Tag>}
+                    {spellingSuspect && <Tag color="gold">疑似错误</Tag>}
+                    {row.type === 'word' && entry?.phonetic && <span className="import-translation-row__phonetic">{entry.phonetic}</span>}
+                    {!failed && !spellingSuspect && available.length > 0 && (
+                      <Button type="link" size="small" className="import-translation-row__select-all" onClick={() => toggleAllTranslations(row.key, entry)}>
+                        {allSelected ? '取消全选' : '全选'}
+                      </Button>
+                    )}
+                  </div>
+                  {spellingSuspect ? (
+                    <span className="import-translation-row__suspect">可能拼写错误：本地词典、免费词典和词库均未命中，本条默认不导入</span>
+                  ) : failed ? (
+                    <span className="import-translation-row__error">查询失败：{failed}，本条不会导入</span>
+                  ) : translations.length > 0 ? (
+                    <div className="import-translation-row__groups">
+                      {(() => {
+                        const groups = new Map<string, ReturnType<typeof translationOptions>>()
+                        for (const item of translationOptions(translations)) {
+                          const key = item.pos ?? ''
+                          const group = groups.get(key) ?? []
+                          group.push(item)
+                          groups.set(key, group)
+                        }
+                        return Array.from(groups.entries()).map(([pos, items]) => (
+                          <div className="import-translation-row__group" key={pos || 'other'}>
+                            {pos && <span className="import-translation-row__pos">{translationPosLabel(pos)}</span>}
+                            <div className="import-translation-row__choices">
+                              {items.map(item => (
+                                <Checkbox
+                                  key={item.id}
+                                  checked={selected.includes(item.id)}
+                                  disabled={!selected.includes(item.id) && selected.length >= MAX_PICKED_TRANSLATIONS}
+                                  onChange={() => toggleTranslation(row.key, item.id)}
+                                >
+                                  {item.text}
+                                </Checkbox>
+                              ))}
+                            </div>
+                          </div>
+                        ))
+                      })()}
+                    </div>
+                  ) : (
+                    <span className="import-translation-row__error">未获取到中文词义，本条不会导入</span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

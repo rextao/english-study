@@ -1,9 +1,20 @@
 node_modules/
 dist/
 
+# 本地环境变量（包含 API Key），不要提交
+.env
+.env.*
+!.env.example
+
 # ECDICT 原始数据与编译产物：csv 约 200MB，索引十几 MB，都不进 git
 # 换台机器跑 npm run ecdict:fetch 重新装
 data/
 
 .DS_Store
 .idea/
+
+# 本机永久学习历史及删除前自动备份
+cache/*.sqlite
+cache/*.sqlite-wal
+cache/*.sqlite-shm
+cache/backups/

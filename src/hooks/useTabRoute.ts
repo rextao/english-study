@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { TabKey } from '../components/Nav'
 
-const TAB_KEYS: TabKey[] = ['search', 'import', 'lists', 'libraries', 'study']
+const TAB_KEYS: TabKey[] = ['search', 'import', 'lists', 'libraries', 'achievements', 'records', 'study']
 const DEFAULT_TAB: TabKey = 'search'
 
 /** 从 #/lists 这种 hash 里取出页面名，认不出来就回落到查词页 */

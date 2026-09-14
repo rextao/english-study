@@ -3,25 +3,27 @@ import type { VocabLibrary, VocabLibraryInfo } from '../types/vocab'
 
 const SERVER = 'http://127.0.0.1:3456'
 const LABELS_URL = SERVER + '/api/vocab-labels'
+const PRINT_LABELS_URL = SERVER + '/api/vocab-print-labels'
 /** 本地服务没起时的兜底；服务可用时也镜像一份，下次离线还能看到自定义标签 */
 const MIRROR_KEY = 'vocab-labels'
+const PRINT_MIRROR_KEY = 'vocab-print-labels'
 
 type LabelMap = Record<string, string>
 
 export type UpdateLabelResult = { ok: true } | { ok: false; error: string }
 
-function readMirror(): LabelMap {
+function readMirror(key: string): LabelMap {
   try {
-    const parsed = JSON.parse(localStorage.getItem(MIRROR_KEY) ?? '{}')
+    const parsed = JSON.parse(localStorage.getItem(key) ?? '{}')
     return parsed && typeof parsed === 'object' ? (parsed as LabelMap) : {}
   } catch {
     return {}
   }
 }
 
-function writeMirror(labels: LabelMap) {
+function writeMirror(key: string, labels: LabelMap) {
   try {
-    localStorage.setItem(MIRROR_KEY, JSON.stringify(labels))
+    localStorage.setItem(key, JSON.stringify(labels))
   } catch {
     // 隐私模式下写不了，忽略
   }
@@ -47,6 +49,7 @@ export type VocabLibrariesApi = ReturnType<typeof useVocabLibraries>
 export function useVocabLibraries() {
   const [libraries, setLibraries] = useState<VocabLibraryInfo[]>([])
   const [labels, setLabels]       = useState<LabelMap>({})
+  const [printLabels, setPrintLabels] = useState<LabelMap>({})
   const [loading, setLoading]     = useState(true)
   const [offline, setOffline]     = useState(false)
 
@@ -55,11 +58,13 @@ export function useVocabLibraries() {
     let alive = true
 
     async function load() {
-      const mirror = readMirror()
+      const mirror = readMirror(MIRROR_KEY)
+      const printMirror = readMirror(PRINT_MIRROR_KEY)
       try {
         const res  = await fetch(LABELS_URL)
-        const data = (await res.json()) as { labels?: LabelMap }
+        const data = (await res.json()) as { labels?: LabelMap; printLabels?: LabelMap }
         let next = data.labels ?? {}
+        let nextPrint = data.printLabels ?? {}
         // 迁移：浏览器里有、服务端没有的标签推上去；两边都有时以服务端为准
         const missing = Object.fromEntries(
           Object.entries(mirror).filter(([id]) => next[id] == null),
@@ -68,13 +73,23 @@ export function useVocabLibraries() {
           await fetch(LABELS_URL, jsonInit('POST', { labels: missing }))
           next = { ...next, ...missing }
         }
+        const missingPrint = Object.fromEntries(
+          Object.entries(printMirror).filter(([id]) => nextPrint[id] == null),
+        )
+        if (Object.keys(missingPrint).length > 0) {
+          await fetch(PRINT_LABELS_URL, jsonInit('POST', { printLabels: missingPrint }))
+          nextPrint = { ...nextPrint, ...missingPrint }
+        }
         if (!alive) return
         setLabels(next)
-        writeMirror(next)
+        setPrintLabels(nextPrint)
+        writeMirror(MIRROR_KEY, next)
+        writeMirror(PRINT_MIRROR_KEY, nextPrint)
       } catch {
         if (!alive) return
         setOffline(true)
         setLabels(mirror)
+        setPrintLabels(printMirror)
       }
       if (alive) setLoading(false)
     }
@@ -86,13 +101,18 @@ export function useVocabLibraries() {
   /** 没改过标签就回落到词库 id */
   const getLabelById   = useCallback((id: string) => labels[id] ?? id, [labels])
   const hasCustomLabel = useCallback((id: string) => labels[id] != null, [labels])
+  const getPrintLabelById = useCallback(
+    (id: string) => printLabels[id] ?? labels[id] ?? id,
+    [labels, printLabels],
+  )
+  const hasCustomPrintLabel = useCallback((id: string) => printLabels[id] != null, [printLabels])
 
   const applyLocally = useCallback((id: string, label: string | null) => {
     setLabels(prev => {
       const next = { ...prev }
       if (label == null) delete next[id]
       else next[id] = label
-      writeMirror(next)
+      writeMirror(MIRROR_KEY, next)
       return next
     })
   }, [])
@@ -125,5 +145,44 @@ export function useVocabLibraries() {
     applyLocally(id, null)
   }, [applyLocally])
 
-  return { libraries, labels, loading, offline, getLabelById, hasCustomLabel, updateLabel, resetLabel }
+  const applyPrintLocally = useCallback((id: string, label: string | null) => {
+    setPrintLabels(prev => {
+      const next = { ...prev }
+      if (label == null) delete next[id]
+      else next[id] = label
+      writeMirror(PRINT_MIRROR_KEY, next)
+      return next
+    })
+  }, [])
+
+  const updatePrintLabel = useCallback(async (id: string, label: string): Promise<UpdateLabelResult> => {
+    const value = label.trim()
+    if (!value) return { ok: false, error: '打印标签不能为空' }
+    try {
+      const res = await fetch(PRINT_LABELS_URL + '/' + encodeURIComponent(id), jsonInit('PATCH', { label: value }))
+      const data = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null
+      if (!res.ok || data?.ok !== true) return { ok: false, error: data?.error ?? '保存失败' }
+      setOffline(false)
+    } catch {
+      setOffline(true)
+    }
+    applyPrintLocally(id, value)
+    return { ok: true }
+  }, [applyPrintLocally])
+
+  const resetPrintLabel = useCallback(async (id: string) => {
+    try {
+      await fetch(PRINT_LABELS_URL + '/' + encodeURIComponent(id), { method: 'DELETE' })
+      setOffline(false)
+    } catch {
+      setOffline(true)
+    }
+    applyPrintLocally(id, null)
+  }, [applyPrintLocally])
+
+  return {
+    libraries, labels, printLabels, loading, offline,
+    getLabelById, hasCustomLabel, updateLabel, resetLabel,
+    getPrintLabelById, hasCustomPrintLabel, updatePrintLabel, resetPrintLabel,
+  }
 }
