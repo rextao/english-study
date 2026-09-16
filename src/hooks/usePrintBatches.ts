@@ -18,8 +18,6 @@ export interface PrintRecordInput {
 
 export interface PrintReviewOptions {
   scope?: StudyMarkScope
-  /** 这一周的最后一毫秒；不传服务端按 scope 自己算 */
-  through?: number
   /** 批次内每个词独立的复习任务幂等键。 */
   requestIds?: Record<string, string>
 }
@@ -92,7 +90,6 @@ export function usePrintBatches() {
     const res = await send(BASE + '/' + encodeURIComponent(id) + '/review', 'POST', {
       action,
       scope: options?.scope,
-      through: options?.through,
       requestIds: options?.requestIds,
     })
     if (res.ok) await refresh()

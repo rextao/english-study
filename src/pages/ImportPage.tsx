@@ -4,7 +4,7 @@ import { useDictPrefetch } from '../hooks/useDictPrefetch'
 import type { StudyListApi, ImportItem } from '../hooks/useStudyList'
 import type { DictionaryEntry, VocabLibrary } from '../types/vocab'
 import {
-  formatTranslationOptions, selectedTranslationOptions,
+  formatTranslationWithCustom, selectedTranslationOptions,
   translationOptions, translationPosLabel,
 } from '../utils/translations'
 import { PageHeader } from '../components/PageHeader'
@@ -21,6 +21,8 @@ const PREVIEW_LIMIT = 200
 /** 与服务端单次批量查询上限一致；超过时自动分批，用户仍只操作一次。 */
 const SEARCH_BATCH_SIZE = 200
 const MAX_PICKED_TRANSLATIONS = 12
+/** 与服务端 MAX_CUSTOM_TRANSLATIONS 一致：一个词最多 6 条自定义词义 */
+const MAX_CUSTOM_TRANSLATIONS = 6
 
 const SERVER = 'http://127.0.0.1:3456'
 
@@ -121,6 +123,8 @@ export function ImportPage({ libraries, getLabelById, study }: ImportPageProps) 
   const [pickerTargetList, setPickerTargetList] = useState('default')
   const [pickerOpen, setPickerOpen]     = useState(false)
   const [pickerSaving, setPickerSaving] = useState(false)
+  const [pickerCustoms, setPickerCustoms] = useState<Map<string, string[]>>(new Map())
+  const [pickerCustomDraft, setPickerCustomDraft] = useState<Map<string, string>>(new Map())
 
   // 导入接口立即返回；中文已在查询阶段确定，这里只盯后台补音标的进度。
   const prefetch = useDictPrefetch()
@@ -241,6 +245,8 @@ export function ImportPage({ libraries, getLabelById, study }: ImportPageProps) 
     setPickerEntries(entries)
     setPickerErrors(errors)
     setPickerSelected(selected)
+    setPickerCustoms(new Map())
+    setPickerCustomDraft(new Map())
     setPickerTargetList(targetList)
     setPickerOpen(true)
   }
@@ -262,6 +268,44 @@ export function ImportPage({ libraries, getLabelById, study }: ImportPageProps) 
       const current = next.get(word) ?? []
       const allSelected = available.length > 0 && available.every(item => current.includes(item.id))
       next.set(word, allSelected ? [] : available.map(item => item.id))
+      return next
+    })
+  }
+
+  function customDraftOf(word: string): string {
+    return pickerCustomDraft.get(word) ?? ''
+  }
+
+  function setCustomDraft(word: string, value: string) {
+    setPickerCustomDraft(prev => {
+      const next = new Map(prev)
+      next.set(word, value)
+      return next
+    })
+  }
+
+  function addCustomTranslation(word: string) {
+    const text = (pickerCustomDraft.get(word) ?? '').trim()
+    if (!text) return
+    setPickerCustoms(prev => {
+      const current = prev.get(word) ?? []
+      if (current.includes(text) || current.length >= MAX_CUSTOM_TRANSLATIONS) return prev
+      const next = new Map(prev)
+      next.set(word, current.concat(text))
+      return next
+    })
+    setPickerCustomDraft(prev => {
+      const next = new Map(prev)
+      next.set(word, '')
+      return next
+    })
+  }
+
+  function removeCustomTranslation(word: string, index: number) {
+    setPickerCustoms(prev => {
+      const current = prev.get(word) ?? []
+      const next = new Map(prev)
+      next.set(word, current.filter((_, i) => i !== index))
       return next
     })
   }
@@ -292,11 +336,15 @@ export function ImportPage({ libraries, getLabelById, study }: ImportPageProps) 
     setPickerSaving(true)
     const candidates: { row: Row; item: ImportItem }[] = pickerRows.flatMap(row => {
       const entry = pickerEntries.get(row.key)
-      if (!entry || pickerErrors.has(row.key) || !entry.translation || isSpellingSuspect(row, entry)) return []
+      if (!entry || pickerErrors.has(row.key) || isSpellingSuspect(row, entry)) return []
+      const customs = pickerCustoms.get(row.key) ?? []
+      // 词典没有中文但用户自己填了词义，也允许导入；否则保持「缺中文不导入」
+      if (!entry.translation && customs.length === 0) return []
       const translationIds = pickerSelected.get(row.key) ?? []
-      const selected = formatTranslationOptions(
+      const translation = formatTranslationWithCustom(
         selectedTranslationOptions(entry.translations ?? [], translationIds),
-      )
+        customs,
+      ) || entry.translation
       return [{
         row,
         item: {
@@ -304,7 +352,8 @@ export function ImportPage({ libraries, getLabelById, study }: ImportPageProps) 
           sourceIds: row.sourceIds,
           phonetic: entry.phonetic,
           translationIds,
-          translation: selected || entry.translation,
+          translation,
+          customTranslations: customs.length > 0 ? customs : undefined,
         },
       }]
     })
@@ -348,8 +397,9 @@ export function ImportPage({ libraries, getLabelById, study }: ImportPageProps) 
   const shown = rows.slice(0, PREVIEW_LIMIT)
   const pickerImportableCount = pickerRows.filter(row => (
     !pickerErrors.has(row.key)
-    && Boolean(pickerEntries.get(row.key)?.translation)
     && !isSpellingSuspect(row, pickerEntries.get(row.key))
+    && (Boolean(pickerEntries.get(row.key)?.translation)
+      || (pickerCustoms.get(row.key) ?? []).length > 0)
   )).length
   const pickerSuspectCount = pickerRows.filter(row => (
     isSpellingSuspect(row, pickerEntries.get(row.key))
@@ -613,7 +663,42 @@ export function ImportPage({ libraries, getLabelById, study }: ImportPageProps) 
                       })()}
                     </div>
                   ) : (
-                    <span className="import-translation-row__error">未获取到中文词义，本条不会导入</span>
+                    <span className="import-translation-row__error">未获取到中文词义；可在下面自定义，否则本条不会导入</span>
+                  )}
+
+                  {!spellingSuspect && !failed && (
+                    <div className="import-translation-row__custom">
+                      {(pickerCustoms.get(row.key) ?? []).map((text, index) => (
+                        <Tag
+                          key={index}
+                          color="green"
+                          title="点击移除这条自定义词义"
+                          onClick={() => removeCustomTranslation(row.key, index)}
+                        >
+                          {text}
+                        </Tag>
+                      ))}
+                      <span className="import-translation-row__custom-input">
+                        <Input
+                          size="small"
+                          value={customDraftOf(row.key)}
+                          placeholder="自定义词义：词典里没有的也能自己加"
+                          maxLength={60}
+                          onChange={e => setCustomDraft(row.key, e.target.value)}
+                          onPressEnter={() => addCustomTranslation(row.key)}
+                        />
+                        <Button
+                          size="small"
+                          disabled={
+                            !customDraftOf(row.key).trim()
+                            || (pickerCustoms.get(row.key) ?? []).length >= MAX_CUSTOM_TRANSLATIONS
+                          }
+                          onClick={() => addCustomTranslation(row.key)}
+                        >
+                          添加
+                        </Button>
+                      </span>
+                    </div>
                   )}
                 </div>
               )

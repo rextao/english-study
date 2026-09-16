@@ -15,6 +15,21 @@ function displayTextOf(item: StudyWordItem): string {
     : item.word
 }
 
+/** 词条加入时间 → 自然日串，形如 2026-09-15（本地时区） */
+const batchKeyOf = (ts: number) => {
+  const d = new Date(ts)
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return d.getFullYear() + '-' + mm + '-' + dd
+}
+
+/** 批次默认标题：同年显示月日，跨年补年份 */
+function batchTitle(key: string): string {
+  const [y, m, d] = key.split('-').map(Number)
+  const sameYear = y === new Date().getFullYear()
+  return sameYear ? m + ' 月 ' + d + ' 日' : y + ' 年 ' + m + ' 月 ' + d + ' 日'
+}
+
 interface ListsPageProps {
   getLabelById: (id: string) => string
   study: StudyListApi
@@ -23,7 +38,7 @@ interface ListsPageProps {
 export function ListsPage({ getLabelById, study }: ListsPageProps) {
   const {
     lists, loading, createList, renameList, deleteList,
-    fetchListWords, removeItem, removeItems,
+    fetchListWords, removeItem, removeItems, fetchBatches, renameBatch,
   } = study
 
   const [selectedId, setSelectedId]     = useState(DEFAULT_LIST_ID)
@@ -41,6 +56,14 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
   const [selectMode, setSelectMode]     = useState(false)
   const [selected, setSelected]         = useState<Set<string>>(new Set())
   const [removing, setRemoving]         = useState(false)
+
+  // 批次展示：默认关闭保持平铺；batchNames 是各日期的显示名（可重命名）
+  const [showBatches, setShowBatches]   = useState(false)
+  const [batchNames, setBatchNames]     = useState<Record<string, string>>({})
+  const [editingBatch, setEditingBatch] = useState<string | null>(null)
+  const [batchDraft, setBatchDraft]     = useState('')
+  // 已折叠的批次（日期串集合），点批次标题切换
+  const [collapsed, setCollapsed]       = useState<Set<string>>(new Set())
 
   // 选中的列表被删掉后回退到默认列表
   useEffect(() => {
@@ -61,8 +84,16 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
       setWords(items)
       setWordsLoading(false)
     })
+    // 词条一起拉批次显示名
+    fetchBatches(selectedId).then(names => {
+      if (!alive) return
+      setBatchNames(names)
+      setEditingBatch(null)
+      setBatchDraft('')
+      setCollapsed(new Set())
+    })
     return () => { alive = false }
-  }, [selectedId, fetchListWords])
+  }, [selectedId, fetchListWords, fetchBatches])
 
   // 删除成功只做短暂提示，不占用页面内容区域。
   useEffect(() => {
@@ -81,6 +112,18 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
       w.word.toLowerCase().includes(k) || displayTextOf(w).toLowerCase().includes(k)
     )) : sorted
   }, [words, keyword])
+
+  // 按导入日期分成批次：新日期在上，组内保持原来排序
+  const visibleBatches = useMemo(() => {
+    const groups = new Map<string, StudyWordItem[]>()
+    for (const item of visibleWords) {
+      const key = batchKeyOf(item.addedAt)
+      const bucket = groups.get(key)
+      if (bucket) bucket.push(item)
+      else groups.set(key, [item])
+    }
+    return Array.from(groups.entries())
+  }, [visibleWords])
 
   // 选中项以列表里真实存在的词条为准：某个词被别处删掉后这里自动跟着消失
   const selectedWords = useMemo(
@@ -147,6 +190,99 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
   function toggleSelectMode() {
     setSelected(new Set())
     setSelectMode(prev => !prev)
+  }
+
+  /** 进入批次重命名编辑态：草稿默认填当前显示名（自定义名或日期本身） */
+  function startBatchEdit(key: string) {
+    setEditingBatch(key)
+    setBatchDraft(batchNames[key] ?? batchTitle(key))
+  }
+
+  /** 提交批次重命名：没变就静默退出；清空 = 还原为最初的日期名称 */
+  async function handleBatchEdit() {
+    const key = editingBatch
+    setEditingBatch(null)
+    if (!key) return
+    const name = batchDraft.trim()
+    const original = batchNames[key] ?? batchTitle(key)
+    if (name === original) return
+    setError('')
+    // 空名由服务端还原为日期；传原名外的新名才是自定义名
+    const updated = await renameBatch(selectedId, key, name)
+    if (updated == null) { setError('批次重命名失败，请确认本地服务已启动'); return }
+    setBatchNames(updated)
+  }
+
+  /** 点批次标题切换折叠；编辑重命名时不响应 */
+  function toggleCollapsed(key: string) {
+    if (editingBatch === key) return
+    setCollapsed(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  function renderRow(item: StudyWordItem) {
+    const entry = dict.getEntry(item.word)
+    const translation = selectedTranslation(item)
+    const phonetic = item.phonetic || entry?.phonetic
+    // 词 + 音标；多选模式下把它塞进勾选框的 label，点词本身也能勾上
+    const head = (
+      <>
+        <span className="word-row__text">{displayTextOf(item)}</span>
+        {phonetic && (
+          <span className="word-row__phonetic">{phonetic}</span>
+        )}
+      </>
+    )
+    return (
+      <li key={item.word} className="word-row">
+        <div className="word-row__main">
+          {selectMode ? (
+            <Checkbox
+              className="word-row__check"
+              checked={selected.has(item.word)}
+              onChange={e => toggleWord(item.word, e.target.checked)}
+            >
+              {head}
+            </Checkbox>
+          ) : (
+            <span className="word-row__head">{head}</span>
+          )}
+          {item.type === 'sentence' && <Tag>句子</Tag>}
+          {item.sourceIds.map(id => (
+            <Tag key={id} color="blue">{getLabelById(id)}</Tag>
+          ))}
+          {/* 多选模式下藏掉单条的 ×，免得和勾选框抢操作 */}
+          {!selectMode && (
+            <Button
+              className="word-row__remove"
+              type="text"
+              size="small"
+              danger
+              title="从该列表移除"
+              aria-label="从该列表移除"
+              onClick={() => handleRemoveWord(item.word)}
+            >
+              ×
+            </Button>
+          )}
+        </div>
+        <div className="word-row__detail">
+          {translation && (
+            <span className="word-row__translation">{translation}</span>
+          )}
+          <span
+            className="word-row__stats"
+            aria-label={'知意 ' + (item.rememberedCount ?? 0) + ' 次，会拼 ' + (item.spellingCount ?? 0) + ' 次，会读 ' + (item.readingCount ?? 0) + ' 次'}
+          >
+            知意 {item.rememberedCount ?? 0} · 会拼 {item.spellingCount ?? 0} · 会读 {item.readingCount ?? 0}
+          </span>
+        </div>
+      </li>
+    )
   }
 
   function toggleWord(text: string, checked: boolean) {
@@ -277,6 +413,15 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
           )}
 
           <div className="lists-toolbar__actions">
+            {/* Checkbox 组件不支持 title，用外层 span 提示 */}
+            <span className="lists-toolbar__batch-toggle" title="按导入日期分组展示词条">
+              <Checkbox
+                checked={showBatches}
+                onChange={e => setShowBatches(e.target.checked)}
+              >
+                批次
+              </Checkbox>
+            </span>
             <Input
               className="lists-toolbar__filter"
               size="small"
@@ -364,68 +509,69 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
         </p>
       )}
 
-      <ul className="word-rows">
-        {visibleWords.map(item => {
-          const entry = dict.getEntry(item.word)
-          const translation = selectedTranslation(item)
-          const phonetic = item.phonetic || entry?.phonetic
-          // 词 + 音标；多选模式下把它塞进勾选框的 label，点词本身也能勾上
-          const head = (
-            <>
-              <span className="word-row__text">{displayTextOf(item)}</span>
-              {phonetic && (
-                <span className="word-row__phonetic">{phonetic}</span>
-              )}
-            </>
-          )
-          return (
-            <li key={item.word} className="word-row">
-              <div className="word-row__main">
-                {selectMode ? (
-                  <Checkbox
-                    className="word-row__check"
-                    checked={selected.has(item.word)}
-                    onChange={e => toggleWord(item.word, e.target.checked)}
-                  >
-                    {head}
-                  </Checkbox>
-                ) : (
-                  <span className="word-row__head">{head}</span>
-                )}
-                {item.type === 'sentence' && <Tag>句子</Tag>}
-                {item.sourceIds.map(id => (
-                  <Tag key={id} color="blue">{getLabelById(id)}</Tag>
-                ))}
-                {/* 多选模式下藏掉单条的 ×，免得和勾选框抢操作 */}
-                {!selectMode && (
-                  <Button
-                    className="word-row__remove"
-                    type="text"
-                    size="small"
-                    danger
-                    title="从该列表移除"
-                    aria-label="从该列表移除"
-                    onClick={() => handleRemoveWord(item.word)}
-                  >
-                    ×
-                  </Button>
-                )}
-              </div>
-              <div className="word-row__detail">
-                {translation && (
-                  <span className="word-row__translation">{translation}</span>
-                )}
-                <span
-                  className="word-row__stats"
-                  aria-label={'知义 ' + (item.reviewCount ?? 0) + ' 次，会拼 ' + (item.rememberedCount ?? 0) + ' 次'}
+      {showBatches ? (
+        <div className="word-batches">
+          {visibleBatches.map(([key, items]) => {
+            const isCollapsed = collapsed.has(key)
+            return (
+              <div key={key} className="word-batch">
+                <div
+                  className={'word-batch__head' + (isCollapsed ? ' word-batch__head--collapsed' : '')}
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={!isCollapsed}
+                  title={isCollapsed ? '展开批次' : '折叠批次'}
+                  onClick={() => toggleCollapsed(key)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      toggleCollapsed(key)
+                    }
+                  }}
                 >
-                  知义 {item.reviewCount ?? 0} · 会拼 {item.rememberedCount ?? 0}
-                </span>
+                  {editingBatch === key ? (
+                    <Input
+                      className="word-batch__draft"
+                      size="small"
+                      value={batchDraft}
+                      autoFocus
+                      onFocus={e => e.currentTarget.select()}
+                      aria-label="重命名批次"
+                      onChange={e => setBatchDraft(e.target.value)}
+                      onBlur={handleBatchEdit}
+                      onPressEnter={handleBatchEdit}
+                      onKeyDown={e => { if (e.key === 'Escape') setEditingBatch(null) }}
+                    />
+                  ) : (
+                    <>
+                      <span className="word-batch__chevron" aria-hidden="true">{isCollapsed ? '▸' : '▾'}</span>
+                      <span className="word-batch__name">{batchNames[key] || batchTitle(key)}</span>
+                      <span className="word-batch__count">加入 · {items.length} 个词</span>
+                      <Button
+                        className="word-batch__rename"
+                        type="link"
+                        size="small"
+                        onClick={e => { e.stopPropagation(); startBatchEdit(key) }}
+                      >
+                        重命名
+                      </Button>
+                    </>
+                  )}
+                </div>
+                {!isCollapsed && (
+                  <ul className="word-rows">
+                    {items.map(item => renderRow(item))}
+                  </ul>
+                )}
               </div>
-            </li>
-          )
-        })}
-      </ul>
+            )
+          })}
+        </div>
+      ) : (
+        <ul className="word-rows">
+          {visibleWords.map(item => renderRow(item))}
+        </ul>
+      )}
     </div>
   )
 }

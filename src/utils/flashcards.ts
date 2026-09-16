@@ -17,6 +17,8 @@ export interface FlashCard {
   libraryLabels?: string[]
   /** 这一阶段挑中的英文释义。反面现在只印音标 + 中文，字段留着方便以后改回去印释义 */
   senses: string[]
+  /** 是否来自词库（sourceIds 非空）；决定卡片上有没有「会拼」格 */
+  fromLibrary?: boolean
 }
 
 /** 要印的一张卡：词 + 这一阶段要背的释义 id */
@@ -32,6 +34,8 @@ export interface CardRequest {
   translation?: string
   /** 已由调用方通过 getLabelById 转成显示文案的词库标签；句子不传 */
   libraryLabels?: string[]
+  /** 是否来自词库（sourceIds 非空）；决定卡片上有没有「会拼」格 */
+  fromLibrary?: boolean
 }
 
 export interface FlashcardOptions {
@@ -42,6 +46,18 @@ export interface FlashcardOptions {
   title?: string
   /** 开始学习时间，会印在顶部信息栏里 */
   startedAt?: number
+  /** 本次打印的会话 id，renderCardsInto 发的，打印页靠它找回要删的卡片 */
+  printId?: number
+  /** 打印页控制栏里 4 个数值的初始值，重渲时沿用用户调过的值 */
+  wordFontSize?: number
+  sentenceFontSize?: number
+  translationFontSize?: number
+  previewScale?: number
+  /** 考试模式：隐藏字母数与拼音开关 */
+  hiddenLetters?: number
+  showPinyin?: boolean
+  /** 打印页打开时停在哪个模式，默认 normal */
+  mode?: 'normal' | 'exam'
 }
 
 function escHtml(input: unknown): string {
@@ -237,6 +253,8 @@ export async function fetchCards(
       libraryLabels: item.libraryLabels
         ?.map(label => label.trim())
         .filter((label, index, labels) => label.length > 0 && labels.indexOf(label) === index),
+      // 调用方没显式传时，用词库标签有无兜底
+      fromLibrary: item.fromLibrary ?? (Array.isArray(item.libraryLabels) && item.libraryLabels.length > 0),
       senses: pickSenses(entry, item.senseIds),
     }
   })
@@ -303,9 +321,19 @@ const PRINT_CSS = [
   '.card {',
   '  border: 1px dashed #c8c8c8; display: flex; flex-direction: column;',
   '  justify-content: center; align-items: center; text-align: center;',
-  '  padding: 6px 10px; overflow: hidden; position: relative;',
+  '  padding: 10px; overflow: hidden; position: relative;',
   '}',
   '.card.empty { border-color: #eee; }',
+  '.card-remove {',
+  '  position: absolute; inset: 0; z-index: 2; padding: 0; border: none;',
+  '  appearance: none; -webkit-appearance: none;',
+  '  background: rgba(231,76,60,.18); color: #c0392b; cursor: pointer;',
+  '  opacity: 0; transition: opacity .12s;',
+  '  display: flex; align-items: center; justify-content: center;',
+  '}',
+  '.card-remove svg { width: 68%; height: 68%; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }',
+  '.card:hover .card-remove, .card:focus-within .card-remove { opacity: 1; }',
+  '.card-remove:hover { background: rgba(231,76,60,.38); }',
   '.card.front .word {',
   '  max-width: 100%; font-weight: bold; color: #1a1a2e;',
   '  letter-spacing: .5px; line-height: 1.15;',
@@ -313,7 +341,7 @@ const PRINT_CSS = [
   '.card.front .word[data-kind="word"] { white-space: nowrap; word-break: normal; }',
   '.card.front .word[data-kind="sentence"] { white-space: normal; word-break: normal; overflow-wrap: break-word; }',
   '.card.front .card-num {',
-  '  position: absolute; top: 4px; left: 6px;',
+  '  position: absolute; top: 10px; left: 10px;',
   '  font-size: 9px; color: #ccc; font-family: sans-serif;',
   '}',
   '.card.front .library-labels {',
@@ -327,13 +355,23 @@ const PRINT_CSS = [
   '  font-size: 10px; font-weight: bold; line-height: 1; text-align: center;',
   '  transform: rotate(45deg); transform-origin: center; white-space: nowrap;',
   '}',
+  // 反面：右上角一栏，第一行音标、第二行中文翻译，右对齐
+  '.card.back {',
+  '  justify-content: flex-start; align-items: flex-end; text-align: right;',
+  '}',
   '.card.back .phonetic {',
-  '  width: 100%; color: #555; line-height: 1.12;',
+  '  width: auto; max-width: 100%; color: #555; line-height: 1.12;',
   '  margin-bottom: 7px; font-style: italic; white-space: nowrap;',
   '}',
   '.card.back .translation {',
-  '  width: 100%; font-weight: bold; color: #1a1a1a;',
+  '  position: static; max-width: 100%;',
+  '  text-align: right; font-weight: bold; color: #1a1a1a;',
   '  line-height: 1.12; word-break: normal; overflow-wrap: break-word;',
+  '}',
+  '.card.back .tally {',
+  '  position: absolute; bottom: 10px; right: 10px;',
+  '  font-family: sans-serif; font-size: 20px; color: #444;',
+  '  white-space: nowrap; text-align: right;',
   '}',
   '.card.exam { justify-content: space-evenly; padding: 10px 16px; font-family: sans-serif; }',
   '.exam-translation {',
@@ -394,6 +432,7 @@ const PRINT_CSS = [
   '    page-break-after: auto; break-after: auto;',
   '  }',
   '  .card { border-color: #aaa; }',
+  '  .card-remove { display: none !important; }',
   '  .card.front .library-labels { background: #000 !important; }',
   '}',
 ].join('\n')
@@ -439,7 +478,8 @@ const FIT_TEXT_SCRIPT = [
   "    var translation = card.querySelector('.translation');",
   '    if (!translation) return;',
   '    var availableWidth = Math.max(1, card.clientWidth - 20);',
-  '    var availableHeight = Math.max(1, card.clientHeight - 12);',
+  '    // 音标 + 翻译排在右上角一栏，可用高度限制在约一半卡片内，避免与右下角的记录栏重叠',
+  '    var availableHeight = Math.max(1, Math.round(card.clientHeight * 0.55));',
   '    var low = 10;',
   '    var high = Math.max(10, Math.round(maximum));',
   '    var best = 10;',
@@ -593,12 +633,26 @@ const FIT_TEXT_SCRIPT = [
   '}());',
 ].join('\n')
 
+/** 卡片右上角的删除按钮：把这个词从本次打印里摘掉，不动学习状态与打印留档 */
+const CARD_REMOVE_BUTTON = '<button type="button" class="card-remove" title="移出本次打印" aria-label="移出本次打印">' +
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4l16 16M20 4L4 20"/></svg></button>'
+
 /** 生成可直接打印的整页 HTML */
 export function buildFlashcardsHtml(cards: FlashCard[], options: FlashcardOptions = {}): string {
   const cols    = clamp(options.cols ?? 2, 1, 6)
   const rows    = clamp(options.rows ?? 3, 1, 8)
   const perPage = cols * rows
   const title   = options.title || '单词卡'
+  const printId = options.printId
+  const mode: 'normal' | 'exam' = options.mode === 'exam' ? 'exam' : 'normal'
+  const wordFontSize        = clamp(options.wordFontSize ?? 96, 10, 180)
+  const sentenceFontSize    = clamp(options.sentenceFontSize ?? 52, 12, 96)
+  const translationFontSize = clamp(options.translationFontSize ?? 54, 10, 220)
+  const previewScale        = clamp(options.previewScale ?? 35, 20, 100)
+  const hiddenLetters       = Math.max(0, options.hiddenLetters ?? 0)
+  const showPinyin          = options.showPinyin !== false
+  // 初始模式写进 fit 脚本末尾那次 setMode，重渲时沿用用户当前选的模式
+  const fitScript = FIT_TEXT_SCRIPT.replace("  setMode('normal');", "  setMode('" + mode + "');")
 
   const pages: FlashCard[][] = []
   for (let i = 0; i < cards.length; i += perPage) pages.push(cards.slice(i, i + perPage))
@@ -629,7 +683,8 @@ export function buildFlashcardsHtml(cards: FlashCard[], options: FlashcardOption
           escHtml(card.libraryLabels[0]) + '</span></span>'
         : ''
       const kind = card.type === 'sentence' ? 'sentence' : 'word'
-      normalSheets.push('<div class="card front"><span class="card-num">' + (gi * perPage + idx + 1) +
+      normalSheets.push('<div class="card front" data-word="' + escHtml(card.word) + '">' +
+        CARD_REMOVE_BUTTON + '<span class="card-num">' + (gi * perPage + idx + 1) +
         '</span>' + labels + '<div class="word" data-kind="' + kind + '">' +
         escHtml(cardText) + '</div></div>')
     })
@@ -645,8 +700,13 @@ export function buildFlashcardsHtml(cards: FlashCard[], options: FlashcardOption
         ? '<div class="phonetic">' + escHtml(card.phonetic) + '</div>'
         : ''
       // 反面只印音标 + 中文那一行，英文释义不上卡片
-      normalSheets.push('<div class="card back">' + phonetic + '<div class="translation">' +
-        escHtml(card.translation || '—') + '</div></div>')
+      // 手写记录栏：词库单词卡有「会拼」格，其他卡只有「会读 / 知意」
+      const tally = card.type !== 'sentence' && card.fromLibrary
+        ? '<div class="tally">会拼: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp; 会读: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp; 知意: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>'
+        : '<div class="tally">会读: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp; 知意: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>'
+      normalSheets.push('<div class="card back" data-word="' + escHtml(card.word) + '">' +
+        CARD_REMOVE_BUTTON + phonetic + '<div class="translation">' +
+        escHtml(card.translation || '—') + '</div>' + tally + '</div>')
     })
     normalSheets.push('</div></div>')
 
@@ -662,7 +722,8 @@ export function buildFlashcardsHtml(cards: FlashCard[], options: FlashcardOption
         ? '<span class="library-labels"><span class="library-label">' +
           escHtml(card.libraryLabels[0]) + '</span></span>'
         : ''
-      examSheets.push('<div class="card front exam"><span class="card-num">' +
+      examSheets.push('<div class="card front exam" data-word="' + escHtml(card.word) + '">' +
+        CARD_REMOVE_BUTTON + '<span class="card-num">' +
         (gi * perPage + idx + 1) + '</span>' + labels + '<div class="exam-translation">' +
         rubyTranslation(card.translation || '—') + '</div><div class="writing-guide">' +
         '<span class="exam-word" data-word="' + escHtml(cardText) + '">' +
@@ -673,7 +734,7 @@ export function buildFlashcardsHtml(cards: FlashCard[], options: FlashcardOption
 
   return [
     '<!DOCTYPE html>',
-    '<html lang="zh-CN">',
+    '<html lang="zh-CN" data-print-id="' + String(printId ?? '') + '">',
     '<head>',
     '<meta charset="UTF-8">',
     '<title>' + escHtml(title) + '</title>',
@@ -686,20 +747,21 @@ export function buildFlashcardsHtml(cards: FlashCard[], options: FlashcardOption
     '<h2>单词卡</h2>',
     '<button id="btn-print" onclick="window.print()">打 印</button>',
     '<span class="flip-hint">短边翻转</span>',
-    '<span class="mode-switch"><button type="button" class="active" data-mode="normal">普通模式</button>' +
-      '<button type="button" data-mode="exam">考试模式</button></span>',
+    '<span class="mode-switch"><button type="button"' + (mode === 'normal' ? ' class="active"' : '') +
+      ' data-mode="normal">普通模式</button><button type="button"' +
+      (mode === 'exam' ? ' class="active"' : '') + ' data-mode="exam">考试模式</button></span>',
     '<label class="font-control"><span>单词字号</span>' +
-      '<input id="word-font-size" type="number" min="10" max="180" step="2" value="96"></label>',
+      '<input id="word-font-size" type="number" min="10" max="180" step="2" value="' + wordFontSize + '"></label>',
     '<label class="font-control"><span>语句字号</span>' +
-      '<input id="sentence-font-size" type="number" min="12" max="96" step="2" value="52"></label>',
+      '<input id="sentence-font-size" type="number" min="12" max="96" step="2" value="' + sentenceFontSize + '"></label>',
     '<label class="font-control"><span>翻译字号</span>' +
-      '<input id="translation-font-size" type="number" min="10" max="220" step="2" value="54"></label>',
+      '<input id="translation-font-size" type="number" min="10" max="220" step="2" value="' + translationFontSize + '"></label>',
     '<label class="font-control preview-scale"><span>预览缩放</span>' +
-      '<input id="preview-scale" type="number" min="20" max="100" step="5" value="35">%</label>',
+      '<input id="preview-scale" type="number" min="20" max="100" step="5" value="' + previewScale + '">%</label>',
     '<span class="exam-controls" id="exam-controls" hidden>' +
       '<label class="font-control"><span>隐藏字母数</span>' +
-      '<input id="hidden-letter-count" type="number" min="0" step="1" value="0"></label>' +
-      '<label class="exam-toggle"><input id="show-pinyin" type="checkbox" checked>' +
+      '<input id="hidden-letter-count" type="number" min="0" step="1" value="' + hiddenLetters + '"></label>' +
+      '<label class="exam-toggle"><input id="show-pinyin" type="checkbox"' + (showPinyin ? ' checked' : '') + '>' +
       '<span>显示拼音</span></label></span>',
     '</div>',
     '<div id="print-area">',
@@ -707,7 +769,8 @@ export function buildFlashcardsHtml(cards: FlashCard[], options: FlashcardOption
     '<div class="sheet-set" id="exam-sheets" hidden>' + examSheets.join('\n') + '</div>',
     '</div>',
     '<script>',
-    FIT_TEXT_SCRIPT,
+    fitScript,
+    REMOVE_CARD_SCRIPT,
     '</script>',
     '</body>',
     '</html>',
@@ -789,6 +852,10 @@ export interface CardWindow {
   render(html: string): void
   /** 换成一句失败提示 */
   fail(message: string): void
+  /** 当前的滚动位置，重渲之后好还原 */
+  scrollY(): number
+  /** 重渲完滚回原来的位置 */
+  scrollTo(top: number): void
 }
 
 function writeDoc(win: Window, html: string): void {
@@ -818,5 +885,125 @@ export function openCardWindow(title: string): CardWindow | null {
     },
     render(html: string) { if (!win.closed) writeDoc(win, html) },
     fail(message: string) { if (!win.closed) writeDoc(win, bootErrorHtml(title, message)) },
+    scrollY() { return win.closed ? 0 : (win.scrollY || 0) },
+    scrollTo(top: number) { if (!win.closed) win.scrollTo(0, Math.max(0, top)) },
   }
+}
+// ── 打印页里的删除按钮（✕）──────────────────────────────────────────────────
+
+/** 打印页点 ✕ 时把当前控制栏设置回传给主窗口，重渲时沿用，避免字号 / 模式被重置 */
+export interface PrintControls {
+  wordFontSize?: number
+  sentenceFontSize?: number
+  translationFontSize?: number
+  previewScale?: number
+  hiddenLetters?: number
+  showPinyin?: boolean
+  mode?: 'normal' | 'exam'
+}
+
+/** 主窗口处理「把这个词从本次打印里删掉」的回调，true = 已重新渲染 */
+export type RemoveCardHandler = (printId: number, word: string, controls: PrintControls) => boolean
+
+interface PrintSession {
+  cards: FlashCard[]
+  options: FlashcardOptions
+  win: CardWindow
+}
+
+let printSeq = 0
+let removeHandlerInstalled = false
+const printSessions = new Map<number, PrintSession>()
+
+/**
+ * 打印页里的 ✕：把这一张卡摘掉，只影响这个窗口的这次打印；
+ * 学习状态、开始学习、打印留档都不动（留档用的是用户最初选中的列表）。
+ */
+const REMOVE_CARD_SCRIPT = [
+  '(function () {',
+  "  var area = document.getElementById('print-area');",
+  '  if (!area) return;',
+  '  function readControls() {',
+  '    function num(id, fallback) {',
+  '      var el = document.getElementById(id);',
+  '      var value = Number(el && el.value);',
+  '      return Number.isFinite(value) ? value : fallback;',
+  '    }',
+  '    function checked(id, fallback) {',
+  '      var el = document.getElementById(id);',
+  '      return el && typeof el.checked === "boolean" ? el.checked : fallback;',
+  '    }',
+  "    var active = document.querySelector('.mode-switch button.active');",
+  '    return {',
+  "      wordFontSize: num('word-font-size', 96),",
+  "      sentenceFontSize: num('sentence-font-size', 52),",
+  "      translationFontSize: num('translation-font-size', 54),",
+  "      previewScale: num('preview-scale', 35),",
+  "      hiddenLetters: num('hidden-letter-count', 0),",
+  "      showPinyin: checked('show-pinyin', true),",
+  "      mode: active && active.getAttribute('data-mode') === 'exam' ? 'exam' : 'normal'",
+  '    };',
+  '  }',
+  '  // 主窗口不可用（被关掉 / 跨页 / 老版本）时就地清空这一张，保证点了一定能删掉',
+  '  function hideInPlace(word) {',
+  "    var cards = document.querySelectorAll('.card');",
+  '    for (var i = 0; i < cards.length; i++) {',
+  "      if (cards[i].getAttribute('data-word') === word) {",
+  "        cards[i].className = 'card empty';",
+  "        cards[i].textContent = '';",
+  '      }',
+  '    }',
+  '  }',
+  "  area.addEventListener('click', function (event) {",
+  '    var target = event.target;',
+  "    var btn = target && target.closest ? target.closest('.card-remove') : null;",
+  '    if (!btn) return;',
+  "    var card = btn.closest('.card');",
+  "    var word = card ? card.getAttribute('data-word') : '';",
+  '    if (!word) return;',
+  "    var id = Number(document.documentElement.getAttribute('data-print-id'));",
+  '    var controls = readControls();',
+  '    var removed = false;',
+  '    try {',
+  '      if (window.opener && window.opener.__removePrintCard) {',
+  '        removed = !!window.opener.__removePrintCard(id, word, controls);',
+  '      }',
+  '    } catch (err) { removed = false; }',
+  '    if (!removed) hideInPlace(word);',
+  '  });',
+  '}());',
+].join('\n')
+
+/** 删词回调只挂一次：按会话 id 找到这次打印，过滤掉这个词后整页重渲 */
+function installRemoveCardHandler(): void {
+  if (removeHandlerInstalled) return
+  removeHandlerInstalled = true
+  const opener = window as Window & { __removePrintCard?: RemoveCardHandler }
+  opener.__removePrintCard = (printId: number, word: string, controls: PrintControls): boolean => {
+    const session = printSessions.get(printId)
+    if (!session || session.win.closed) return false
+    const key = keyOf(word)
+    const remaining = session.cards.filter(card => keyOf(card.word) !== key)
+    if (remaining.length === session.cards.length) return false
+    session.cards = remaining
+    const top = session.win.scrollY()
+    session.win.render(buildFlashcardsHtml(remaining, { ...session.options, ...controls, printId }))
+    session.win.scrollTo(top)
+    return true
+  }
+}
+
+/**
+ * 把卡片渲进打印窗口并登记一个会话，打印页里的 ✕ 才能回来删词。
+ * 删除只作用于这个窗口的这次打印，学习状态与留档都不受影响。
+ */
+export function renderCardsInto(win: CardWindow, cards: FlashCard[], options: FlashcardOptions = {}): void {
+  const printId = ++printSeq
+  // 顺手清掉已经关掉的窗口，会话不累积
+  for (const [id, session] of printSessions) {
+    if (session.win.closed) printSessions.delete(id)
+  }
+  printSessions.set(printId, { cards, options, win })
+  installRemoveCardHandler()
+  win.render(buildFlashcardsHtml(cards, { ...options, printId }))
 }

@@ -32,7 +32,7 @@
  *
 * GET  /api/print-batches?limit=       打印批次记录（新在前）
 * POST /api/print-batches              记一次卡片导出 { title?, kind?, scope?, printedAt?, groups: [{ listId, words }] }
-* POST /api/print-batches/:id/review   把这一批词整批打卡 { action: done | again | stop, scope?, through? }
+* POST /api/print-batches/:id/review   把这一批词整批打卡 { action: done | again | stop | tally, scope?, successKind? }
 * DELETE /api/print-batches/:id        删掉这条打印记录（不动复习进度）
 *
  * GET  /api/vocab-labels        词库显示标签 { labels: { 词库id: 标签 } }
@@ -82,6 +82,10 @@ const BATCH_SEARCH_CONCURRENCY = 2
 const MAX_PICKED_SENSES = 12
 /** 学习列表里一个词最多勾选多少条中文词义 */
 const MAX_PICKED_TRANSLATIONS = 12
+/** 一个词最多几条自定义词义；超出部分丢弃，避免快照串过长 */
+const MAX_CUSTOM_TRANSLATIONS = 6
+/** 单条自定义词义最长多少字，与中文摘要截断保持同一量级 */
+const MAX_CUSTOM_TRANSLATION_LEN = 60
 /** 离线模式：不访问外部词典，只用本地缓存（测试和断网时用） */
 const NO_NETWORK = process.env.DICT_NO_NETWORK === '1'
 /** 关掉本地词典（DICT_ECDICT_OFF=1）：只走外部接口，用来对比效果 */
@@ -108,9 +112,11 @@ const MAX_MARKS = 40
 /** 复习请求幂等键保留窗口，覆盖网络重试但避免学习列表无限增长。 */
 const MAX_REVIEW_KEYS = 80
 /** 只记打标、不动复习排期的动作 */
-const PURE_MARK_ACTIONS = new Set(['print', 'spelling'])
-/** 复习打卡动作 */
-const REVIEW_ACTIONS = new Set(['done', 'again', 'stop'])
+const PURE_MARK_ACTIONS = new Set(['print', 'spelling', 'reading'])
+/** 复习打卡动作：done 推进一轮；tally 只计熟悉度，不动排期 */
+const REVIEW_ACTIONS = new Set(['done', 'again', 'stop', 'tally'])
+/** 熟悉度计数维度：tally 打卡时必传其一，只累计次数 */
+const TALLY_KINDS = new Set(['spelling', 'reading', 'meaning'])
 /** 打标粒度：按天 / 按周 */
 const MARK_SCOPES = new Set(['day', 'week'])
 
@@ -126,11 +132,6 @@ function startOfWeek(ts) {
   const day = startOfDay(ts)
   const weekday = (new Date(day).getDay() + 6) % 7
   return day - weekday * DAY
-}
-
-/** 所在周的最后一毫秒（周日 23:59:59.999），按周打卡时作为「过完这一周」的界限 */
-function endOfWeek(ts) {
-  return startOfWeek(ts) + 7 * DAY - 1
 }
 
 /** 打标粒度校验，非法值当没传 */
@@ -183,14 +184,19 @@ function rememberReviewKey(item, key) {
 
 /**
  * 下一次该复习的日期；轮次走完返回 null（视为已毕业）。
- * stage=0 是“刚开始、今天待首次打卡”，首次 done 后 stage=1，才按第一个 1 天间隔排期。
+ * stage=0 是“刚开始、今天待首次推进”，首次 done 后 stage=1。
+ * stage>=1 锚定最近一次 done 打卡当天（lastDoneAt），每次推进都按间隔往后顺延。
  */
 function nextDueAt(item) {
   if (!item.startedAt) return null
   const stage = item.stage || 0
   if (stage > REVIEW_INTERVALS.length) return null
   if (stage === 0) return startOfDay(item.startedAt)
-  return startOfDay(item.startedAt) + REVIEW_INTERVALS[stage - 1] * DAY
+   if (item.reviewScope === 'week') {
+    // 按周模式：一次复习管一周，下次排到下周一；同一周内多次 done 也只钉在下周一
+    return startOfWeek(item.lastDoneAt ?? item.startedAt) + 7 * DAY
+   }
+  return startOfDay(item.lastDoneAt ?? item.startedAt) + REVIEW_INTERVALS[stage - 1] * DAY
 }
 
 /** new 未开始 / due 今天该复习 / scheduled 已排期 / mastered 已毕业 */
@@ -205,6 +211,7 @@ function enrichItem(item, now) {
   return Object.assign({}, item, {
     reviewCount: countOf(item.reviewCount),
     spellingCount: countOf(item.spellingCount),
+    readingCount: countOf(item.readingCount),
     rememberedCount: countOf(item.rememberedCount),
     forgottenCount: countOf(item.forgottenCount),
     nextDueAt: nextDueAt(item),
@@ -213,27 +220,36 @@ function enrichItem(item, now) {
 }
 
 /**
- * 按周打卡时「过完这一周」的界限：
- * 显式传 through 就用它（可以指定别的一周），否则按周取本周最后一毫秒、按天不追赶。
+ * 本周期（按天 / 按周）内各熟悉度维度的点击次数，供复习页按钮直接展示。
+ * 从 marks 兼容镜像里数最近一段；撤销也只动这段镜像，计数与可撤销条数天然一致。
  */
-function resolveThrough(scope, asked, now) {
-  const value = Number(asked)
-  if (Number.isFinite(value) && value > 0) return value
-  return scope === 'week' ? endOfWeek(now) : 0
+function tallyPeriodCounts(item, now) {
+  const marks = Array.isArray(item.marks) ? item.marks : []
+  const dayStart = startOfDay(now)
+  const weekStart = startOfWeek(now)
+  const day = { spelling: 0, reading: 0, meaning: 0 }
+  const week = { spelling: 0, reading: 0, meaning: 0 }
+  for (const mark of marks) {
+    const at = Number(mark && mark.at)
+    if (!Number.isFinite(at)) continue
+    if (mark.action === 'spelling' || mark.action === 'reading' || mark.action === 'meaning') {
+      if (at >= dayStart) day[mark.action]++
+      if (at >= weekStart) week[mark.action]++
+    }
+  }
+  return { day, week }
 }
 
 /**
  * 复习打卡的唯一实现：列表打卡和按打印批次整批打卡都走这里，语义只有一份。
- * targets 是归一化后的词集合；through > 0 时把界限之前还排到的轮次一并算过（按周打卡）。
+ * targets 是归一化后的词集合；tally 只累计熟悉度，done/again 才动轮次和排期。
  * 只改内存里的 list，落盘由调用方负责。
  */
 function applyReview(list, targets, action, options) {
   const opts    = options || {}
   const now     = Number(opts.now) || Date.now()
   const scope   = normalizeScope(opts.scope)
-  const through = resolveThrough(scope, opts.through, now)
-  const catchUp = through > 0
-  const successKind = opts.successKind === 'spelling' ? 'spelling' : undefined
+  const successKind = TALLY_KINDS.has(opts.successKind) ? opts.successKind : undefined
   const requestIds = opts.requestIds instanceof Map ? opts.requestIds : new Map()
   let updated = 0
   const items = []
@@ -244,11 +260,23 @@ function applyReview(list, targets, action, options) {
       items.push(enrichItem(item, now))
       continue
     }
-    if (action === 'stop') {
-      delete item.startedAt
-      delete item.stage
-      delete item.reviewedAt
-      pushMark(item, 'stop', now, { scope })
+    if (action === 'tally') {
+      // 会拼 / 会读 / 知意：只累计对应维度的次数，轮次和排期都不动
+      if (successKind === 'spelling') item.spellingCount = countOf(item.spellingCount) + 1
+      else if (successKind === 'reading') item.readingCount = countOf(item.readingCount) + 1
+      else if (successKind === 'meaning') item.rememberedCount = countOf(item.rememberedCount) + 1
+      else { items.push(enrichItem(item, now)); continue }
+      pushMark(item, successKind, now, { scope, stage: item.stage })
+      opts.onEvent?.({ item, action: successKind, at: now, scope, stage: item.stage, requestId })
+      rememberReviewKey(item, requestId)
+      updated++
+      } else if (action === 'stop') {
+        delete item.startedAt
+        delete item.stage
+        delete item.reviewedAt
+        delete item.lastDoneAt
+        delete item.reviewScope
+        pushMark(item, 'stop', now, { scope })
       opts.onEvent?.({ item, action: 'stop', at: now, scope, stage: undefined, requestId })
       rememberReviewKey(item, requestId)
       updated++
@@ -256,29 +284,25 @@ function applyReview(list, targets, action, options) {
       const history = Array.isArray(item.reviewedAt) ? item.reviewedAt : []
       history.push(now)
       item.reviewedAt = history.slice(-40)
-      // 一次坐下来复习算一次打卡，即使按周把多个轮次一起过完
+      // 一次坐下来复习算一次打卡
       item.reviewCount = (Number(item.reviewCount) || 0) + 1
       if (action === 'done') {
-        if (successKind === 'spelling') item.spellingCount = countOf(item.spellingCount) + 1
-        item.rememberedCount = countOf(item.rememberedCount) + 1
+        // 推进一轮：下次复习锚定本次打卡当天，按间隔往后顺延
         item.stage = Math.min((item.stage || 0) + 1, REVIEW_INTERVALS.length + 1)
-        // 按周打卡：界限之前还排到的后续轮次一并算过
-        if (catchUp) {
-          for (let guard = 0; guard < REVIEW_INTERVALS.length; guard++) {
-            const due = nextDueAt(item)
-            if (due === null || due > through) break
-            item.stage = Math.min(item.stage + 1, REVIEW_INTERVALS.length + 1)
-          }
+        item.lastDoneAt = now
+        // 按周打卡的词一次管一周：之后排到下周一，而不是按天顺延
+        item.reviewScope = scope === 'week' ? 'week' : 'day'
+        } else {
+          // 没记住：记忆周期从今天重新开始
+          item.stage = 0
+          item.startedAt = now
+          delete item.lastDoneAt
+          item.forgottenCount = countOf(item.forgottenCount) + 1
+          item.reviewScope = scope === 'week' ? 'week' : 'day'
         }
-      } else {
-        // 没记住：记忆周期从今天重新开始
-        item.stage = 0
-        item.startedAt = now
-        item.forgottenCount = countOf(item.forgottenCount) + 1
-      }
-      pushMark(item, successKind === 'spelling' ? 'spelling' : action, now, { scope, stage: item.stage })
+      pushMark(item, action, now, { scope, stage: item.stage })
       opts.onEvent?.({
-        item, action: successKind === 'spelling' ? 'spelling' : action, at: now, scope,
+        item, action, at: now, scope,
         stage: item.stage, requestId,
       })
       rememberReviewKey(item, requestId)
@@ -343,6 +367,26 @@ function normalizeSenseIds(input) {
     if (!id || out.includes(id)) continue
     out.push(id)
     if (out.length >= MAX_PICKED_SENSES) break
+  }
+  return out
+}
+
+/**
+ * 用户手填的自定义词义：去空、去重（不区分大小写）、限长度限量。
+ * 返回空数组表示没有自定义词义，调用方不写这个字段。
+ */
+function normalizeCustomTranslations(input) {
+  if (!Array.isArray(input)) return []
+  const out = []
+  const seen = new Set()
+  for (const raw of input) {
+    const text = String(raw ?? '').trim()
+    if (!text || text.length > MAX_CUSTOM_TRANSLATION_LEN) continue
+    const key = text.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(text)
+    if (out.length >= MAX_CUSTOM_TRANSLATIONS) break
   }
   return out
 }
@@ -429,6 +473,10 @@ function loadLists() {
   // 老数据补齐字段
   for (const list of data.lists) {
     if (!Array.isArray(list.words)) list.words = []
+    // 批次显示名：形如 { '2026-09-15': '秋词汇' }，没有自定义名的日期留在日期本身
+    if (!list.batchNames || typeof list.batchNames !== 'object' || Array.isArray(list.batchNames)) {
+      list.batchNames = {}
+    }
     for (const item of list.words) {
       if (!Array.isArray(item.sourceIds)) item.sourceIds = []
       if (!item.type) item.type = detectType(item.word, item.sourceIds)
@@ -451,6 +499,12 @@ function loadLists() {
         if (ids.length) item.translationIds = ids
         else delete item.translationIds
       }
+      // 自定义词义：旧数据没有这个字段；存在就顺手归一化
+      if ('customTranslations' in item) {
+        const customs = normalizeCustomTranslations(item.customTranslations)
+        if (customs.length) item.customTranslations = customs
+        else delete item.customTranslations
+      }
       // 复习进度字段只在开始学习后才写，未开始的词保持精简
       if (item.startedAt) {
         if (typeof item.stage !== 'number' || !(item.stage >= 0)) item.stage = 0
@@ -463,17 +517,25 @@ function loadLists() {
 function saveLists(data) { saveJson(LISTS_FILE, data) }
 
 /** 把词典里已经拿到的中文翻译同步到学习列表词条；不改变列表页面的展示规则。 */
-function selectedTranslation(entry, ids) {
+function selectedTranslation(entry, ids, customs) {
   const choices = expandedTranslations(entry?.translations)
   const wanted = normalizeTranslationIds(ids)
+  const picked = []
   if (wanted.length > 0) {
-    const selected = wanted.flatMap(id => {
+    for (const id of wanted) {
       const exact = choices.find(item => item.id === id)
-      if (exact) return [exact]
+      if (exact) { picked.push(exact); continue }
       // 兼容旧数据：旧版把同一词性下的逗号释义保存成一个基础 ID。
-      return choices.filter(item => item.id.startsWith(String(id) + '::'))
-    })
-    if (selected.length > 0) return formatSelectedTranslations(selected)
+      for (const item of choices) {
+        if (item.id.startsWith(String(id) + '::')) picked.push(item)
+      }
+    }
+  }
+  // 自定义词义没有词性，按输入顺序接在选中词义后面
+  const extra = normalizeCustomTranslations(customs).map(text => ({ text }))
+  if (picked.length > 0 || extra.length > 0) {
+    const merged = formatSelectedTranslations(picked.concat(extra))
+    if (merged) return merged
   }
   return String(entry?.translation ?? '').trim()
 }
@@ -1640,6 +1702,7 @@ const server = http.createServer(async (req, res) => {
       const sourceIds = Array.isArray(body.sourceIds) ? body.sourceIds : []
       const senseIds  = normalizeSenseIds(body?.senseIds)
       const translationIds = normalizeTranslationIds(body?.translationIds)
+      const customTranslations = normalizeCustomTranslations(body?.customTranslations)
       const type = detectType(word, sourceIds)
       const item = {
         word,
@@ -1652,7 +1715,9 @@ const server = http.createServer(async (req, res) => {
       if (phonetic) item.phonetic = phonetic
       if (senseIds.length) item.senseIds = senseIds
       if (translationIds.length) item.translationIds = translationIds
+      if (customTranslations.length) item.customTranslations = customTranslations
       const translation = String(body?.translation ?? '').trim()
+        || (customTranslations.length ? selectedTranslation(undefined, [], customTranslations) : '')
       if (translation) item.translation = translation
       list.words.push(item)
       saveLists(data)
@@ -1660,6 +1725,27 @@ const server = http.createServer(async (req, res) => {
       const queued = enqueuePhoneticPrefetch([word])
       console.log('[word +]   ', word, '->', listId)
       return sendJson(res, { ok: true, item, queued })
+    }
+
+    // GET /api/lists/:id/batches  — 每个批次（自然日）的显示名
+    if (method === 'GET' && subpath === 'batches') {
+      return sendJson(res, { batchNames: list.batchNames ?? {} })
+    }
+
+    // PATCH /api/lists/:id/batches  — 重命名某个批次；name 空串=重置为日期
+    // body: { date: '2026-09-15', name: '秋词汇' }
+    if (method === 'PATCH' && subpath === 'batches') {
+      let body
+      try { body = await readBody(req) } catch { return sendJson(res, { error: 'invalid JSON' }, 400) }
+      const date = String(body?.date ?? '').trim()
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return sendJson(res, { error: 'invalid date' }, 400)
+      const name = String(body?.name ?? '').trim()
+      if (name.length > 40) return sendJson(res, { ok: false, error: '标签过长' }, 409)
+      if (name) list.batchNames[date] = name
+      else delete list.batchNames[date]
+      saveLists(data)
+      console.log('[list ~]   ', listId, 'batch', date, '->', name || '(日期)')
+      return sendJson(res, { ok: true, batchNames: list.batchNames })
     }
 
     // DELETE /api/lists/:id/words/:text  — remove one item
@@ -1692,9 +1778,15 @@ const server = http.createServer(async (req, res) => {
         if (translationIds.length) item.translationIds = translationIds
         else delete item.translationIds
       }
+      if ('customTranslations' in (body || {})) {
+        const customTranslations = normalizeCustomTranslations(body?.customTranslations)
+        if (customTranslations.length) item.customTranslations = customTranslations
+        else delete item.customTranslations
+      }
       if ('translation' in (body || {})) {
         const translation = String(body?.translation ?? '').trim()
         if (translation) item.translation = translation
+        else if (item.customTranslations?.length) item.translation = selectedTranslation(undefined, [], item.customTranslations)
         else delete item.translation
       }
       saveLists(data)
@@ -1741,6 +1833,7 @@ const server = http.createServer(async (req, res) => {
         const sourceIds = Array.isArray(entry?.sourceIds) ? entry.sourceIds : []
         const senseIds  = normalizeSenseIds(entry?.senseIds)
         const translationIds = normalizeTranslationIds(entry?.translationIds)
+        const customTranslations = normalizeCustomTranslations(entry?.customTranslations)
         const type = detectType(word, sourceIds)
         const item = {
           word,
@@ -1753,10 +1846,11 @@ const server = http.createServer(async (req, res) => {
         if (phonetic) item.phonetic = phonetic
         if (senseIds.length) item.senseIds = senseIds
         if (translationIds.length) item.translationIds = translationIds
+        if (customTranslations.length) item.customTranslations = customTranslations
         // 批量查询页已经完成查词和中文选择：优先原样保存前端快照。
-        // 旧调用方没有传 translation 时，仍可复用当前缓存，但这里绝不发起查询。
+        // 旧调用方没有传 translation 时，仍可复用当前缓存（自定义词义一并并入），但这里绝不发起查询。
         const snapshot = String(entry?.translation ?? '').trim()
-        const selected = snapshot || selectedTranslation(getCache()[word], translationIds)
+        const selected = snapshot || selectedTranslation(getCache()[word], translationIds, customTranslations)
         if (selected) item.translation = selected
         list.words.push(item)
         seen.add(word)
@@ -1805,13 +1899,16 @@ const server = http.createServer(async (req, res) => {
     }
 
     // POST /api/lists/:id/review  — 复习打卡
-    // body: { words: [], action: 'done' | 'again' | 'stop', scope?, through? }
-    // through：按周打卡时传这一周的最后一毫秒，把这周内排到的轮次一次过完
+    // body: { words: [], action: 'done' | 'again' | 'stop' | 'tally', scope?, successKind? }
+    // tally 只累计熟悉度（successKind 必传），done/again 才动轮次和排期
     if (method === 'POST' && subpath === 'review') {
       let body
       try { body = await readBody(req) } catch { return sendJson(res, { error: 'invalid JSON' }, 400) }
       const action = String(body?.action || 'done')
       if (!REVIEW_ACTIONS.has(action)) return sendJson(res, { error: 'unknown action' }, 400)
+      if (action === 'tally' && !TALLY_KINDS.has(body?.successKind)) {
+        return sendJson(res, { error: 'tally requires successKind' }, 400)
+      }
       const raw = Array.isArray(body?.words) ? body.words : []
       const targets = new Set(raw.map(normalizeText).filter(Boolean))
       if (targets.size === 0) return sendJson(res, { error: 'missing words' }, 400)
@@ -1827,27 +1924,64 @@ const server = http.createServer(async (req, res) => {
           current ? nextDueAt(current) ?? 'new' : 'new',
           action,
           body?.scope || '',
-          body?.through || '',
           body?.successKind || '',
         ].join('|')
         requestIds.set(word, supplied || fallback)
       }
       const { updated, items } = applyReview(list, targets, action, {
         scope: body?.scope,
-        through: body?.through,
         successKind: body?.successKind,
         requestIds,
         now: Date.now(),
         hasRequest: requestId => studyHistory.hasRequest(requestId),
         onEvent: event => recordStudyEvent(list, event),
       })
+     saveLists(data)
+     console.log('[study ~]  ', action, updated, '->', listId)
+     return sendJson(res, { ok: true, updated, items })
+   }
+
+    // POST /api/lists/:id/tally-undo  — 撤销本周期内最近一次会拼 / 会读 / 知意
+    // body: { words: [], successKind: 'spelling' | 'reading' | 'meaning', scope?: 'day' | 'week', now? }
+    // 只回退一次：删最近一条本周期内的 tally mark，对应计数 -1（下限 0），并软删永久事件
+    if (method === 'POST' && subpath === 'tally-undo') {
+      let body
+      try { body = await readBody(req) } catch { return sendJson(res, { error: 'invalid JSON' }, 400) }
+      const kind = String(body?.successKind || '')
+      if (!TALLY_KINDS.has(kind)) return sendJson(res, { error: 'invalid successKind' }, 400)
+      const scope = normalizeScope(body?.scope)
+      const now = Number(body?.now) || Date.now()
+      const from = scope === 'week' ? startOfWeek(now) : startOfDay(now)
+      const raw = Array.isArray(body?.words) ? body.words : []
+      const targets = new Set(raw.map(normalizeText).filter(Boolean))
+      if (targets.size === 0) return sendJson(res, { error: 'missing words' }, 400)
+      let undone = 0
+      const items = []
+      for (const item of list.words) {
+        if (!targets.has(item.word)) continue
+        const marks = Array.isArray(item.marks) ? item.marks : []
+        let index = -1
+        for (let i = marks.length - 1; i >= 0; i--) {
+          const mark = marks[i]
+          if (mark && mark.action === kind && Number(mark.at) >= from) { index = i; break }
+        }
+        if (index < 0) { items.push(enrichItem(item, now)); continue }
+        const mark = marks.splice(index, 1)[0]
+        if (kind === 'spelling') item.spellingCount = Math.max(0, countOf(item.spellingCount) - 1)
+        else if (kind === 'reading') item.readingCount = Math.max(0, countOf(item.readingCount) - 1)
+        else item.rememberedCount = Math.max(0, countOf(item.rememberedCount) - 1)
+        item.markCount = Math.max(0, countOf(item.markCount) - 1)
+        studyHistory.undoTallyEvent({ listId, word: item.word, action: kind, at: Number(mark.at) })
+        undone++
+        items.push(enrichItem(item, now))
+      }
       saveLists(data)
-      console.log('[study ~]  ', action, updated, '->', listId)
-      return sendJson(res, { ok: true, updated, items })
+      console.log('[study ~]  tally-undo', kind, undone, '->', listId)
+      return sendJson(res, { ok: true, undone, items })
     }
 
     // POST /api/lists/:id/mark  — 只记一次打标，不动复习排期
-    // body: { words: [], action?: 'print' | 'spelling', scope?: 'day' | 'week' }
+    // body: { words: [], action?: 'print' | 'spelling' | 'reading', scope?: 'day' | 'week' }
     if (method === 'POST' && subpath === 'mark') {
       let body
       try { body = await readBody(req) } catch { return sendJson(res, { error: 'invalid JSON' }, 400) }
@@ -1874,6 +2008,7 @@ const server = http.createServer(async (req, res) => {
         }
         pushMark(item, action, now, { scope, stage: item.stage })
         if (action === 'spelling') item.spellingCount = countOf(item.spellingCount) + 1
+        if (action === 'reading') item.readingCount = countOf(item.readingCount) + 1
         recordStudyEvent(list, { item, action, at: now, scope, stage: item.stage, requestId })
         rememberReviewKey(item, requestId)
         marked++
@@ -1912,6 +2047,9 @@ const server = http.createServer(async (req, res) => {
           listName: list.name,
           weekStart: startOfWeek(item.startedAt),
         }))
+        // 本周期会拼 / 会读 / 知意次数：按钮直接展示，撤销也只认这段镜像
+        const planItem = items[items.length - 1]
+        planItem.tallyCounts = tallyPeriodCounts(item, now)
       }
     }
     items.sort((a, b) => {
@@ -2074,13 +2212,16 @@ const server = http.createServer(async (req, res) => {
     if (!batch) return sendJson(res, { ok: false, error: '打印记录不存在' }, 404)
 
     // POST /api/print-batches/:id/review  — 把这一批词整批打卡
-    // body: { action: 'done' | 'again' | 'stop', scope?, through? }
+    // body: { action: 'done' | 'again' | 'stop' | 'tally', scope?, successKind? }
     // scope 不传就沿用打印时的粒度：按周印的卡片，按周打卡
     if (method === 'POST' && subpath === 'review') {
       let body
       try { body = await readBody(req) } catch { return sendJson(res, { error: 'invalid JSON' }, 400) }
       const action = String(body?.action || 'done')
       if (!REVIEW_ACTIONS.has(action)) return sendJson(res, { ok: false, error: 'unknown action' }, 400)
+      if (action === 'tally' && !TALLY_KINDS.has(body?.successKind)) {
+        return sendJson(res, { ok: false, error: 'tally requires successKind' }, 400)
+      }
       const now   = Date.now()
       const scope = normalizeScope(body?.scope) || batch.scope
       const data  = loadLists()
@@ -2105,13 +2246,13 @@ const server = http.createServer(async (req, res) => {
             current ? nextDueAt(current) ?? 'new' : 'new',
             action,
             scope || '',
-            body?.through || '',
+            body?.successKind || '',
           ].join('|')
           requestIds.set(item.word, supplied || fallback)
         }
         const result = applyReview(list, targets, action, {
           scope,
-          through: body?.through,
+          successKind: body?.successKind,
           requestIds,
           now,
           hasRequest: requestId => studyHistory.hasRequest(requestId),

@@ -51,26 +51,30 @@ export function AchievementsPage({ libraries, getLabelById, onManageRecords }: A
         <p className="empty achievements-loading"><span className="ui-spin" aria-hidden="true" />正在读取学习成果...</p>
       )}
       {!achievements.loading && !achievements.error && achievements.items.length === 0 && (
-        <p className="empty">还没有学习记录。完成背过、记住或没记住等操作后，成果会永久保存在这里。</p>
+       <p className="empty">还没有学习记录。完成会拼、会读、知意或没记住等操作后，成果会永久保存在这里。</p>
       )}
 
       {!achievements.loading && achievements.items.length > 0 && (
         <div className="card achievements-table-wrap">
           <table className="achievements-table">
-            <thead><tr><th>单词</th><th>词库</th><th className="achievements-table__number">背过</th>
-              <th className="achievements-table__number">记住</th><th className="achievements-table__number">没记住</th></tr></thead>
+            <thead><tr><th>单词</th><th>词库</th>
+              <th className="achievements-table__number">会拼</th>
+              <th className="achievements-table__number">会读</th>
+              <th className="achievements-table__number">知意</th>
+              <th className="achievements-table__number">没记住</th></tr></thead>
             <tbody>
-              {achievements.items.map(item => (
-                <tr key={item.word}>
-                  <td><strong className="achievements-table__word">{item.word}</strong></td>
-                  <td><div className="achievements-table__tags">
-                    {item.sourceIds.length > 0
-                      ? item.sourceIds.map(id => <Tag key={id} color="blue">{getLabelById(id)}</Tag>)
-                      : <span className="achievements-table__none">未归属词库</span>}
-                  </div></td>
-                  <td className="achievements-table__number">{item.reviewCount}</td>
-                  <td className="achievements-table__number achievements-table__number--remembered">{item.rememberedCount}</td>
-                  <td className="achievements-table__number achievements-table__number--forgotten">{item.forgottenCount}</td>
+             {achievements.items.map(item => (
+               <tr key={item.word}>
+                 <td><strong className="achievements-table__word">{item.word}</strong></td>
+                 <td><div className="achievements-table__tags">
+                   {item.sourceIds.length > 0
+                     ? item.sourceIds.map(id => <Tag key={id} color="blue">{getLabelById(id)}</Tag>)
+                     : <span className="achievements-table__none">未归属词库</span>}
+                 </div></td>
+                 <td className="achievements-table__number">{item.spellingCount}</td>
+                 <td className="achievements-table__number">{item.readingCount}</td>
+                 <td className="achievements-table__number achievements-table__number--remembered">{item.rememberedCount}</td>
+                 <td className="achievements-table__number achievements-table__number--forgotten">{item.forgottenCount}</td>
                 </tr>
               ))}
             </tbody>

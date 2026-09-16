@@ -17,135 +17,41 @@
           "translation": "早点回来",
           "startedAt": 1788932735175,
           "stage": 0,
+          "displayText": "Come back early",
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788932735175,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788932735175,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932762975,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932982140,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932989542,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933025214,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933093389,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934059351,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934496551,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788955074336,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789123714414,
-              "action": "print",
-              "stage": 0
-            },
-            {
-              "at": 1789123731480,
-              "action": "print",
               "stage": 0
             }
           ],
-          "markCount": 21,
-          "displayText": "Come back early"
+          "markCount": 5
         },
         {
           "word": "ball",
@@ -160,125 +66,11 @@
           ],
           "translation": "n. 球",
           "startedAt": 1788932735175,
-          "stage": 0,
-          "reviewedAt": [],
-          "marks": [
-            {
-              "at": 1788932735175,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788932735175,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788932762975,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788932982140,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788932989542,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933025214,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933093389,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934059351,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934496551,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788955074336,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            }
+          "stage": 5,
+          "processedReviewKeys": [
+            "default|ball|0|1788883200000|reading|week|1789919999999"
           ],
-          "markCount": 19
+          "reviewedAt": []
         },
         {
           "word": "monster",
@@ -295,121 +87,37 @@
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788932735175,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788932735175,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932762975,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932982140,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932989542,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933025214,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933093389,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934059351,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934496551,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788955074336,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
               "stage": 0
             }
           ],
-          "markCount": 19
+          "markCount": 5
         },
         {
           "word": "car",
@@ -428,121 +136,37 @@
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788932735175,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788932735175,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932762975,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932982140,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932989542,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933025214,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933093389,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934059351,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934496551,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788955074336,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
               "stage": 0
             }
           ],
-          "markCount": 19
+          "markCount": 5
         },
         {
           "word": "motorbike",
@@ -561,121 +185,37 @@
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788932735175,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788932735175,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932762975,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932982140,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932989542,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933025214,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933093389,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934059351,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934496551,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788955074336,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
               "stage": 0
             }
           ],
-          "markCount": 19
+          "markCount": 5
         },
         {
           "word": "apple",
@@ -694,121 +234,37 @@
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788932735175,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788932735175,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932762975,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932982140,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932989542,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933025214,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933093389,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934059351,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934496551,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788955074336,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
               "stage": 0
             }
           ],
-          "markCount": 19
+          "markCount": 5
         },
         {
           "word": "banana",
@@ -827,121 +283,37 @@
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788932735175,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788932735175,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932762975,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932982140,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932989542,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933025214,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933093389,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934059351,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934496551,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788955074336,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
               "stage": 0
             }
           ],
-          "markCount": 19
+          "markCount": 5
         },
         {
           "word": "cake",
@@ -960,121 +332,37 @@
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788932735175,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788932735175,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932762975,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932982140,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932989542,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933025214,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933093389,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934059351,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934496551,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788955074336,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
               "stage": 0
             }
           ],
-          "markCount": 19
+          "markCount": 5
         },
         {
           "word": "candy",
@@ -1093,121 +381,37 @@
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788932735175,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788932735175,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932762975,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932982140,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932989542,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933025214,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933093389,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934059351,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934496551,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788955074336,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
               "stage": 0
             }
           ],
-          "markCount": 19
+          "markCount": 5
         },
         {
           "word": "egg",
@@ -1226,121 +430,37 @@
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788932735175,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788932735175,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932762975,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932982140,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932989542,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933025214,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933093389,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934059351,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934496551,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788955074336,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
               "stage": 0
             }
           ],
-          "markCount": 19
+          "markCount": 5
         },
         {
           "word": "i've got a car",
@@ -1354,130 +474,41 @@
           "translation": "我有辆车",
           "startedAt": 1788932735175,
           "stage": 0,
+          "displayText": "I've got a car",
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788932735175,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788932735175,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932762975,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932982140,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932989542,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933025214,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933093389,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934059351,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934496551,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788955074336,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789123714414,
-              "action": "print",
               "stage": 0
             }
           ],
-          "markCount": 20,
-          "displayText": "I've got a car"
+          "markCount": 5
         },
         {
           "word": "get up",
@@ -1496,121 +527,37 @@
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788932735175,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788932735175,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932762975,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932982140,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932989542,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933025214,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933093389,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934059351,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934496551,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788955074336,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
               "stage": 0
             }
           ],
-          "markCount": 19
+          "markCount": 5
         },
         {
           "word": "wake up",
@@ -1628,121 +575,37 @@
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788932735175,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788932735175,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932762975,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932982140,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932989542,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933025214,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933093389,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934059351,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934496551,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788955074336,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
               "stage": 0
             }
           ],
-          "markCount": 19
+          "markCount": 5
         },
         {
           "word": "i go to school",
@@ -1756,135 +619,51 @@
           "translation": "我去上学。",
           "startedAt": 1788932735175,
           "stage": 0,
+          "displayText": "I go to school",
+          "processedReviewKeys": [
+            "default|i go to school|spelling|week|mu3g7v7k|0y9n9q",
+            "default|i go to school|spelling|week|mu3g7vc9|zc2r7d",
+            "default|i go to school|spelling|week|mu3g7viy|1isfow",
+            "default|i go to school|spelling|week|mu3g7vlq|xpsic8",
+            "default|i go to school|spelling|week|mu3g7w8g|vg97wy",
+            "default|i go to school|spelling|week|mu3g7wfe|eop59o",
+            "default|i go to school|spelling|week|mu3g7z9j|w0y34k",
+            "default|i go to school|spelling|week|mu3g7zga|yctvrr"
+          ],
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788932735175,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788932735175,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932762975,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932982140,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932989542,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933025214,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933093389,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934059351,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934496551,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788955074336,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789123714414,
-              "action": "print",
-              "stage": 0
-            },
-            {
-              "at": 1789123731480,
-              "action": "print",
               "stage": 0
             }
           ],
-          "markCount": 21,
-          "displayText": "I go to school"
+          "markCount": 5
         },
         {
           "word": "i've got a apple",
@@ -1898,135 +677,41 @@
           "translation": "我有一个苹果",
           "startedAt": 1788932735175,
           "stage": 0,
+          "displayText": "I've got a apple",
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788932735175,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788932735175,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932762975,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932982140,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788932989542,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933025214,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933093389,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934059351,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788934496551,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788955074336,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789123714414,
-              "action": "print",
-              "stage": 0
-            },
-            {
-              "at": 1789123731480,
-              "action": "print",
               "stage": 0
             }
           ],
-          "markCount": 21,
-          "displayText": "I've got a apple"
+          "markCount": 5
         },
         {
           "word": "rose",
@@ -2043,97 +728,37 @@
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788933022221,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933025214,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933093389,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788934059351,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788934496551,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788955074336,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
               "stage": 0
             }
           ],
-          "markCount": 15
+          "markCount": 5
         },
         {
           "word": "pink",
@@ -2150,100 +775,48 @@
           "translation": "n. 粉红色；a. 粉红的",
           "startedAt": 1788933022221,
           "stage": 0,
+          "processedReviewKeys": [
+            "default|pink|spelling|week|mu3g7n5i|o3r4sz",
+            "default|pink|spelling|week|mu3g7np0|ntw2hs",
+            "default|pink|spelling|week|mu3g7p21|vwzaqm",
+            "default|pink|spelling|week|mu3g7p70|on2eet",
+            "default|pink|spelling|week|mu3g7pbo|y3826q",
+            "default|pink|spelling|week|mu3g7pgu|bcbnl9"
+          ],
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788933022221,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933025214,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933093389,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788934059351,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788934496551,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788955074336,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
               "stage": 0
             }
           ],
-          "markCount": 15
+          "markCount": 5
         },
         {
           "word": "sun",
@@ -2262,97 +835,37 @@
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788933022221,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933025214,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933093389,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788934059351,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788934496551,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788955074336,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
               "stage": 0
             }
           ],
-          "markCount": 15
+          "markCount": 5
         },
         {
           "word": "sunflower",
@@ -2369,97 +882,37 @@
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788933022221,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933025214,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933093389,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788934059351,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788934496551,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788955074336,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
               "stage": 0
             }
           ],
-          "markCount": 15
+          "markCount": 5
         },
         {
           "word": "these are yellow sunflowers",
@@ -2473,111 +926,41 @@
           "translation": "这些是黄色的向日葵",
           "startedAt": 1788933022221,
           "stage": 0,
+          "displayText": "These are yellow sunflowers",
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788933022221,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933025214,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933093389,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788934059351,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788934496551,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788955074336,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789123714414,
-              "action": "print",
-              "stage": 0
-            },
-            {
-              "at": 1789123731480,
-              "action": "print",
               "stage": 0
             }
           ],
-          "markCount": 17,
-          "displayText": "These are yellow sunflowers"
+          "markCount": 5
         },
         {
           "word": "i've got pink roses",
@@ -2591,111 +974,41 @@
           "translation": "我收到了粉红色的玫瑰",
           "startedAt": 1788933022221,
           "stage": 0,
+          "displayText": "I've got pink roses",
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788933022221,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933025214,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933093389,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788934059351,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788934496551,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788955074336,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789123714414,
-              "action": "print",
-              "stage": 0
-            },
-            {
-              "at": 1789123731480,
-              "action": "print",
               "stage": 0
             }
           ],
-          "markCount": 17,
-          "displayText": "I've got pink roses"
+          "markCount": 5
         },
         {
           "word": "these are red cars",
@@ -2709,111 +1022,41 @@
           "translation": "这些是红色的车",
           "startedAt": 1788933022221,
           "stage": 0,
+          "displayText": "These are red cars",
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788933022221,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933025214,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788933093389,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788934059351,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788934496551,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788955074336,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789123714414,
-              "action": "print",
-              "stage": 0
-            },
-            {
-              "at": 1789123731480,
-              "action": "print",
               "stage": 0
             }
           ],
-          "markCount": 17,
-          "displayText": "These are red cars"
+          "markCount": 5
         },
         {
           "word": "home",
@@ -2832,91 +1075,37 @@
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788933090607,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933093389,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788934059351,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788934496551,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788955074336,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
               "stage": 0
             }
           ],
-          "markCount": 14
+          "markCount": 5
         },
         {
           "word": "lemon",
@@ -2935,91 +1124,37 @@
           "reviewedAt": [],
           "marks": [
             {
-              "at": 1788933090607,
-              "action": "start",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1788933093389,
+              "at": 1789524017280,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788934059351,
+              "at": 1789536360530,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788934496551,
+              "at": 1789537362064,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788955074336,
+              "at": 1789538763071,
               "action": "print",
               "scope": "week",
               "stage": 0
             },
             {
-              "at": 1788966881245,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004253805,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789004264966,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005583288,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789005918259,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789017294116,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789025032193,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789100978142,
-              "action": "print",
-              "scope": "week",
-              "stage": 0
-            },
-            {
-              "at": 1789103145280,
+              "at": 1789538773946,
               "action": "print",
               "scope": "week",
               "stage": 0
             }
           ],
-          "markCount": 14
+          "markCount": 5
         },
         {
           "word": "bone",
@@ -3667,14 +1802,404 @@
             "translation#0"
           ],
           "translation": "n. 床"
+        },
+        {
+          "word": "train",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789385329631,
+          "phonetic": "/trein/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 火车",
+          "startedAt": 1789539771201,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1789539771201,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789539771201,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 2
+        },
+        {
+          "word": "board game",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789385329631,
+          "phonetic": "/bɔ:d ɡeim/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 用棋盘玩的游戏",
+          "startedAt": 1789539771201,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1789539771201,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789539771201,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 2
+        },
+        {
+          "word": "i've got a board game",
+          "type": "sentence",
+          "sourceIds": [],
+          "addedAt": 1789385329632,
+          "displayText": "I've got a board game",
+          "phonetic": "/aɪv/ /gɒt/ /ei/ /bɒ:d/ /geim/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "我有一款棋盘游戏",
+          "startedAt": 1789539771201,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1789539771201,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789539771201,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 2
+        },
+        {
+          "word": "colour the alien red, please.",
+          "type": "sentence",
+          "sourceIds": [],
+          "addedAt": 1789385329632,
+          "displayText": "Colour the alien red, please.",
+          "phonetic": "/'kʌlә/ /ðә/ /'eiljәn/ /red/, /pli:z/.",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "请把这个外星人涂成红色。",
+          "startedAt": 1789539771201,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1789539771201,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789539771201,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 2
+        },
+        {
+          "word": "i haven't got a kite.",
+          "type": "sentence",
+          "sourceIds": [],
+          "addedAt": 1789385329632,
+          "displayText": "I haven't got a kite.",
+          "phonetic": "/ai/ /ˈhævnt/ /gɒt/ /ei/ /kait/.",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "我没有风筝。",
+          "startedAt": 1789539771201,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1789539771201,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789539771201,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 2
+        },
+        {
+          "word": "i haven't got a train.",
+          "type": "sentence",
+          "sourceIds": [],
+          "addedAt": 1789385329632,
+          "displayText": "I haven't got a train.",
+          "phonetic": "/ai/ /ˈhævnt/ /gɒt/ /ei/ /trein/.",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "我没有坐火车。",
+          "startedAt": 1789539771201,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1789539771201,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789539771201,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 2
+        },
+        {
+          "word": "cool",
+          "type": "word",
+          "sourceIds": [
+            "a2-key-2020"
+          ],
+          "addedAt": 1789385329632,
+          "phonetic": "/ku:l/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 凉爽",
+          "startedAt": 1789539771201,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1789539771201,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789539771201,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 2
+        },
+        {
+          "word": "let's share!",
+          "type": "sentence",
+          "sourceIds": [],
+          "addedAt": 1789385329632,
+          "displayText": "Let's share!",
+          "phonetic": "/lets/ /ʃєә/!",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "让我们分享吧！",
+          "startedAt": 1789539771201,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1789539771201,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789539771201,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 2
+        },
+        {
+          "word": "tap",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789385329632,
+          "phonetic": "/'tæp/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 轻打",
+          "startedAt": 1789539771201,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1789539771201,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789539771201,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 2
+        },
+        {
+          "word": "nap",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789385329632,
+          "phonetic": "/næp/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 小睡",
+          "startedAt": 1789539771201,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1789539771201,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789539771201,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 2
+        },
+        {
+          "word": "pan",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789385329632,
+          "phonetic": "/pæn/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 平锅",
+          "startedAt": 1789539771201,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1789539771201,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789539771201,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 2
+        },
+        {
+          "word": "pat",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789385329632,
+          "phonetic": "/pæt/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 轻拍",
+          "startedAt": 1789539771201,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1789539771201,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789539771201,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 2
+        },
+        {
+          "word": "alien",
+          "type": "word",
+          "sourceIds": [],
+          "addedAt": 1789385370972,
+          "phonetic": "/'eiljәn/",
+          "translationIds": [
+            "translation#0"
+          ],
+          "translation": "n. 外国人",
+          "startedAt": 1789539771201,
+          "stage": 0,
+          "reviewedAt": [],
+          "marks": [
+            {
+              "at": 1789539771201,
+              "action": "start",
+              "scope": "week",
+              "stage": 0
+            },
+            {
+              "at": 1789539771201,
+              "action": "print",
+              "scope": "week",
+              "stage": 0
+            }
+          ],
+          "markCount": 2
         }
-      ]
+      ],
+      "batchNames": {}
     },
     {
       "id": "list_1788915489647",
       "name": "Lingo",
       "createdAt": 1788915489647,
-      "words": []
+      "words": [],
+      "batchNames": {}
     }
   ]
 }

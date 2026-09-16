@@ -169,6 +169,10 @@ function runHistoryProbe(probeDir, mode) {
       await call('POST', '/api/lists/' + listId + '/review', {
         words: ['restart-history'], action: 'done', requestIds: { 'restart-history': 'restart-history-done-1' },
       })
+      await call('POST', '/api/lists/' + listId + '/review', {
+        words: ['restart-history'], action: 'tally', successKind: 'meaning',
+        requestIds: { 'restart-history': 'restart-history-meaning-1' },
+      })
     }
     const history = await call('GET', '/api/study/history?word=restart-history&limit=100')
     const achievements = await call('GET', '/api/study/achievements')
@@ -288,6 +292,67 @@ check('批量导入句子保留小写主键并提供首字母大写展示文本'
 r = await call('GET', '/api/word-lists?word=apple')
 check('apple 同时属于 2 个列表', r.body.listIds.length === 2, r.body)
 
+// ---- 批次显示名 batchNames ----
+r = await call('POST', '/api/lists', { name: '批次命名' })
+const batchListId = r.body?.id
+
+r = await call('GET', '/api/lists/' + batchListId + '/batches')
+check('新列表 GET batches 返回空对象', r.status === 200 && r.body?.batchNames && Object.keys(r.body.batchNames).length === 0, r.body)
+
+r = await call('PATCH', '/api/lists/' + batchListId + '/batches', { date: '2026-09-15', name: '秋词汇' })
+check('PATCH 批次名成功', r.status === 200 && r.body?.ok === true && r.body.batchNames['2026-09-15'] === '秋词汇', r.body)
+r = await call('GET', '/api/lists/' + batchListId + '/batches')
+check('GET 返回设置的批次名', r.body?.batchNames?.['2026-09-15'] === '秋词汇', r.body)
+r = await call('PATCH', '/api/lists/' + batchListId + '/batches', { date: '2026-09-15', name: '新名' })
+r = await call('GET', '/api/lists/' + batchListId + '/batches')
+check('同日期重命名覆盖旧名', r.body?.batchNames?.['2026-09-15'] === '新名', r.body)
+
+r = await call('PATCH', '/api/lists/' + batchListId + '/batches', { date: '2026-09-15', name: '' })
+check('空串重置批次名成功', r.status === 200 && r.body?.ok === true, r.body)
+r = await call('GET', '/api/lists/' + batchListId + '/batches')
+check('重置后 GET 不再含该日期', r.status === 200 && !('2026-09-15' in (r.body?.batchNames ?? {})), r.body)
+
+r = await call('PATCH', '/api/lists/' + batchListId + '/batches', { date: '2026-9-15', name: 'x' })
+check('非法日期 -> 400 invalid date', r.status === 400 && r.body?.error === 'invalid date', r.body)
+r = await call('PATCH', '/api/lists/' + batchListId + '/batches', { date: '2026-09-15', name: 'a'.repeat(41) })
+check('41 字批次名 -> 409 标签过长', r.status === 409 && r.body?.error === '标签过长', r.body)
+
+// batchNames 落盘持久化
+r = await call('PATCH', '/api/lists/' + batchListId + '/batches', { date: '2026-09-15', name: '秋词汇' })
+const savedBatchLists = JSON.parse(fs.readFileSync(path.join(dataDir, 'study-lists.json'), 'utf8'))
+const savedBatchList = savedBatchLists.lists.find(l => l.id === batchListId)
+check('batchNames 字段落盘', savedBatchList?.batchNames?.['2026-09-15'] === '秋词汇', savedBatchList)
+
+// 重复单词永远留在旧批次：addedAt 不变
+r = await call('POST', '/api/lists/' + batchListId + '/import', { items: [{ text: 'batch-dup' }] })
+check('首次导入 batch-dup added=1', r.body?.added === 1, r.body)
+let dupWords = await call('GET', '/api/lists/' + batchListId + '/words')
+const dupAddedAt = dupWords.body?.find(i => i.word === 'batch-dup')?.addedAt
+await new Promise(go => setTimeout(go, 50))
+r = await call('POST', '/api/lists/' + batchListId + '/import', { items: [{ text: 'batch-dup' }] })
+check('重复导入 skipped=1', r.body?.skipped === 1 && r.body?.added === 0, r.body)
+dupWords = await call('GET', '/api/lists/' + batchListId + '/words')
+const dupItems = dupWords.body?.filter(i => i.word === 'batch-dup') ?? []
+check('重复单词只有一条且 addedAt 不变（留在旧批次）',
+  dupItems.length === 1 && dupItems[0].addedAt === dupAddedAt, dupWords.body)
+
+// 旧数据补齐：无 batchNames 字段的列表也不报错
+await waitForPrefetch()
+const listsFile = path.join(dataDir, 'study-lists.json')
+const listsSnapshot = fs.readFileSync(listsFile, 'utf8')
+const legacyLists = JSON.parse(listsSnapshot)
+legacyLists.lists.push({ id: 'legacy-batches', words: [] })
+fs.writeFileSync(listsFile, JSON.stringify(legacyLists), 'utf8')
+r = await call('GET', '/api/lists/legacy-batches/words')
+check('旧列表 GET words 正常', r.status === 200, r.body)
+r = await call('GET', '/api/lists/legacy-batches/batches')
+check('旧列表 GET batches 返回空对象不报错',
+  r.status === 200 && r.body?.batchNames && Object.keys(r.body.batchNames).length === 0, r.body)
+fs.writeFileSync(listsFile, listsSnapshot, 'utf8')
+// 清掉本组用例创建的列表，免得影响后面「回到 1 个列表」的断言
+r = await call('DELETE', '/api/lists/' + batchListId)
+check('删除批次测试列表', r.body?.ok === true, r.body)
+
 r = await call('DELETE', '/api/lists/default/words/apple')
 check('移除单词', r.body?.ok === true, r.body)
 
@@ -394,28 +459,131 @@ r = await call('POST', '/api/lists/' + studyId + '/review', { words: ['lemon'], 
 check('回归用词停止学习后恢复 new',
   r.body?.items?.find(w => w.word === 'lemon')?.state === 'new', r.body)
 
-const spellingRequestId = [studyId, 'melon', melon?.stage ?? 0, melon?.nextDueAt ?? 'new', 'spelling', 'day'].join('|')
+r = await call('POST', '/api/lists/' + studyId + '/review', { words: ['melon'], action: 'tally' })
+check('tally 没给 successKind -> 400', r.status === 400, r.body)
+
+const spellingRequestId = [studyId, 'melon', 'tally-spelling', 'day', '1'].join('|')
 r = await call('POST', '/api/lists/' + studyId + '/review', {
-  words: ['melon'], action: 'done', successKind: 'spelling', requestIds: { melon: spellingRequestId },
+  words: ['melon'], action: 'tally', successKind: 'spelling', requestIds: { melon: spellingRequestId },
 })
 melon = r.body?.items?.find(w => w.word === 'melon')
-check('会拼写按记住处理并累计次数、推进复习',
+check('会拼只累计拼写次数，不动轮次和排期',
   r.body?.updated === 1 && melon?.spellingCount === 1
-  && melon?.rememberedCount === 1 && melon?.reviewCount === 1
-  && melon.stage === 1 && melon.nextDueAt === startOfDayMs(threeDaysAgo) + DAY_MS
+  && melon?.readingCount === 0 && melon?.rememberedCount === 0 && melon?.reviewCount === 0
+  && melon.stage === 0 && melon.nextDueAt === startOfDayMs(threeDaysAgo)
   && melon.marks?.at(-1)?.action === 'spelling', melon)
 
 r = await call('POST', '/api/lists/' + studyId + '/review', {
-  words: ['melon'], action: 'done', successKind: 'spelling', requestIds: { melon: spellingRequestId },
+  words: ['melon'], action: 'tally', successKind: 'spelling', requestIds: { melon: spellingRequestId },
 })
 melon = r.body?.items?.find(w => w.word === 'melon')
-check('重复提交会拼写任务不重复统计', r.body?.updated === 0 && melon?.spellingCount === 1 && melon?.reviewCount === 1, melon)
+check('重复提交会拼写任务不重复统计', r.body?.updated === 0 && melon?.spellingCount === 1 && melon?.reviewCount === 0, melon)
+
+r = await call('POST', '/api/lists/' + studyId + '/review', {
+  words: ['melon'], action: 'tally', successKind: 'spelling', requestIds: { melon: spellingRequestId + '-2' },
+})
+melon = r.body?.items?.find(w => w.word === 'melon')
+check('重新点击会拼各算一次，轮次仍然不动',
+  r.body?.updated === 1 && melon?.spellingCount === 2 && melon.stage === 0, melon)
+
+// 会读（reading）与知意（meaning）互相独立：只累计自己的次数，同样不推进轮次
+r = await call('POST', '/api/lists/' + studyId + '/import', { items: [{ text: 'apricot' }] })
+check('会读用例：准备 apricot', r.body?.added === 1, r.body)
+r = await call('POST', '/api/lists/' + studyId + '/start', { words: ['apricot'], startedAt: threeDaysAgo })
+check('会读用例：开始学习 apricot', r.body?.started === 1, r.body)
+r = await call('POST', '/api/lists/' + studyId + '/review', {
+  words: ['apricot'], action: 'tally', successKind: 'reading',
+  requestIds: { apricot: 'apricot-reading-1' },
+})
+let apricot = r.body?.items?.find(w => w.word === 'apricot')
+check('会读只累计阅读次数，不影响记住 / 拼写次数和轮次',
+  r.body?.updated === 1 && apricot?.readingCount === 1
+  && apricot?.rememberedCount === 0 && apricot?.spellingCount === 0
+  && apricot?.reviewCount === 0 && apricot.stage === 0
+  && apricot.nextDueAt === startOfDayMs(threeDaysAgo)
+  && apricot.marks?.at(-1)?.action === 'reading', apricot)
+
+r = await call('POST', '/api/lists/' + studyId + '/review', {
+  words: ['apricot'], action: 'tally', successKind: 'reading',
+  requestIds: { apricot: 'apricot-reading-1' },
+})
+apricot = r.body?.items?.find(w => w.word === 'apricot')
+check('重复提交会读任务不重复统计', r.body?.updated === 0 && apricot?.readingCount === 1 && apricot?.reviewCount === 0, apricot)
+
+r = await call('GET', '/api/study/history?action=reading&word=apricot&limit=100')
+const readingOnlyEvents = historyEvents(r.body, 'apricot')
+check('学习记录可单独筛选会读',
+  readingOnlyEvents.length === 1 && readingOnlyEvents[0]?.action === 'reading', r.body)
+
+r = await call('POST', '/api/lists/' + studyId + '/review', { words: ['apricot'], action: 'stop' })
+check('会读用例：停止学习 apricot', r.body?.updated === 1, r.body)
+
+// 会拼 / 会读 / 知意可撤销：按钮上的「−」减掉本周期内最近一次，计数下限 0
+r = await call('POST', '/api/lists/' + studyId + '/review', {
+  words: ['apricot'], action: 'tally', successKind: 'reading',
+  requestIds: { apricot: 'apricot-reading-2' },
+})
+check('撤销用例：再记一次会读',
+  r.body?.updated === 1 && r.body?.items?.find(w => w.word === 'apricot')?.readingCount === 2, r.body)
+
+r = await call('POST', '/api/lists/' + studyId + '/tally-undo', { words: ['apricot'], successKind: 'bogus' })
+check('撤销接口非法 successKind -> 400', r.status === 400, r.body)
+r = await call('POST', '/api/lists/' + studyId + '/tally-undo', { words: [], successKind: 'reading' })
+check('撤销接口缺词 -> 400', r.status === 400, r.body)
+
+r = await call('GET', '/api/study/achievements')
+check('撤销前学习成果页能看到两次会读',
+  achievementOf(r.body, 'apricot')?.readingCount === 2, r.body)
+
+r = await call('POST', '/api/lists/' + studyId + '/tally-undo', { words: ['apricot'], successKind: 'reading' })
+apricot = r.body?.items?.find(w => w.word === 'apricot')
+check('撤销一次：会读次数减一，marks 也少一条',
+  r.body?.ok === true && r.body?.undone === 1 && apricot?.readingCount === 1
+  && apricot?.marks?.filter(m => m.action === 'reading').length === 1, apricot)
+
+r = await call('POST', '/api/lists/' + studyId + '/tally-undo', { words: ['apricot'], successKind: 'reading' })
+apricot = r.body?.items?.find(w => w.word === 'apricot')
+check('再撤销一次：会读次数归零，marks 里一条不剩',
+  r.body?.undone === 1 && apricot?.readingCount === 0
+  && !apricot?.marks?.some(m => m.action === 'reading'), apricot)
+
+r = await call('POST', '/api/lists/' + studyId + '/tally-undo', { words: ['apricot'], successKind: 'reading' })
+apricot = r.body?.items?.find(w => w.word === 'apricot')
+check('无可撤销记录时 undone=0 且计数不低于 0',
+  r.body?.ok === true && r.body?.undone === 0 && apricot?.readingCount === 0, apricot)
+
+r = await call('GET', '/api/study/achievements')
+check('撤销后永久事件同步软删，成果页不再计这两次会读',
+  !achievementOf(r.body, 'apricot') || achievementOf(r.body, 'apricot')?.readingCount === 0, r.body)
+
+// 按天 / 按周窗口：周期以外的 tally 撤销不到（now 可以由调用方指定，测试才好造时间）
+r = await call('POST', '/api/lists/' + studyId + '/import', { items: [{ text: 'undo-window' }] })
+check('撤销用例：准备 undo-window', r.body?.added === 1, r.body)
+r = await call('POST', '/api/lists/' + studyId + '/review', {
+  words: ['undo-window'], action: 'tally', successKind: 'spelling',
+  requestIds: { 'undo-window': 'undo-window-spelling-1' },
+})
+check('撤销用例：记一次会拼',
+  r.body?.updated === 1 && r.body?.items?.find(w => w.word === 'undo-window')?.spellingCount === 1, r.body)
+r = await call('POST', '/api/lists/' + studyId + '/tally-undo', {
+  words: ['undo-window'], successKind: 'spelling', scope: 'day', now: Date.now() + DAY_MS,
+})
+check('按天撤销只覆盖当天：明天撤销不到今天的记录',
+  r.body?.undone === 0
+  && r.body?.items?.find(w => w.word === 'undo-window')?.spellingCount === 1, r.body)
+r = await call('POST', '/api/lists/' + studyId + '/tally-undo', {
+  words: ['undo-window'], successKind: 'spelling', scope: 'week',
+})
+check('按周撤销能覆盖本周内的记录',
+  r.body?.undone === 1
+  && r.body?.items?.find(w => w.word === 'undo-window')?.spellingCount === 0, r.body)
 
 r = await call('POST', '/api/lists/' + studyId + '/review', { words: ['melon'], action: 'done' })
 melon = r.body?.items?.find(w => w.word === 'melon')
-check('记住了 -> 累计记住次数并进入第 2 轮间隔',
-  r.body?.updated === 1 && melon.rememberedCount === 2
-  && melon.stage === 2 && melon.nextDueAt === startOfDayMs(threeDaysAgo) + 2 * DAY_MS, melon)
+check('进入下一轮 -> 只推进轮次并锚定打卡当天，不加知意计数',
+  r.body?.updated === 1 && melon.rememberedCount === 0
+  && melon.stage === 1 && melon.nextDueAt === startOfDayMs(Date.now()) + DAY_MS
+  && typeof melon.lastDoneAt === 'number', melon)
 
 const againRequestId = [studyId, 'melon', melon?.stage ?? 0, melon?.nextDueAt ?? 'new', 'again', 'day'].join('|')
 r = await call('POST', '/api/lists/' + studyId + '/review', {
@@ -424,15 +592,15 @@ r = await call('POST', '/api/lists/' + studyId + '/review', {
 melon = r.body?.items?.find(w => w.word === 'melon')
 check('没记住 -> 轮次归零并从今天重开',
   melon?.stage === 0 && melon.state === 'due' && melon.nextDueAt === startOfDayMs(Date.now())
-  && melon.reviewedAt.length === 3
-  && melon.rememberedCount === 2 && melon.forgottenCount === 1
+  && melon.reviewedAt.length === 2 && melon.lastDoneAt === undefined
+  && melon.rememberedCount === 0 && melon.forgottenCount === 1
   && melon.marks?.at(-1)?.action === 'again', melon)
 
 r = await call('POST', '/api/lists/' + studyId + '/review', {
   words: ['melon'], action: 'again', requestIds: { melon: againRequestId },
 })
 melon = r.body?.items?.find(w => w.word === 'melon')
-check('重复提交没记住任务不重复统计', r.body?.updated === 0 && melon?.forgottenCount === 1 && melon?.reviewCount === 3, melon)
+check('重复提交没记住任务不重复统计', r.body?.updated === 0 && melon?.forgottenCount === 1 && melon?.reviewCount === 2, melon)
 
 r = await call('POST', '/api/lists/' + studyId + '/review', { words: ['grape'], action: 'stop' })
 check('停止学习 -> 回到 new', r.body?.items?.find(w => w.word === 'grape')?.state === 'new', r.body)
@@ -456,6 +624,10 @@ check('复习计划只含正在学习的词', r.body.items.length === 1 && r.bod
 check('复习计划带列表名与周批次',
   r.body.items[0].listId === studyId && r.body.items[0].listName === 'Ebbinghaus'
   && typeof r.body.items[0].weekStart === 'number', r.body.items[0])
+check('复习计划带本周期熟悉度计数（melon 今天会拼过两次）',
+  r.body.items[0].tallyCounts?.day?.spelling === 2
+  && r.body.items[0].tallyCounts?.week?.spelling === 2
+  && r.body.items[0].tallyCounts?.day?.reading === 0, r.body.items[0])
 
 // ── 按周维度的打卡 + 打标日志 ─────────────────────────────────────────────
 
@@ -473,29 +645,41 @@ r = await call('POST', '/api/lists/' + weekId + '/import', {
 check('按周：准备 3 个词', r.body?.added === 3, r.body)
 
 const monday  = startOfWeekMs(Date.now())
-const weekEnd = monday + 7 * DAY_MS - 1
 
 r = await call('POST', '/api/lists/' + weekId + '/start',
   { words: ['mango', 'papaya', 'guava'], startedAt: monday, scope: 'week' })
 check('按周开始学习 3 个词', r.body?.ok === true && r.body.started === 3, r.body)
 
-// 周一首次打卡后，第 1 / 2 / 4 天（周二 / 周三 / 周五）都落在这一周内，按周一次过完
+// 按周打卡一次管一周：排到下周一；按天打卡仍按天顺延
 r = await call('POST', '/api/lists/' + weekId + '/review',
-  { words: ['mango'], action: 'done', scope: 'week', through: weekEnd })
+  { words: ['mango'], action: 'done', scope: 'week' })
 let mango = r.body?.items?.find(w => w.word === 'mango')
-check('按周打卡把这周内排到的轮次一次过完',
-  mango?.stage === 4 && mango.nextDueAt === monday + 7 * DAY_MS, mango)
-check('按周连过多轮也只算一次打卡', mango?.reviewCount === 1 && mango.reviewedAt.length === 1, mango)
+check('按周打卡只推进一轮，排到下周一',
+  mango?.stage === 1 && mango.nextDueAt === monday + 7 * DAY_MS, mango)
+check('一次打卡只算一次复习', mango?.reviewCount === 1 && mango.reviewedAt.length === 1, mango)
+
+r = await call('POST', '/api/lists/' + weekId + '/review',
+  { words: ['mango'], action: 'done', scope: 'week' })
+mango = r.body?.items?.find(w => w.word === 'mango')
+check('同一周内再点一次仍停在下周一，不继续往后滚',
+  mango?.stage === 2 && mango.nextDueAt === monday + 7 * DAY_MS, mango)
+
+r = await call('POST', '/api/lists/' + weekId + '/review',
+  { words: ['mango'], action: 'tally', successKind: 'meaning', scope: 'week' })
+mango = r.body?.items?.find(w => w.word === 'mango')
+check('知意计数只累计次数，不推进轮次',
+  mango?.stage === 2 && mango.rememberedCount === 1
+  && mango.nextDueAt === monday + 7 * DAY_MS, mango)
 
 r = await call('POST', '/api/lists/' + weekId + '/review', { words: ['papaya'], action: 'done' })
 let papaya = r.body?.items?.find(w => w.word === 'papaya')
-check('按天打卡仍然只前进一轮',
-  papaya?.stage === 1 && papaya.nextDueAt === monday + DAY_MS, papaya)
+check('按天打卡也只前进一轮',
+  papaya?.stage === 1 && papaya.nextDueAt === startOfDayMs(Date.now()) + DAY_MS, papaya)
 
 r = await call('POST', '/api/lists/' + weekId + '/mark', { words: ['papaya'], action: 'print', scope: 'week' })
 check('打标接口只记日志', r.body?.ok === true && r.body.marked === 1, r.body)
 papaya = r.body?.items?.find(w => w.word === 'papaya')
-check('打标不动复习排期', papaya?.stage === 1 && papaya.nextDueAt === monday + DAY_MS, papaya)
+check('打标不动复习排期', papaya?.stage === 1 && papaya.nextDueAt === startOfDayMs(Date.now()) + DAY_MS, papaya)
 
 r = await call('POST', '/api/lists/' + weekId + '/mark', { words: ['papaya'], action: 'done' })
 check('打标接口不接受复习动作 -> 400', r.status === 400, r.body)
@@ -525,7 +709,7 @@ check('重开与停止各留一条打标',
 r = await call('GET', '/api/study/plan')
 const planMango = r.body?.items?.find(w => w.word === 'mango')
 check('复习计划不带打标日志但保留次数',
-  planMango !== undefined && planMango.marks === undefined && planMango.markCount === 2, planMango)
+  planMango !== undefined && planMango.marks === undefined && planMango.markCount === 4, planMango)
 
 r = await call('DELETE', '/api/lists/' + weekId)
 check('清理按周测试用的列表', r.body?.ok === true, r.body)
@@ -562,6 +746,64 @@ check('批量导入的中文快照已落盘',
   && r.body.find(w => w.word === 'nectarine')?.phonetic === '/ˈnektəriːn/'
   && JSON.stringify(r.body.find(w => w.word === 'nectarine')?.translationIds) === '["translation#0"]', r.body)
 
+// ── 自定义词义（customTranslations）──────────────────────────────────────
+// 词典给的词义不一定是要背的那几条；允许手填自定义词义，与选中的词典词义一并写进中文快照。
+
+r = await call('POST', '/api/lists/' + studyId + '/words', {
+  text: 'longan',
+  customTranslations: ['我自己的叫法', '我自己的叫法', '   ', 'x'.repeat(61)],
+})
+check('加词时自定义词义去重去空限长',
+  r.body?.ok === true
+  && JSON.stringify(r.body?.item?.customTranslations) === '["我自己的叫法"]'
+  && r.body?.item?.translation === '我自己的叫法', r.body)
+
+r = await call('PATCH', '/api/lists/' + studyId + '/words/longan', {
+  customTranslations: ['改过的叫法', '另一条'],
+})
+check('自定义词义可二次编辑，已存快照不动',
+  JSON.stringify(r.body?.item?.customTranslations) === '["改过的叫法","另一条"]'
+  && r.body?.item?.translation === '我自己的叫法', r.body)
+
+r = await call('PATCH', '/api/lists/' + studyId + '/words/longan', { translation: '' })
+check('清空中文快照时用自定义词义重建',
+  r.body?.item?.translation === '改过的叫法,另一条', r.body)
+
+r = await call('PATCH', '/api/lists/' + studyId + '/words/longan', { customTranslations: [] })
+check('清空自定义词义 -> 字段不落盘，快照保留',
+  r.body?.item?.customTranslations === undefined
+  && r.body?.item?.translation === '改过的叫法,另一条', r.body)
+
+// 选中的词典词义与自定义词义合并：词典词义按词性分组在前，自定义跟在后面
+const customCacheFile = path.join(dataDir, 'dict-cache.json')
+fs.writeFileSync(customCacheFile, JSON.stringify({
+  ...JSON.parse(fs.readFileSync(customCacheFile, 'utf8')),
+  loquat: {
+    word: 'loquat', phonetic: '/ˈloʊkwɑːt/', translation: 'n. 枇杷',
+    translations: [
+      { id: 'translation#0', text: '枇杷', pos: 'noun' },
+      { id: 'translation#1', text: '枇杷树', pos: 'noun' },
+    ],
+    senses: [], cachedAt: Date.now(), status: 'ok', source: 'ecdict',
+  },
+}))
+
+r = await call('POST', '/api/lists/' + studyId + '/import', {
+  items: [{ text: 'loquat', translationIds: ['translation#0'], customTranslations: ['我背的就是这个'] }],
+})
+r = await call('POST', '/api/lists/' + studyId + '/import', {
+  items: [{ text: 'pomelo', customTranslations: ['柚子', '柚子汁'] }],
+})
+r = await call('GET', '/api/lists/' + studyId + '/words')
+const loquat = r.body.find(w => w.word === 'loquat')
+check('导入时词典词义与自定义词义合并',
+  JSON.stringify(loquat?.customTranslations) === '["我背的就是这个"]'
+  && loquat?.translation === 'n. 枇杷；我背的就是这个', loquat)
+const pomelo = r.body.find(w => w.word === 'pomelo')
+check('没有词典词义时中文快照只用自定义词义',
+  JSON.stringify(pomelo?.customTranslations) === '["柚子","柚子汁"]'
+  && pomelo?.translation === '柚子,柚子汁', pomelo)
+
 // ── SQLite 永久学习历史 ───────────────────────────────────────────────────
 // 学习列表只保存当前排期；成果和每次操作的具体时间由独立事件账本负责。
 
@@ -596,23 +838,29 @@ r = await call('POST', '/api/lists/' + historyListId + '/review', {
 })
 check('永久历史：again 成功', r.body?.updated === 1, r.body)
 
+r = await call('POST', '/api/lists/' + historyListId + '/review', {
+  words: ['archive-one'], action: 'tally', successKind: 'meaning',
+  requestIds: { 'archive-one': 'permanent-archive-one-meaning-1' },
+})
+check('永久历史：知意计数成功', r.body?.updated === 1, r.body)
+
 r = await call('GET', '/api/study/history?word=archive-one&limit=100')
 let archiveEvents = historyEvents(r.body, 'archive-one')
-check('学习记录管理默认只返回 done / again / spelling',
+check('学习记录管理默认只返回复习与熟悉度动作',
   r.status === 200
   && ['done', 'again'].every(action => archiveEvents.some(event => event.action === action))
-  && archiveEvents.every(event => ['done', 'again', 'spelling'].includes(event.action)),
+  && archiveEvents.every(event => ['done', 'again', 'spelling', 'reading', 'meaning'].includes(event.action)),
   r.body)
 check('永久事件保存每次具体时间',
-  archiveEvents.length === 2
+  archiveEvents.length === 3
   && archiveEvents.every(event => Number.isFinite(eventAt(event)) && eventAt(event) > 0)
   && archiveEvents.some(event => event.action === 'done'),
   archiveEvents)
 
 r = await call('GET', '/api/study/history?word=melon&action=spelling&limit=100')
 const spellingOnlyEvents = historyEvents(r.body, 'melon')
-check('学习记录可单独筛选背过',
-  spellingOnlyEvents.length === 1 && spellingOnlyEvents[0]?.action === 'spelling', r.body)
+check('学习记录可单独筛选会拼',
+  spellingOnlyEvents.length === 2 && spellingOnlyEvents.every(event => event.action === 'spelling'), r.body)
 
 r = await call('GET', '/api/study/achievements')
 let archiveAchievement = achievementOf(r.body, 'archive-one')
@@ -632,6 +880,11 @@ r = await call('POST', '/api/lists/' + historyListId + '/review', {
   words: ['archive-list'], action: 'done', requestIds: { 'archive-list': 'permanent-archive-list-done-1' },
 })
 check('永久历史：删除列表前先产生一次成果', r.body?.updated === 1, r.body)
+r = await call('POST', '/api/lists/' + historyListId + '/review', {
+  words: ['archive-list'], action: 'tally', successKind: 'meaning',
+  requestIds: { 'archive-list': 'permanent-archive-list-meaning-1' },
+})
+check('永久历史：删除列表前再留一次知意计数', r.body?.updated === 1, r.body)
 r = await call('DELETE', '/api/lists/' + historyListId)
 check('永久历史：删除整个学习列表', r.body?.ok === true, r.body)
 r = await call('GET', '/api/study/achievements')
@@ -666,7 +919,7 @@ r = await call('GET', '/api/study/achievements')
 const meaningAchievement = achievementOf(r.body, 'meaning-word')
 check('成果页按事件聚合，不因一次事件关联多个词义而重复计数',
   meaningAchievement?.reviewCount === 2
-  && meaningAchievement.rememberedCount === 1
+  && meaningAchievement.rememberedCount === 0
   && meaningAchievement.forgottenCount === 1, meaningAchievement)
 
 // 删除单条永久事件后，聚合必须由剩余事件重新计算。
@@ -796,7 +1049,7 @@ const restartReadEvents = historyEvents(restartRead.history?.body, 'restart-hist
 check('服务重启后永久历史仍存在',
   restartRead.history?.status === 200
   && restartReadEvents.some(event => event.action === 'done')
-  && restartReadEvents.every(event => ['done', 'again', 'spelling'].includes(event.action))
+  && restartReadEvents.every(event => ['done', 'again', 'spelling', 'reading', 'meaning'].includes(event.action))
   && achievementOf(restartRead.achievements?.body, 'restart-history')?.rememberedCount === 1,
   restartRead)
 check('重复启动迁移幂等，不重复导入历史',
@@ -1047,15 +1300,16 @@ check('打印记录带上现算的进度',
   && r.body.batches[1].items.every(i => typeof i.stage === 'number'), r.body?.batches?.[1])
 
 r = await call('POST', '/api/print-batches/' + printA?.id + '/review', { action: 'done' })
-check('整批打卡沿用打印时的按周粒度，一次过完周内轮次',
+check('整批打卡沿用打印时的按周粒度，一次只推进一轮',
   r.body?.ok === true && r.body.updated === 2
-  && r.body.items.every(i => i.stage === 4 && i.marks === undefined), r.body)
+  && r.body.items.every(i => i.stage === 1 && i.marks === undefined), r.body)
 check('整批打卡回写批次上的打卡信息',
   r.body.batch?.reviewAction === 'done' && r.body.batch.reviewedCount === 2
   && r.body.batch.reviewCount === 1 && typeof r.body.batch.reviewedAt === 'number', r.body?.batch)
 
 const printRetryIds = {}
 for (const item of printA.items) {
+  // 服务端的 fallback 幂等键取打卡前的状态：stage 0、nextDueAt = 开始当天
   printRetryIds[item.listId + '|' + item.word] = [
     printA.id, item.listId, item.word, 0, monday, 'done', 'week', '',
   ].join('|')
@@ -1102,7 +1356,7 @@ check('只剩另一条打印记录', r.body?.total === 1 && r.body.batches[0].id
 
 r = await call('GET', '/api/lists/' + printListId + '/words')
 plum = r.body.find(w => w.word === 'plum')
-check('删记录不动词的学习进度', plum?.stage === 4, plum)
+check('删记录不动词的学习进度', plum?.stage === 1, plum)
 
 r = await call('DELETE', '/api/lists/' + printListId)
 check('清理打印批次测试用的列表', r.body?.ok === true, r.body)

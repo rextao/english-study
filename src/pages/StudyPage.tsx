@@ -4,13 +4,13 @@ import { StudyGoal } from '../components/StudyGoal'
 import { Button, Checkbox, Input, Modal, Popconfirm, Select } from '../ui'
 import type { SelectOption } from '../ui'
 import type { StudyListApi } from '../hooks/useStudyList'
-import type { StudyPlanApi } from '../hooks/useStudyPlan'
+import type { StudyPlanApi, TallyKind } from '../hooks/useStudyPlan'
 import { useDictBatch } from '../hooks/useDictBatch'
 import { usePrintBatches } from '../hooks/usePrintBatches'
 import type {
   PrintBatch, StudyMarkScope, StudyPlanItem, StudyWordItem, VocabLibraryInfo,
 } from '../types/vocab'
-import { buildFlashcardsHtml, fetchCards, openCardWindow } from '../utils/flashcards'
+import { fetchCards, openCardWindow, renderCardsInto } from '../utils/flashcards'
 import type { CardRequest, CardWindow } from '../utils/flashcards'
 import { formatTranslationOptions, selectedTranslationOptions } from '../utils/translations'
 import './StudyPage.css'
@@ -84,6 +84,30 @@ function fmtMonth(ts: number): string {
   return d.getFullYear() + ' 年 ' + (d.getMonth() + 1) + ' 月'
 }
 
+/** 分组标题：同一年只显示月日，跨年补年份；今天/昨天额外标注 */
+function groupDayLabel(day: number, today: number): string {
+  const diff = dayDiff(today, day)
+  const sameYear = new Date(day).getFullYear() === new Date(today).getFullYear()
+  const base = sameYear ? fmtDate(day) : new Date(day).getFullYear() + ' 年 ' + fmtDate(day)
+  if (diff === 0) return base + ' · 今天'
+  if (diff === 1) return base + ' · 昨天'
+  return base
+}
+
+/** 词条加入时间 → 自然日串，形如 2026-09-15（本地时区），与学习列表的批次键一致 */
+const batchKeyOf = (ts: number) => {
+  const d = new Date(ts)
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return d.getFullYear() + '-' + mm + '-' + dd
+}
+
+/** 批次键反回当天 0 点时间戳，供今天/昨天标注对照 */
+const batchKeyTsOf = (key: string) => {
+  const [y, m, d] = key.split('-').map(Number)
+  return new Date(y, m - 1, d).getTime()
+}
+
 /** 相对 base 偏移 offset 个月的 1 号零点；先归到 1 号，避免 31 号跳月 */
 function monthStart(base: number, offset: number): number {
   const d = new Date(base)
@@ -120,24 +144,6 @@ function weekRelLabel(week: number, thisWeek: number): string {
   return diff > 0 ? diff + ' 周后' : -diff + ' 周前'
 }
 
-/**
- * 按周打卡时这个词会连过几轮：从当前轮次往后数，凡是到期日落在 through 之前的都算过。
- * 必须与服务端 review 里的 catchUp 循环保持一致，否则界面上的提示和实际进度对不上。
- */
-function roundsInWeek(item: StudyPlanItem, through: number, intervals: number[]): number {
-  if (!item.startedAt) return 0
-  const base = startOfDay(item.startedAt)
-  let stage = item.stage ?? 0
-  let rounds = 0
-  while (stage <= intervals.length) {
-    const due = stage === 0 ? base : base + intervals[stage - 1] * DAY
-    if (due > through) break
-    stage++
-    rounds++
-  }
-  return rounds
-}
-
 /** 按列表分组：打卡和留档接口都是按列表调的，而计划里的词可能来自多个列表 */
 function groupByList(items: StudyPlanItem[]): Map<string, string[]> {
   const groups = new Map<string, string[]>()
@@ -157,7 +163,24 @@ interface DayCell {
 }
 
 type BusyKind = '' | 'print' | 'start' | 'day' | 'custom'
-type WordAction = 'spelling' | 'done' | 'again'
+/** spelling / reading / meaning = 熟悉度计数；next = 进入下一轮；again = 没记住 */
+type WordAction = 'spelling' | 'reading' | 'meaning'
+  | 'spelling-undo' | 'reading-undo' | 'meaning-undo'
+  | 'next' | 'again'
+
+/** 会拼 / 会读 / 知意的按钮文案，与 tally 的 successKind 一一对应 */
+const TALLY_LABEL: Record<TallyKind, string> = {
+  spelling: '会拼',
+  reading: '会读',
+  meaning: '知意',
+}
+
+/** 「−」按钮撤销的维度：本周期内最近一次该维度的计数 */
+const UNDO_KIND: Partial<Record<WordAction, TallyKind>> = {
+  'spelling-undo': 'spelling',
+  'reading-undo': 'reading',
+  'meaning-undo': 'meaning',
+}
 type PrintResult = 'ok' | 'blocked' | 'failed'
 type StudyCardRequest = CardRequest & { sourceIds?: string[] }
 
@@ -170,7 +193,7 @@ interface StudyPageProps {
 }
 
 export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelById }: StudyPageProps) {
-  const { lists, fetchListWords } = study
+  const { lists, fetchListWords, fetchBatches } = study
   const planData = plan.plan
   const prints   = usePrintBatches()
 
@@ -184,6 +207,8 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
   const [notice, setNotice]             = useState('')
   const [error, setError]               = useState('')
   const [reloadToken, setReloadToken]   = useState(0)
+  /** 批次显示名：与学习列表共用同一份（按 addedAt 自然日分组），学习列表改名这里同步 */
+  const [batchNames, setBatchNames]     = useState<Record<string, string>>({})
   /** 挑词弹窗：draft 是草稿，点取消就丢掉 */
   const [pickOpen, setPickOpen]         = useState(false)
   const [draft, setDraft]               = useState<string[]>([])
@@ -219,8 +244,13 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
       setWords(items)
       setWordsLoading(false)
     })
+    // 批次显示名与学习列表共用，学习列表改名后这里同步
+    fetchBatches(listId).then(names => {
+      if (!alive) return
+      setBatchNames(names)
+    })
     return () => { alive = false }
-  }, [listId, reloadToken, fetchListWords])
+  }, [listId, reloadToken, fetchListWords, fetchBatches])
 
   const draftSet = useMemo(() => new Set(draft), [draft])
   const cardDraftSet = useMemo(() => new Set(cardDraft), [cardDraft])
@@ -252,6 +282,18 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
     () => words.filter(w => !w.startedAt).sort((a, b) => a.word.localeCompare(b.word)),
     [words]
   )
+  /** 挑新词弹窗按加入日期分成批次：与学习列表同键（2026-09-15），显示名直接读同一份 batchNames */
+  const newWordGroups = useMemo(() => {
+    const groups = new Map<string, StudyWordItem[]>()
+    for (const item of newWords) {
+      const key = batchKeyOf(item.addedAt)
+      const bucket = groups.get(key)
+      if (bucket) bucket.push(item)
+      else groups.set(key, [item])
+    }
+    // 自然日串按字典序就是时间序，新日期在上
+    return Array.from(groups.entries()).sort((a, b) => b[0].localeCompare(a[0]))
+  }, [newWords])
   const printableWords = useMemo(
     () => words.slice().sort((a, b) => displayTextOf(a).localeCompare(displayTextOf(b))),
     [words]
@@ -359,33 +401,32 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
   const dict = useDictBatch(activeItems.map(item => item.word))
   /** 只有当前这一天 / 当前这一周能打卡，未来的批次只能看 */
   const canReview   = isWeek ? isThisWeek : isToday
-  /** 按周打卡的界限：这一周的最后一毫秒 */
-  const weekThrough = activeWeek + 7 * DAY - 1
   const panelTitle  = isWeek
     ? (isThisWeek ? '本周' : fmtWeek(activeWeek))
     : (isToday ? '今天' : fmtDate(activeDay))
   const panelRel    = isWeek
     ? (isThisWeek ? '' : weekRelLabel(activeWeek, thisWeek))
     : (isToday ? '' : relLabel(activeDay, planData.today))
-  /** 打卡时带上粒度；按周还要带界限，服务端据此把周内排到的轮次一并算过 */
-  const reviewOptions = isWeek
-    ? { scope: 'week' as const, through: weekThrough }
-    : { scope: 'day' as const }
-  /** 按周模式下有词会一次连过多轮，提示里要说清楚 */
-  const multiRoundCount = useMemo(
-    () => (isWeek && canReview
-      ? activeItems.filter(i => roundsInWeek(i, weekThrough, planData.intervals) > 1).length
-      : 0),
-    [isWeek, canReview, activeItems, weekThrough, planData.intervals]
-  )
+  /** 打卡时带上粒度，只进打标日志，不影响排期 */
+  const reviewOptions = { scope: (isWeek ? 'week' : 'day') as StudyMarkScope }
 
   function openPick() {
     setDraft(picked)
     setPickOpen(true)
+    // 每次打开都刷新一次批次显示名，保证学习列表刚改过的名称立即生效
+    fetchBatches(listId).then(names => setBatchNames(names))
   }
 
   function toggleDraft(word: string) {
     setDraft(prev => prev.includes(word) ? prev.filter(w => w !== word) : prev.concat(word))
+  }
+
+  /** 分组全选：整组都勾了就整组取消，否则把组内没勾上的词都加进来 */
+  function toggleGroupWords(items: StudyWordItem[]) {
+    const words = items.map(item => item.word)
+    setDraft(prev => words.every(word => prev.includes(word))
+      ? prev.filter(word => !words.includes(word))
+      : prev.concat(words.filter(word => !prev.includes(word))))
   }
 
   function draftFirst(count: number) {
@@ -432,6 +473,7 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
       translation: item.translation,
       sourceIds,
       libraryLabels: sourceIds.map(getPrintLabelById),
+      fromLibrary: sourceIds.length > 0,
     }
   }
 
@@ -447,12 +489,12 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
         setProgress({ done, total })
         win.progress(done, total)
       })
-      win.render(buildFlashcardsHtml(cards, {
+      renderCardsInto(win, cards, {
         cols: layoutInfo.cols,
         rows: layoutInfo.rows,
         title,
         startedAt,
-      }))
+      })
       return true
     } catch {
       win.fail('卡片生成失败，请确认本地服务已启动（npm run dev:all）')
@@ -589,6 +631,18 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
     if (!saved.ok) setError('卡片已导出，但打印记录没保存：' + saved.error)
   }
 
+  /** 每次点击生成独立幂等键：同一调用重试会去重，重新点击则各算一次 */
+  function newRequestId(item: StudyPlanItem, action: string): string {
+    return [
+      item.listId,
+      item.word,
+      action,
+      mode,
+      Date.now().toString(36),
+      Math.random().toString(36).slice(2, 8),
+    ].join('|')
+  }
+
   async function handleWordAction(item: StudyPlanItem, action: WordAction) {
     const key = item.listId + '/' + item.word
     const displayText = displayTextOf(item)
@@ -596,17 +650,39 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
     setNotice('')
     setWordBusy(prev => ({ ...prev, [key]: action }))
     try {
-      const result = await plan.reviewWords(item.listId, [item.word], action === 'spelling' ? 'done' : action, {
+      // 「−」按钮：撤销本周期内最近一次会拼 / 会读 / 知意，计数下限 0
+      const undoKind = UNDO_KIND[action]
+      if (undoKind) {
+        const result = await plan.undoTally(item.listId, [item.word], undoKind, reviewOptions.scope)
+        if (!result.ok) {
+          setError(displayText + ' 撤销失败：' + result.error)
+          return
+        }
+        setNotice(result.undone > 0
+          ? displayText + ' 已撤销一次' + TALLY_LABEL[undoKind] + '（本周期内）。'
+          : displayText + ' 本周期内没有可撤销的' + TALLY_LABEL[undoKind] + '记录。')
+        if (item.listId === listId) setReloadToken(t => t + 1)
+        return
+      }
+      const tallyKind = action === 'spelling' || action === 'reading' || action === 'meaning'
+        ? action as 'spelling' | 'reading' | 'meaning'
+        : undefined
+      const reviewAction: 'tally' | 'done' | 'again' = tallyKind
+        ? 'tally'
+        : (action === 'next' ? 'done' : 'again')
+      const result = await plan.reviewWords(item.listId, [item.word], reviewAction, {
         ...reviewOptions,
-        successKind: action === 'spelling' ? 'spelling' : undefined,
-        requestId: [item.listId, item.word, item.stage ?? 0, item.nextDueAt ?? 'new', action, mode, reviewOptions.through ?? ''].join('|'),
+        successKind: tallyKind,
+        requestId: newRequestId(item, action),
       })
       if (!result.ok) {
         setError(displayText + ' 操作失败：' + result.error)
         return
       }
-      if (action === 'spelling') setNotice(displayText + ' 会拼写，已记住并进入下一轮复习。')
-      else if (action === 'done') setNotice(displayText + ' 已标记为记住了，已进入下一轮复习。')
+      if (action === 'spelling') setNotice(displayText + ' 已记一次会拼（不影响复习轮次）。')
+      else if (action === 'reading') setNotice(displayText + ' 已记一次会读（不影响复习轮次）。')
+      else if (action === 'meaning') setNotice(displayText + ' 已记一次知意（不影响复习轮次）。')
+      else if (action === 'next') setNotice(displayText + ' 已进入下一轮复习。')
       else setNotice(displayText + ' 已标记为没记住，明天重新复习。')
       if (item.listId === listId) setReloadToken(t => t + 1)
     } finally {
@@ -626,15 +702,7 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
     const requestIdsByList = new Map<string, Record<string, string>>()
     for (const item of activeItems) {
       const ids = requestIdsByList.get(item.listId) ?? {}
-      ids[item.word] = [
-        item.listId,
-        item.word,
-        item.stage ?? 0,
-        item.nextDueAt ?? 'new',
-        'done',
-        mode,
-        reviewOptions.through ?? '',
-      ].join('|')
+      ids[item.word] = newRequestId(item, 'next')
       requestIdsByList.set(item.listId, ids)
     }
     const count = activeItems.length
@@ -768,18 +836,40 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
             <Button type="link" size="small" onClick={() => setDraft(newWords.map(w => w.word))}>全选</Button>
             <Button type="link" size="small" disabled={draft.length === 0} onClick={() => setDraft([])}>清空</Button>
           </div>
-          <div className="pick-grid">
-            {newWords.map(item => (
-              <Checkbox
-                key={item.word}
-                className="pick-grid__item"
-                checked={draftSet.has(item.word)}
-                onChange={() => toggleDraft(item.word)}
-              >
-                {displayTextOf(item)}
-              </Checkbox>
-            ))}
-          </div>
+          {newWordGroups.map(([key, items]) => {
+            const dayTs = batchKeyTsOf(key)
+            const customLabel = batchNames[key]
+            return (
+              <div key={key} className="pick-modal__group">
+                <div className="pick-modal__group-title">
+                  <span>{customLabel || groupDayLabel(dayTs, planData.today)}</span>
+                  {customLabel && (
+                    <span className="pick-modal__group-day">{groupDayLabel(dayTs, planData.today)}</span>
+                  )}
+                  <span className="pick-modal__group-count">加入 · {items.length} 个词</span>
+                  <Checkbox
+                    className="pick-modal__group-all"
+                    checked={items.length > 0 && items.every(item => draftSet.has(item.word))}
+                    onChange={() => toggleGroupWords(items)}
+                  >
+                    全选
+                  </Checkbox>
+                </div>
+                <div className="pick-grid">
+                  {items.map(item => (
+                    <Checkbox
+                      key={item.word}
+                      className="pick-grid__item"
+                      checked={draftSet.has(item.word)}
+                      onChange={() => toggleDraft(item.word)}
+                    >
+                      {displayTextOf(item)}
+                    </Checkbox>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
         </Modal>
 
         <Modal
@@ -912,24 +1002,17 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
                 </Button>
                 {canReview && (
                   <Popconfirm
-                    title={isWeek ? '本周到期的词全部标记为记住了？' : '今天到期的词全部标记为记住了？'}
-                    description={'共 ' + activeItems.length + ' 个词，会一起进入下一轮复习'
-                      + (multiRoundCount > 0 ? '，其中 ' + multiRoundCount + ' 个会连过多轮' : '')}
-                    okText="全部记住"
+                    title={isWeek ? '本周到期的词全部进入下一轮？' : '今天到期的词全部进入下一轮？'}
+                    description={'共 ' + activeItems.length + ' 个词，各推进一轮，下次复习按记忆曲线顺延'}
+                    okText="全部下一轮"
                     onConfirm={handleAllDone}
                   >
-                    <Button type="primary" size="small">全部记住了</Button>
+                    <Button type="primary" size="small">全部下一轮</Button>
                   </Popconfirm>
                 )}
               </div>
             )}
           </div>
-
-          {isWeek && canReview && multiRoundCount > 0 && (
-            <p className="hint study-day__note">
-              按周打卡会把这一周内排到的复习轮次一次过完，本周有 {multiRoundCount} 个词会连过多轮
-            </p>
-          )}
 
           {activeItems.length === 0 ? (
             <p className="empty empty--inline">
@@ -957,23 +1040,60 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
                     </div>
                     {canReview && (
                       <span className="review-row__ops">
-                        <Button
-                          size="small"
-                          loading={action === 'spelling'}
-                          disabled={action != null}
-                          onClick={() => handleWordAction(item, 'spelling')}
-                        >
-                          会拼写
-                        </Button>
-                        <Button
-                          type="primary"
-                          size="small"
-                          loading={action === 'done'}
-                          disabled={action != null}
-                          onClick={() => handleWordAction(item, 'done')}
-                        >
-                          记住了
-                        </Button>
+                        {(['spelling', 'reading', 'meaning'] as const).map(kind => {
+                          const undo = (kind + '-undo') as WordAction
+                          const counts = item.tallyCounts?.[isWeek ? 'week' : 'day']
+                          const count = counts?.[kind] ?? 0
+                          return (
+                            <span key={kind} className="review-row__tally">
+                              <Button
+                                size="small"
+                                title={'记一次' + TALLY_LABEL[kind] + '（本周期内可重复）'}
+                                loading={action === kind}
+                                disabled={action != null}
+                                onClick={() => handleWordAction(item, kind)}
+                              >
+                                {TALLY_LABEL[kind]} {count}
+                              </Button>
+                              <Button
+                                size="small"
+                                className="review-row__tally-minus"
+                                title={'减少一次' + TALLY_LABEL[kind] + '（本周期内，最少 0）'}
+                                aria-label={'减少一次' + TALLY_LABEL[kind]}
+                                loading={action === undo}
+                                disabled={action != null || count <= 0}
+                                onClick={() => handleWordAction(item, undo)}
+                              >
+                                −
+                              </Button>
+                            </span>
+                          )
+                        })}
+                       <Button
+                         type="primary"
+                         size="small"
+                         className="review-row__done"
+                         title="进入下一轮"
+                         aria-label="进入下一轮"
+                         loading={action === 'next'}
+                         disabled={action != null}
+                         onClick={() => handleWordAction(item, 'next')}
+                       >
+                         <svg
+                           className="review-row__done-icon"
+                           viewBox="0 0 24 24"
+                           fill="none"
+                           aria-hidden="true"
+                           >
+                             <path
+                               d="M20 6 9 17l-5-5"
+                               stroke="currentColor"
+                               strokeWidth="2.6"
+                               strokeLinecap="round"
+                               strokeLinejoin="round"
+                             />
+                           </svg>
+                       </Button>
                         <Button
                           size="small"
                           loading={action === 'again'}

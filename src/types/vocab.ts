@@ -92,13 +92,17 @@ export type StudyState = 'new' | 'due' | 'scheduled' | 'mastered'
 
 /**
  * 打标动作：
- * start 开始学习 / restart 重新开始 / done 记住了 / again 没记住 / stop 退出学习
- * print 导出了卡片 / spelling 会拼写
+ * start 开始学习 / restart 重新开始 / done 进入下一轮 / again 没记住 / stop 退出学习
+ * print 导出了卡片 / spelling 会拼 / reading 会读 / meaning 知意（熟悉度计数）
  */
-export type StudyMarkAction = 'start' | 'restart' | 'done' | 'again' | 'stop' | 'print' | 'spelling'
+export type StudyMarkAction = 'start' | 'restart' | 'done' | 'again' | 'stop' | 'print' | 'spelling' | 'reading' | 'meaning'
 
-/** 复习打卡动作：done 记住了（进下一轮）/ again 没记住（周期重置）/ stop 退出学习 */
-export type StudyReviewAction = 'done' | 'again' | 'stop'
+/**
+ * 复习打卡动作：
+ * done 进入下一轮（推进记忆曲线）/ again 没记住（周期重置）/ stop 退出学习
+ * tally 熟悉度计数（successKind 必传），只累计次数、不动轮次和排期
+ */
+export type StudyReviewAction = 'done' | 'again' | 'stop' | 'tally'
 
 /** 打标粒度：按天一次，还是一周一次 */
 export type StudyMarkScope = 'day' | 'week'
@@ -159,25 +163,33 @@ export interface StudyWordItem {
   phonetic?: string
   /** 加入学习列表时保存的中文翻译；旧词条可能没有这个字段 */
   translation?: string
-  /** 这一阶段要背的中文词义 id；不填就是默认全部中文词义 */
-  translationIds?: string[]
-  /** 这一阶段要背的释义 id；不填就是自动（中文 + 第一条英文释义） */
-  senseIds?: string[]
+ /** 这一阶段要背的中文词义 id；不填就是默认全部中文词义 */
+ translationIds?: string[]
+  /** 用户手填的自定义词义；没有词性，并入中文快照一起背诵 */
+  customTranslations?: string[]
+ /** 这一阶段要背的释义 id；不填就是自动（中文 + 第一条英文释义） */
+ senseIds?: string[]
   /** 开始学习的时间；没有这个字段说明还没进入复习计划 */
   startedAt?: number
   /** 已完成的复习轮次，0 表示开始了但还没复习过 */
   stage?: number
   /** 当前排期的兼容镜像，仅保留最近 40 条；完整时间永久保存在 SQLite 学习历史中 */
   reviewedAt?: number[]
+  /** 最近一次进入下一轮（done）打卡的时间；轮次排期以它为锚点 */
+  lastDoneAt?: number
+   /** 最近一次打卡的粒度；week 表示按周复习，之后排到下周一，否则按天顺延 */
+   reviewScope?: 'day' | 'week'
   /** 当前列表的兼容镜像，仅保留最近 40 条；永久历史不截断 */
   marks?: StudyMark[]
   /** 累计打标次数，不随 marks 截断而丢失 */
   markCount?: number
   /** 累计复习打卡次数（done 与 again 各算一次） */
   reviewCount?: number
-  /** 累计标记“会拼写”的次数；旧数据缺失时按 0 */
+  /** 累计标记“会拼”的次数；旧数据缺失时按 0 */
   spellingCount?: number
-  /** 累计标记“记住了”的次数（只统计 done）；旧数据缺失时按 0 */
+  /** 累计标记“会读”的次数；旧数据缺失时按 0 */
+  readingCount?: number
+  /** 累计标记“知意”的次数（tally 计数，不推进轮次）；旧数据缺失时按 0 */
   rememberedCount?: number
   /** 累计标记“没记住”的次数；旧数据缺失时按 0 */
   forgottenCount?: number
@@ -206,6 +218,14 @@ export interface StudyPlanItem extends StudyWordItem {
   listName: string
   /** 开始学习那一周的周一 0 点，用于按周分批罗列 */
   weekStart: number
+  /** 本周期（按天 / 按周）内会拼 / 会读 / 知意的点击次数，按钮直接展示 */
+  tallyCounts?: TallyPeriodCounts
+}
+
+/** 会拼 / 会读 / 知意在一个周期内的次数；界面按当前粒度（day / week）取一份 */
+export interface TallyPeriodCounts {
+  day: { spelling: number; reading: number; meaning: number }
+  week: { spelling: number; reading: number; meaning: number }
 }
 
 export interface StudyPlan {
@@ -252,6 +272,7 @@ export interface LearningAchievement {
   sourceIds: string[]
   reviewCount: number
   spellingCount: number
+  readingCount: number
   rememberedCount: number
   forgottenCount: number
   lastAt?: number

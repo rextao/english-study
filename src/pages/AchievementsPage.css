@@ -73,7 +73,8 @@
 }
 
 .achievements-table .achievements-table__number {
-  width: 118px;
+ width: 118px;
+  width: 92px;
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
@@ -87,6 +88,6 @@
   .achievements-filter { align-items: stretch; flex-wrap: wrap; }
   .achievements-filter .field-label { flex-basis: 100%; }
   .achievements-filter__select { flex: 1; width: auto; min-width: 180px; }
-  .achievements-table-wrap { overflow-x: auto; }
-  .achievements-table { min-width: 680px; }
+ .achievements-table-wrap { overflow-x: auto; }
+  .achievements-table { min-width: 760px; }
 }

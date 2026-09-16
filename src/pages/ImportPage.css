@@ -155,3 +155,27 @@
   .import-actions__msg { min-width: 0; }
   .import-translation-picker__footer { align-items: flex-end; flex-direction: column; }
 }
+
+/* 自定义词义：接在词典候选后面，成可删标签 + 一个输入框 */
+.import-translation-row__custom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding-left: 8px;
+}
+
+.import-translation-row__custom .ui-tag--green {
+  cursor: pointer;
+}
+
+.import-translation-row__custom-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.import-translation-row__custom-input .ui-input {
+  width: 220px;
+  max-width: 100%;
+}

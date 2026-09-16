@@ -8,7 +8,7 @@ import { Input, Select, Tag } from '../ui'
 import type { SelectOption } from '../ui'
 import type { VocabLibrary } from '../types/vocab'
 import type { StudyWordItem } from '../types/vocab'
-import { formatTranslationOptions, selectedTranslationOptions } from '../utils/translations'
+import { formatTranslationWithCustom, selectedTranslationOptions } from '../utils/translations'
 import './SearchPage.css'
 
 /** 空状态下给的示例词，点一下直接查 */
@@ -84,31 +84,38 @@ export function SearchPage({ libraries, getLabelById, study }: SearchPageProps) 
     ? lists.map(list => ({ value: list.id, label: list.name, extra: list.wordCount + ' 条' }))
     : [{ value: 'default', label: '默认列表' }]
 
-  async function handleAddToList(translationIds: string[]) {
+  async function handleAddToList(translationIds: string[], customTranslations: string[]) {
     if (!entry) return
     if (targetItem) {
       const mergedIds = Array.from(new Set([
         ...(targetItem.translationIds ?? []),
         ...translationIds,
       ]))
-      const selected = formatTranslationOptions(
+      const mergedCustoms = Array.from(new Set([
+        ...(targetItem.customTranslations ?? []),
+        ...customTranslations,
+      ]))
+      const translation = formatTranslationWithCustom(
         selectedTranslationOptions(entry.translations ?? [], mergedIds),
+        mergedCustoms,
+      ) || targetItem.translation || entry.translation || ''
+      const updated = await updateItemTranslations(
+        targetList, entry.word, mergedIds, translation, mergedCustoms,
       )
-      const translation = selected || targetItem.translation || entry.translation || ''
-      const updated = await updateItemTranslations(targetList, entry.word, mergedIds, translation)
       if (updated) {
         setTargetItem(updated)
         markAdded(entry.word, targetList)
       }
       return
     }
-    const selected = formatTranslationOptions(
+    const translation = formatTranslationWithCustom(
       selectedTranslationOptions(entry.translations ?? [], translationIds),
-    )
-    const translation = selected || entry.translation || ''
+      customTranslations,
+    ) || entry.translation || ''
     const text = entry.displayText || entry.word
     const result = await addItem(
       targetList, text, sourceIds, undefined, translationIds, translation, entry.phonetic,
+      customTranslations,
     )
     if (result.ok) {
       markAdded(entry.word, targetList)
@@ -123,6 +130,7 @@ export function SearchPage({ libraries, getLabelById, study }: SearchPageProps) 
         phonetic: entry.phonetic,
         translation: translation || undefined,
         translationIds,
+        customTranslations,
       })
     }
   }
@@ -182,6 +190,7 @@ export function SearchPage({ libraries, getLabelById, study }: SearchPageProps) 
           targetItemExists={targetItem !== null}
           existingTranslationIds={targetItem?.translationIds ?? []}
           existingAllTranslations={targetItem !== null && !targetItem.translationIds?.length}
+          existingCustomTranslations={targetItem?.customTranslations ?? []}
           onCheckStudy={checkWord}
           onAddToList={handleAddToList}
         />

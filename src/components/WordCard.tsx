@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Checkbox, Tag } from '../ui'
+import { Button, Checkbox, Input, Tag } from '../ui'
 import type { DictionaryEntry, StudyList } from '../types/vocab'
 import type { DictionaryStatus } from '../hooks/useDictionary'
 import type { StudyStatus } from '../hooks/useStudy'
@@ -18,12 +18,16 @@ interface WordCardProps {
   targetItemExists: boolean     // 当前词已在目标列表中
   existingTranslationIds: string[] // 当前列表里已经保存的中文词义
   existingAllTranslations: boolean // 当前列表里已保存全部中文词义
+  /** 列表里已经保存的自定义词义；二次编辑时还原成可删的标签 */
+  existingCustomTranslations: string[]
   onCheckStudy: (word: string) => void
-  /** 直接加入首页当前选择的列表，并保存当前选中的中文词义 */
-  onAddToList: (translationIds: string[]) => void | Promise<void>
+  /** 直接加入首页当前选择的列表，并保存选中的中文词义与自定义词义 */
+  onAddToList: (translationIds: string[], customTranslations: string[]) => void | Promise<void>
 }
 
 const MAX_PICKED_TRANSLATIONS = 12
+/** 与服务端 MAX_CUSTOM_TRANSLATIONS 一致：一个词最多 6 条自定义词义 */
+const MAX_CUSTOM_TRANSLATIONS = 6
 const ERROR_TOAST_DURATION_MS = 6000
 
 function isSentenceText(text: string): boolean {
@@ -45,13 +49,15 @@ function formatEntryErrors(entry: DictionaryEntry | null): string {
 export function WordCard({
   entry, status, sourceIds, getLabelById,
   studyStatus, targetListId, lists,
-  targetItemExists, existingTranslationIds, existingAllTranslations,
+  targetItemExists, existingTranslationIds, existingAllTranslations, existingCustomTranslations,
   onCheckStudy, onAddToList,
 }: WordCardProps) {
 
   const [adding, setAdding] = useState(false)
   const [selectedTranslationIds, setSelectedTranslationIds] = useState<string[]>([])
   const [showErrorToast, setShowErrorToast] = useState(false)
+  const [customs, setCustoms] = useState<string[]>([])
+  const [customDraft, setCustomDraft] = useState('')
   const sentence = isSentenceText(entry?.displayText ?? entry?.word ?? '')
   const errorText = formatEntryErrors(entry)
   const spellingSuspect = Boolean(
@@ -72,6 +78,12 @@ export function WordCard({
           : []
     setSelectedTranslationIds(selected.slice(0, MAX_PICKED_TRANSLATIONS).map(item => item.id))
   }, [entry?.word, entry?.translations, existingTranslationIds.join('\u0000'), existingAllTranslations, sentence])
+
+  // 自定义词义跟着词条和已保存记录走：换词或外部数据更新时还原成已保存的那一份
+  useEffect(() => {
+    setCustoms(existingCustomTranslations.slice())
+    setCustomDraft('')
+  }, [entry?.word, existingCustomTranslations.join('\u0000')])
 
   useEffect(() => {
     if (!errorText) {
@@ -112,7 +124,8 @@ export function WordCard({
   const translationItems = translationOptions(entry.translations ?? [])
   const selectableTranslationItems = translationItems.slice(0, MAX_PICKED_TRANSLATIONS)
   const existingSelectedItems = selectedTranslationOptions(entry.translations ?? [], existingTranslationIds)
-  const targetHasAllTranslations = targetItemExists && (
+  const hasNewCustom = customs.some(text => !existingCustomTranslations.includes(text))
+  const targetHasAllTranslations = targetItemExists && !hasNewCustom && (
     existingAllTranslations
     || (selectableTranslationItems.length > 0
       && selectableTranslationItems.every(item => existingSelectedItems.some(selected => selected.id === item.id)))
@@ -134,11 +147,22 @@ export function WordCard({
       : selectableTranslationItems.map(item => item.id))
   }
 
+  function addCustomTranslation() {
+    const text = customDraft.trim()
+    if (!text || customs.includes(text) || customs.length >= MAX_CUSTOM_TRANSLATIONS) return
+    setCustoms(prev => prev.concat(text))
+    setCustomDraft('')
+  }
+
+  function removeCustomTranslation(index: number) {
+    setCustoms(prev => prev.filter((_, i) => i !== index))
+  }
+
   async function handleAdd() {
     if (spellingSuspect) return
     setAdding(true)
     try {
-      await onAddToList(selectedTranslationIds)
+      await onAddToList(selectedTranslationIds, customs)
     } finally {
       setAdding(false)
     }
@@ -242,6 +266,45 @@ export function WordCard({
         <p className="word-card__translation">{entry.translation}</p>
       ) : (
         <p className="word-card__translation word-card__translation--empty">暂时没有中文词义</p>
+      )}
+
+      {!spellingSuspect && (
+        <div className="word-card__custom">
+          <div className="word-card__translation-toolbar">
+            <span className="hint">自定义词义（词典里没有也能自己加，会和勾选的词义一起背诵）</span>
+          </div>
+          {customs.length > 0 && (
+            <div className="word-card__custom-tags">
+              {customs.map((text, index) => (
+                <Tag
+                  key={index}
+                  color="green"
+                  title="点击移除这条自定义词义"
+                  onClick={() => removeCustomTranslation(index)}
+                >
+                  {text}
+                </Tag>
+              ))}
+            </div>
+          )}
+          <div className="word-card__custom-input">
+            <Input
+              size="small"
+              value={customDraft}
+              placeholder="输入中文词义，回车或点「添加」"
+              maxLength={60}
+              onChange={e => setCustomDraft(e.target.value)}
+              onPressEnter={addCustomTranslation}
+            />
+            <Button
+              size="small"
+              disabled={!customDraft.trim() || customs.length >= MAX_CUSTOM_TRANSLATIONS}
+              onClick={addCustomTranslation}
+            >
+              添加
+            </Button>
+          </div>
+        </div>
       )}
 
     </div>

@@ -112,6 +112,27 @@
 
 .pick-grid__item:hover { background: var(--color-surface-sunken); }
 
+/* 挑新词弹窗：按加入日期分组展示，标题一行放日期和组内词数 */
+.pick-modal__group { margin-bottom: 14px; }
+
+.pick-modal__group-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted, #666);
+}
+
+.pick-modal__group-count { font-weight: normal; color: #999; }
+
+/* 分组标题最右侧的全选框 */
+.pick-modal__group-all { margin-left: auto; font-weight: normal; }
+
+/* 存在自定义批次名时，旁边对照显示的只读加入日期 */
+.pick-modal__group-day { font-weight: normal; color: #999; }
+
 /* 复习计划：标题与月份切换一行，下面是月历 */
 .study-plan__head {
   display: flex;
@@ -317,6 +338,34 @@
   flex-shrink: 0;
 }
 
+/* 会拼 / 会读 / 知意：主按钮显示本周期次数（点击 +1），右侧小「−」撤销一次（最少 0） */
+.review-row__tally {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.review-row__tally .ui-btn { border-radius: 0; }
+
+.review-row__tally .ui-btn:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.review-row__tally .ui-btn:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  margin-left: -1px;
+  padding: 4px 7px;
+  font-weight: 600;
+}
+
+/* 「进入下一轮」：蓝色圆形徽标 + 白色对勾，替代透明背景的 ✅ emoji */
+.review-row__done {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.review-row__done svg { display: block; width: 15px; height: 15px; }
 @media (max-width: 640px) {
   .study-start__head { flex-direction: column; align-items: stretch; }
   .study-start__fields { width: 100%; }

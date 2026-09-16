@@ -93,5 +93,23 @@ export function formatTranslationOptions(options: TranslationOption[]): string {
   return groups
     .filter(group => group.texts.length > 0)
     .map(group => (group.pos ? translationPosLabel(group.pos) + ' ' : '') + group.texts.join(','))
-    .join('；')
+   .join('；')
+}
+
+/** 自定义词义的 id 前缀；没有对应词典条目，只用于前端临时展示 */
+export const CUSTOM_ID_PREFIX = 'custom#'
+
+/**
+ * 把用户手填的自定义词义拼进中文快照：没有词性，直接跟在选中的词义后面。
+ * 列表页和卡片都只认 translation 这一个快照串，所以自定义词义并进来就处处生效。
+ */
+export function formatTranslationWithCustom(
+  options: TranslationOption[],
+  customs: string[],
+): string {
+  const customOption = (text: string, index: number): TranslationOption => ({
+    id: CUSTOM_ID_PREFIX + index,
+    text,
+  })
+  return formatTranslationOptions([...options, ...customs.map(customOption)])
 }

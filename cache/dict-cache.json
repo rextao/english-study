@@ -13291,5 +13291,929 @@
     "translationStatus": "ok",
     "spellingStatus": "valid",
     "source": "ecdict"
+  },
+  "alien": {
+    "word": "alien",
+    "phonetic": "/'eiljәn/",
+    "translation": "n. 外国人, 外侨；a. 外国的, 相异的",
+    "translations": [
+      {
+        "id": "translation#0",
+        "text": "外国人",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#1",
+        "text": "外侨",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#2",
+        "text": "外国的",
+        "pos": "adjective",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#3",
+        "text": "相异的",
+        "pos": "adjective",
+        "source": "ecdict"
+      }
+    ],
+    "senses": [
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "transfer property or ownership"
+      },
+      {
+        "id": "other#0",
+        "pos": "other",
+        "definition": "s. not contained in or deriving from the essential nature of something"
+      },
+      {
+        "id": "other#1",
+        "pos": "other",
+        "definition": "s. being or from or characteristic of another place or part of the world"
+      }
+    ],
+    "cachedAt": 1789385277901,
+    "status": "ok",
+    "phoneticStatus": "complete",
+    "translationStatus": "ok",
+    "spellingStatus": "valid",
+    "source": "ecdict"
+  },
+  "train": {
+    "word": "train",
+    "phonetic": "/trein/",
+    "translation": "n. 火车, 列车, 行列, 长队, 一连串的后果, 顺序；vt. 训练, 教育, 对准",
+    "translations": [
+      {
+        "id": "translation#0",
+        "text": "火车",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#1",
+        "text": "列车",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#2",
+        "text": "行列",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#3",
+        "text": "长队",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#4",
+        "text": "一连串的后果",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#5",
+        "text": "顺序",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#6",
+        "text": "训练",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#7",
+        "text": "教育",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#8",
+        "text": "对准",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#9",
+        "text": "受训练",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#10",
+        "text": "锻炼",
+        "pos": "verb",
+        "source": "ecdict"
+      }
+    ],
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "public transport provided by a line of railway cars coupled together and drawn by a locomotive"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "a series of consequences wrought by an event"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "piece of cloth forming the long back section of a gown that is drawn along the floor"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "create by training and teaching"
+      }
+    ],
+    "cachedAt": 1789385277923,
+    "status": "ok",
+    "phoneticStatus": "complete",
+    "translationStatus": "ok",
+    "spellingStatus": "valid",
+    "source": "ecdict"
+  },
+  "board game": {
+    "word": "board game",
+    "phonetic": "/bɔ:d ɡeim/",
+    "translation": "n. 用棋盘玩的游戏",
+    "translations": [
+      {
+        "id": "translation#0",
+        "text": "用棋盘玩的游戏",
+        "pos": "noun",
+        "source": "ecdict"
+      }
+    ],
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "用棋盘玩的游戏"
+      }
+    ],
+    "cachedAt": 1789385277940,
+    "status": "ok",
+    "phoneticStatus": "complete",
+    "translationStatus": "ok",
+    "spellingStatus": "unchecked",
+    "source": "ecdict"
+  },
+  "colour the alien red, please.": {
+    "word": "colour the alien red, please.",
+    "phonetic": "/'kʌlә/ /ðә/ /'eiljәn/ /red/, /pli:z/.",
+    "translation": "请把这个外星人涂成红色。",
+    "translations": [
+      {
+        "id": "translation#0",
+        "text": "请把这个外星人涂成红色。",
+        "source": "api"
+      }
+    ],
+    "senses": [],
+    "cachedAt": 1789385280357,
+    "status": "ok",
+    "phoneticStatus": "complete",
+    "translationStatus": "ok",
+    "spellingStatus": "unchecked",
+    "source": "api",
+    "translationSource": "baidu"
+  },
+  "i've got a board game": {
+    "word": "i've got a board game",
+    "phonetic": "/aɪv/ /gɒt/ /ei/ /bɒ:d/ /geim/",
+    "translation": "我有一款棋盘游戏",
+    "translations": [
+      {
+        "id": "translation#0",
+        "text": "我有一款棋盘游戏",
+        "source": "api"
+      }
+    ],
+    "senses": [],
+    "cachedAt": 1789385280438,
+    "status": "ok",
+    "phoneticStatus": "complete",
+    "translationStatus": "ok",
+    "spellingStatus": "unchecked",
+    "source": "api",
+    "translationSource": "baidu"
+  },
+  "i haven't got a train.": {
+    "word": "i haven't got a train.",
+    "phonetic": "/ai/ /ˈhævnt/ /gɒt/ /ei/ /trein/.",
+    "translation": "我没有坐火车。",
+    "translations": [
+      {
+        "id": "translation#0",
+        "text": "我没有坐火车。",
+        "source": "api"
+      }
+    ],
+    "senses": [],
+    "cachedAt": 1789385281259,
+    "status": "ok",
+    "phoneticStatus": "complete",
+    "translationStatus": "ok",
+    "spellingStatus": "unchecked",
+    "source": "api",
+    "translationSource": "baidu"
+  },
+  "cool": {
+    "word": "cool",
+    "phonetic": "/ku:l/",
+    "translation": "n. 凉爽, 凉爽的空气；a. 凉爽的, 冷淡的, 冷静的",
+    "translations": [
+      {
+        "id": "translation#0",
+        "text": "凉爽",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#1",
+        "text": "凉爽的空气",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#2",
+        "text": "凉爽的",
+        "pos": "adjective",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#3",
+        "text": "冷淡的",
+        "pos": "adjective",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#4",
+        "text": "冷静的",
+        "pos": "adjective",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#5",
+        "text": "冷却",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#6",
+        "text": "平息",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#7",
+        "text": "使冷却",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#8",
+        "text": "使平静",
+        "pos": "verb",
+        "source": "ecdict"
+      }
+    ],
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "the quality of being at a refreshingly low temperature"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "make cool or cooler"
+      },
+      {
+        "id": "verb#1",
+        "pos": "verb",
+        "definition": "loose heat"
+      },
+      {
+        "id": "verb#2",
+        "pos": "verb",
+        "definition": "lose intensity"
+      }
+    ],
+    "cachedAt": 1789385281285,
+    "status": "ok",
+    "phoneticStatus": "complete",
+    "translationStatus": "ok",
+    "spellingStatus": "valid",
+    "source": "ecdict"
+  },
+  "i haven't got a kite.": {
+    "word": "i haven't got a kite.",
+    "phonetic": "/ai/ /ˈhævnt/ /gɒt/ /ei/ /kait/.",
+    "translation": "我没有风筝。",
+    "translations": [
+      {
+        "id": "translation#0",
+        "text": "我没有风筝。",
+        "source": "api"
+      }
+    ],
+    "senses": [],
+    "cachedAt": 1789385281708,
+    "status": "ok",
+    "phoneticStatus": "complete",
+    "translationStatus": "ok",
+    "spellingStatus": "unchecked",
+    "source": "api",
+    "translationSource": "baidu"
+  },
+  "tap": {
+    "word": "tap",
+    "phonetic": "/'tæp/",
+    "translation": "n. 轻打, 水龙头；vt. 轻打, 轻敲, 敲打出, 选择, 装上嘴子, 使流出, 开发, 分接, 向...乞讨",
+    "translations": [
+      {
+        "id": "translation#0",
+        "text": "轻打",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#1",
+        "text": "水龙头",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#2",
+        "text": "轻打",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#3",
+        "text": "轻敲",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#4",
+        "text": "敲打出",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#5",
+        "text": "选择",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#6",
+        "text": "装上嘴子",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#7",
+        "text": "使流出",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#8",
+        "text": "开发",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#9",
+        "text": "分接",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#10",
+        "text": "向...乞讨",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#11",
+        "text": "轻叩",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#12",
+        "text": "轻拍",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#13",
+        "text": "啪塔啪塔地走",
+        "pos": "verb",
+        "source": "ecdict"
+      }
+    ],
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a small metal plate that attaches to the toe or heel of a shoe (as in tap dancing)"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "a tool for cutting female (internal) screw threads"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "a plug for a bunghole in a cask"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "a light touch or stroke"
+      }
+    ],
+    "cachedAt": 1789385281723,
+    "status": "ok",
+    "phoneticStatus": "complete",
+    "translationStatus": "ok",
+    "spellingStatus": "valid",
+    "source": "ecdict"
+  },
+  "nap": {
+    "word": "nap",
+    "phonetic": "/næp/",
+    "translation": "n. 小睡, 稍睡, 细毛, 孤注一掷；vi. 小睡, 疏忽",
+    "translations": [
+      {
+        "id": "translation#0",
+        "text": "小睡",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#1",
+        "text": "稍睡",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#2",
+        "text": "细毛",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#3",
+        "text": "孤注一掷",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#4",
+        "text": "小睡",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#5",
+        "text": "疏忽",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#6",
+        "text": "使拉毛",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#7",
+        "text": "打盹度过",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#8",
+        "text": "预测...为获胜马",
+        "pos": "verb",
+        "source": "ecdict"
+      }
+    ],
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "a soft or fuzzy surface texture"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "sleeping for a short period of time (usually not in bed)"
+      },
+      {
+        "id": "verb#0",
+        "pos": "verb",
+        "definition": "take a siesta"
+      }
+    ],
+    "cachedAt": 1789385281741,
+    "status": "ok",
+    "phoneticStatus": "complete",
+    "translationStatus": "ok",
+    "spellingStatus": "valid",
+    "source": "ecdict"
+  },
+  "pan": {
+    "word": "pan",
+    "phonetic": "/pæn/",
+    "translation": "n. 平锅, 浅盘, 盆地, 硬土层, 拍摄全景；v. 上下左右移动, 摇镜头, 淘洗, 淘金",
+    "translations": [
+      {
+        "id": "translation#0",
+        "text": "平锅",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#1",
+        "text": "浅盘",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#2",
+        "text": "盆地",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#3",
+        "text": "硬土层",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#4",
+        "text": "拍摄全景",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#5",
+        "text": "上下左右移动",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#6",
+        "text": "摇镜头",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#7",
+        "text": "淘洗",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#8",
+        "text": "淘金",
+        "pos": "verb",
+        "source": "ecdict"
+      }
+    ],
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "cooking utensil consisting of a wide metal vessel"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "(Greek mythology) god of fields and woods and shepherds and flocks; represented as a man with goat's legs and horns and ears; identified with Roman Sylvanus or Faunus"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "shallow container made of metal"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "chimpanzees; more closely related to Australopithecus than to other pongids"
+      }
+    ],
+    "cachedAt": 1789385281757,
+    "status": "ok",
+    "phoneticStatus": "complete",
+    "translationStatus": "ok",
+    "spellingStatus": "valid",
+    "source": "ecdict"
+  },
+  "pat": {
+    "word": "pat",
+    "phonetic": "/pæt/",
+    "translation": "n. 轻拍；v. 轻拍",
+    "translations": [
+      {
+        "id": "translation#0",
+        "text": "轻拍",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#1",
+        "text": "轻拍",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#2",
+        "text": "适时",
+        "pos": "adverb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#3",
+        "text": "正好",
+        "pos": "adverb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#4",
+        "text": "恰好",
+        "pos": "adverb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#5",
+        "text": "毫不迟疑",
+        "pos": "adverb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#6",
+        "text": "熟记地",
+        "pos": "adverb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#7",
+        "text": "恰好的",
+        "pos": "adjective",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#8",
+        "text": "合适的",
+        "pos": "adjective",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#9",
+        "text": "熟练的",
+        "pos": "adjective",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#10",
+        "text": "坚定的",
+        "pos": "adjective",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#11",
+        "text": "人为的",
+        "pos": "adjective",
+        "source": "ecdict"
+      }
+    ],
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "the sound made by a gentle blow"
+      },
+      {
+        "id": "other#0",
+        "pos": "other",
+        "definition": "s. exactly suited to the occasion"
+      },
+      {
+        "id": "other#1",
+        "pos": "other",
+        "definition": "r. completely or perfectly"
+      }
+    ],
+    "cachedAt": 1789385281774,
+    "status": "ok",
+    "phoneticStatus": "complete",
+    "translationStatus": "ok",
+    "spellingStatus": "valid",
+    "source": "ecdict"
+  },
+  "let's share!": {
+    "word": "let's share!",
+    "phonetic": "/lets/ /ʃєә/!",
+    "translation": "让我们分享吧！",
+    "translations": [
+      {
+        "id": "translation#0",
+        "text": "让我们分享吧！",
+        "source": "api"
+      }
+    ],
+    "senses": [],
+    "cachedAt": 1789385283007,
+    "status": "ok",
+    "phoneticStatus": "complete",
+    "translationStatus": "ok",
+    "spellingStatus": "unchecked",
+    "source": "api",
+    "translationSource": "baidu"
+  },
+  "test": {
+    "word": "test",
+    "phonetic": "/test/",
+    "translation": "n. 测试, 试验, 化验, 检验, 考验, 甲壳；vt. 测试, 试验, 化验",
+    "translations": [
+      {
+        "id": "translation#0",
+        "text": "测试",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#1",
+        "text": "试验",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#2",
+        "text": "化验",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#3",
+        "text": "检验",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#4",
+        "text": "考验",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#5",
+        "text": "甲壳",
+        "pos": "noun",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#6",
+        "text": "测试",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#7",
+        "text": "试验",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#8",
+        "text": "化验",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#9",
+        "text": "接受测验",
+        "pos": "verb",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#10",
+        "text": "进行测试",
+        "pos": "verb",
+        "source": "ecdict"
+      }
+    ],
+    "senses": [
+      {
+        "id": "noun#0",
+        "pos": "noun",
+        "definition": "any standardized procedure for measuring sensitivity or memory or intelligence or aptitude or personality etc"
+      },
+      {
+        "id": "noun#1",
+        "pos": "noun",
+        "definition": "the act of undergoing testing"
+      },
+      {
+        "id": "noun#2",
+        "pos": "noun",
+        "definition": "the act of testing something"
+      },
+      {
+        "id": "noun#3",
+        "pos": "noun",
+        "definition": "a hard outer covering as of some amoebas and sea urchins"
+      }
+    ],
+    "cachedAt": 1789471489553,
+    "status": "ok",
+    "phoneticStatus": "complete",
+    "translationStatus": "ok",
+    "spellingStatus": "valid",
+    "source": "ecdict"
+  },
+  "new": {
+    "word": "new",
+    "phonetic": "/nju:/",
+    "translation": "a. 新的, 陌生的, 最近的, 不熟悉的",
+    "translations": [
+      {
+        "id": "translation#0",
+        "text": "新的",
+        "pos": "adjective",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#1",
+        "text": "陌生的",
+        "pos": "adjective",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#2",
+        "text": "最近的",
+        "pos": "adjective",
+        "source": "ecdict"
+      },
+      {
+        "id": "translation#3",
+        "text": "不熟悉的",
+        "pos": "adjective",
+        "source": "ecdict"
+      }
+    ],
+    "senses": [
+      {
+        "id": "adjective#0",
+        "pos": "adjective",
+        "definition": "not of long duration; having just (or relatively recently) come into being or been made or acquired or discovered"
+      },
+      {
+        "id": "other#0",
+        "pos": "other",
+        "definition": "s. having no previous example or precedent or parallel"
+      },
+      {
+        "id": "other#1",
+        "pos": "other",
+        "definition": "s. other than the former one(s); different"
+      },
+      {
+        "id": "adjective#1",
+        "pos": "adjective",
+        "definition": "unaffected by use or exposure"
+      }
+    ],
+    "cachedAt": 1789474584135,
+    "status": "ok",
+    "phoneticStatus": "complete",
+    "translationStatus": "ok",
+    "spellingStatus": "valid",
+    "source": "ecdict"
   }
 }

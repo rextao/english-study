@@ -197,6 +197,33 @@
   font-weight: 400;
 }
 
+/* 自定义词义：词典释义不够用时自己加，和勾选的词义一起背诵 */
+.word-card__custom {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--color-border);
+}
+
+.word-card__custom-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.word-card__custom-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.word-card__custom-input .ui-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .word-card__toast {
   position: fixed;
   z-index: 70;

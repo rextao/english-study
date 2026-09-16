@@ -15,6 +15,8 @@ export interface ImportItem {
   translationIds?: string[]
   /** 批量查询完成后生成的中文快照；确认导入时直接保存，不再重新请求 */
   translation?: string
+  /** 用户手填的自定义词义；已并入 translation 快照，这里只用于持久化后还原编辑 */
+  customTranslations?: string[]
 }
 
 interface Reply<T> {
@@ -97,11 +99,11 @@ export function useStudyList() {
   /** 加入单个词 / 句子 */
   const addItem = useCallback(async (
     listId: string, text: string, sourceIds: string[], senseIds?: string[], translationIds?: string[],
-    translation?: string, phonetic?: string,
+    translation?: string, phonetic?: string, customTranslations?: string[],
   ) => {
     const reply = await request<{ ok: boolean; reason?: string; item?: StudyWordItem }>(
       listPath(listId) + '/words',
-      jsonInit('POST', { text, sourceIds, senseIds, translationIds, translation, phonetic }),
+      jsonInit('POST', { text, sourceIds, senseIds, translationIds, translation, phonetic, customTranslations }),
     )
     if (reply.offline) return { ok: false as const, reason: '本地服务未启动' }
     if (!reply.data?.ok) return { ok: false as const, reason: reply.data?.reason ?? '添加失败' }
@@ -123,6 +125,21 @@ export function useStudyList() {
   const fetchListWords = useCallback(async (listId: string): Promise<StudyWordItem[]> => {
     const reply = await request<StudyWordItem[]>(listPath(listId) + '/words')
     return Array.isArray(reply.data) ? reply.data : []
+  }, [])
+
+  /** 读取列表的批次显示名（按导入自然日分组） */
+  const fetchBatches = useCallback(async (listId: string): Promise<Record<string, string>> => {
+    const reply = await request<{ batchNames: Record<string, string> }>(listPath(listId) + '/batches')
+    return reply.data?.batchNames ?? {}
+  }, [])
+
+  /** 重命名某个批次；name 空串=重置为日期；服务不可用/失败返回 null */
+  const renameBatch = useCallback(async (listId: string, date: string, name: string): Promise<Record<string, string> | null> => {
+    const reply = await request<{ ok: boolean; batchNames?: Record<string, string> }>(
+      listPath(listId) + '/batches', jsonInit('PATCH', { date, name })
+    )
+    if (reply.offline || !reply.data?.ok) return null
+    return reply.data.batchNames ?? {}
   }, [])
 
   /** 从列表移除某个词条 */
@@ -164,10 +181,11 @@ export function useStudyList() {
   /** 修改这一阶段要背的中文词义；空数组恢复默认摘要 */
   const updateItemTranslations = useCallback(async (
     listId: string, text: string, translationIds: string[], translation: string,
+    customTranslations?: string[],
   ): Promise<StudyWordItem | null> => {
     const reply = await request<{ ok: boolean; item?: StudyWordItem }>(
       listPath(listId) + '/words/' + encodeURIComponent(text),
-      jsonInit('PATCH', { translationIds, translation })
+      jsonInit('PATCH', { translationIds, translation, customTranslations })
     )
     if (!reply.data?.ok) return null
     return reply.data.item ?? null
@@ -190,6 +208,7 @@ export function useStudyList() {
     lists, loading, offline,
     fetchLists, createList, renameList, deleteList,
     addItem, importItems, fetchListWords, removeItem, removeItems,
+    fetchBatches, renameBatch,
     updateItemSenses, getWordListIds, getListName,
     updateItemTranslations,
   }

@@ -16,7 +16,7 @@
 - **UI 禁原生控件**：页面里不要出现 `<select>`、`<textarea>`、`type='checkbox'`，统一用 `src/ui` 里的 `Select` / `TextArea` / `Checkbox`。
 - **TS 严格**：`tsconfig.app.json` 开了 `strict` + `noUnusedLocals` + `noUnusedParameters` + `noFallthroughCasesInSwitch`（**没开** `noUncheckedIndexedAccess`）。
 - **无法实测运行中的页面**：连不上 localhost，只能靠 `tsc` + `vite build` + 读代码推断，别声称「已在浏览器里验证」。
-- **验证命令**：`npm run build`（= `tsc -b && vite build`）必须 exit 0；动过服务端再跑 `npm run test:server`（159 项，跑在临时 `DICT_DATA_DIR` + `DICT_ECDICT_DIR` + `DICT_NO_NETWORK=1`，不会碰真实 `cache/` 和 `data/`）。
+- **验证命令**：`npm run build`（= `tsc -b && vite build`）必须 exit 0；动过服务端再跑 `npm run test:server`（284 项，跑在临时 `DICT_DATA_DIR` + `DICT_ECDICT_DIR` + `DICT_NO_NETWORK=1`，不会碰真实 `cache/` 和 `data/`）。
 
 ## 目录地图（一行一职责）
 
@@ -34,9 +34,11 @@ src/pages/ImportPage.tsx       批量导入：多行文本 → 归一化 / 去�
                                → 预览上限 200 行 → study.importItems → useDictPrefetch 盯后台补齐进度
 src/pages/ListsPage.tsx        学习列表：切换 / 新建 / 重命名 / 删除；词条平铺一行一个；useDictBatch 取音标和中文词义；
                                显示加入时保存的中文词义（兼容旧数据的默认摘要），不显示英文释义；
+                               「批次」checkbox → 按加入日期分成批次展示，点批次标题就地折叠 / 展开，批次可就地重命名（自定义名 + 只读日期 Tag）；
                                「多选」开关 → 每行勾选框（点词也能勾）+ 全选（只勾当前筛选出的）+ 批量删除（二次确认）
 src/pages/LibrariesPage.tsx    词库页：只显示 name + file + 标签改名 / 重置默认值
-src/pages/StudyPage.tsx        英语学习页：StudyGoal + 挑词弹窗（Modal，勾词 → 打印卡片 + plan.startWords）
+src/pages/StudyPage.tsx        英语学习页：StudyGoal + 挑词弹窗（Modal，勾词 → 打印卡片 + plan.startWords；
+                               分组与学习列表批次共用同一份 batchNames，学习列表改名这里同步）
                                + 月历复习计划：「按天 / 按周」粒度切换（mode，只存组件 state），
                                按天选一天 / 按周选整周，逾期折叠进今天或本周，只有当前这天 / 这周可打卡
                                + 打印记录：每导出一次卡片留一条档，可整批打卡 / 删记录（usePrintBatches）
@@ -70,13 +72,18 @@ src/ui/                        手写组件库：Button Select Dropdown Input(�
                                Popover Modal + useDismiss；统一从 src/ui/index.ts 导出（它顺带 import ui.css）
 src/utils/flashcards.ts        打印卡片：fetchCards（顺手补释义）/ pickSenses / mirrorRows / buildFlashcardsHtml；偶数页逐行左右镜像
                                / openCardWindow；卡片反面只印音标 + 中文，英文释义不上卡片
+                               / renderCardsInto（打印会话 + 卡片右上角 ✕，hover 才显示、打印时隐藏；
+                                 点 ✕ 只把这个词从本次打印里摘掉，不动学习状态与打印留档）
+src/utils/translations.ts      中文词义工具：translationOptions（把缓存 translations 拆成可勾选候选）/ selectedTranslationOptions
+                               / formatTranslationOptions（按词性分组合成摘要串）；formatTranslationWithCustom 把用户手填的
+                               自定义词义（无词性）并进摘要。列表页和卡片只认 translation 这一个快照串
 
 server/dict-server.mjs         全部后端逻辑：路由 + 词典缓存 + 本地词典优先 + 外部接口 + 学习列表 + 复习进度
                                + 打印批次 + 标签 + 目标
 server/ecdict.mjs              本地 ECDICT 读取层：index.bin 读进内存二分 → 按偏移从 records.tsv 读那一行；
                                导出 ecdictEntry / ecdictRecord / ecdictInfo / resetEcdict / hashKey / STORE_FILES 等
 server/text.mjs                normalizeText（trim + 空白压缩 + 小写）；服务端和 ecdict.mjs 共用这一份
-server/dict-server.test.mjs    159 项断言测试；临时 DICT_DATA_DIR + DICT_ECDICT_DIR + DICT_NO_NETWORK=1
+server/dict-server.test.mjs    304 项断言测试；临时 DICT_DATA_DIR + DICT_ECDICT_DIR + DICT_NO_NETWORK=1
                                + DICT_SERVER_NO_LISTEN=1
 
 scripts/ecdict-fetch.mjs       装词典一条龙：下 zip → unzipFirstCsv（零依赖解 zip）→ buildEcdict → 试查 apple 自检；
@@ -130,12 +137,13 @@ VocabLibrary     { id, name, level, source, description?, words: VocabWord[] }
 VocabLibraryInfo extends VocabLibrary { file }               // file 如 vocab/ket.json，词库页要显示
 
 StudyState       'new' | 'due' | 'scheduled' | 'mastered'
-StudyMarkAction  'start' | 'restart' | 'done' | 'again' | 'stop' | 'print' | 'spelling'
+StudyMarkAction  'start' | 'restart' | 'done' | 'again' | 'stop' | 'print' | 'spelling' | 'reading' | 'meaning'
 StudyMarkScope   'day' | 'week'
 StudyMark        { at, action: StudyMarkAction, scope?, stage? }    // stage = 打标之后的轮次
 StudyWordItem    { word, type: 'word'|'sentence', sourceIds: string[], addedAt, phonetic?, translation?,
-                   senseIds?, startedAt?, stage?, reviewedAt?: number[],
-                   marks?: StudyMark[], markCount?, reviewCount?, spellingCount?,
+                   senseIds?, customTranslations?: string[], startedAt?, stage?, reviewedAt?: number[], lastDoneAt?,
+                   reviewScope?: 'day' | 'week',    // 最近一次 done/again 打卡的粒度，week = 排到下周一
+                   marks?: StudyMark[], markCount?, reviewCount?, spellingCount?, readingCount?,
                    rememberedCount?, forgottenCount?, processedReviewKeys?, // 日志、累计次数与幂等键，界面不显示
                    nextDueAt?: number|null, state?: StudyState }   // 后两个是服务端派生，不落盘
 StudyList        { id, name, createdAt, wordCount }
@@ -151,9 +159,9 @@ PrintBatch       { id, printedAt, kind: 'start'|'review', scope?, title, wordCou
                    dueCount, markableCount, missingCount }                          // 派生，不落盘
 ```
 
-`phonetic` 和 `translation` 是加入学习列表时保存的音标、中文翻译快照，旧数据可以没有；`translationIds` 是加入时选择的中文词义 id 子集。学习列表显示已保存的中文词义，旧数据则回退到词典摘要。`senseIds` 是兼容旧数据的英文释义 id 子集，当前界面不提供英文释义选择入口。中文释义**全集**永远存在词典缓存里。
+`phonetic` 和 `translation` 是加入学习列表时保存的音标、中文翻译快照，旧数据可以没有；`translationIds` 是加入时选择的中文词义 id 子集。学习列表显示已保存的中文词义，旧数据则回退到词典摘要。`senseIds` 是兼容旧数据的英文释义 id 子集，当前界面不提供英文释义选择入口。中文释义**全集**永远存在词典缓存里。`customTranslations` 是用户手填的自定义中文词义（没有词性、没有 id），加入时并入 `translation` 快照一起背诵，单独落盘只是为了二次编辑时能还原成可删标签；上限 6 条 / 单条 60 字（`MAX_CUSTOM_TRANSLATIONS` / `MAX_CUSTOM_TRANSLATION_LEN`，前后端常量同名同值）。
 
-`marks` / `markCount` / `reviewCount` / `spellingCount` / `rememberedCount` / `forgottenCount` = 打标日志和累计次数，**界面上一律不显示**，数据落盘供后续统计使用。`marks` 服务端只留最近 40 条（`MAX_MARKS`），`markCount` 记总次数所以截断也不丢；`reviewCount` 只数一次实际 done/again 复习操作，按周一次过多轮仍算一次；`spellingCount`、`rememberedCount`、`forgottenCount` 分别统计会拼写、记住和没记住。`processedReviewKeys` 最多保留最近 80 个复习任务键，用于网络重试和重复点击幂等。`/api/study/plan` 会剥掉 `marks` 和幂等键（响应体太大），要完整日志走 `/api/lists/:id/words`。
+`marks` / `markCount` / `reviewCount` / `spellingCount` / `rememberedCount` / `forgottenCount` = 打标日志和累计次数，**界面上一律不显示**，数据落盘供后续统计使用。`marks` 服务端只留最近 40 条（`MAX_MARKS`），`markCount` 记总次数所以截断也不丢；`reviewCount` 只数实际 done/again 复习操作（done = 进入下一轮）；`spellingCount` / `readingCount` / `rememberedCount` / `forgottenCount` 分别统计会拼、会读、知意和没记住（按钮与统计文案统一为：会拼 | 会读 | 知意），**四者完全独立**。会拼 / 会读 / 知意走 `action='tally'`（`successKind` 必传），只加对应计数，**不推进轮次、不改排期**，可重复点击各算一次；`done` 只推进轮次不加熟悉度计数。`lastDoneAt` 记最近一次 done 打卡时间，是轮次排期的锚点。`processedReviewKeys` 最多保留最近 80 个复习任务键，用于网络重试和重复点击幂等。`/api/study/plan` 会剥掉 `marks` 和幂等键（响应体太大），要完整日志走 `/api/lists/:id/words`。
 
 打印批次文件里**只存 `listId` + `word`**，每个词的 `state` / `stage` / `nextDueAt` 以及批次上的 `dueCount` / `markableCount` / `missingCount` 都是读接口时从学习列表现算的（`enrichBatch`）——同一个词的进度只有学习列表一个来源，不会两处打架。打印之后被移出列表的词，批次里标 `missing`，整批打卡时跳过它。
 
@@ -173,15 +181,18 @@ PrintBatch       { id, printedAt, kind: 'start'|'review', scope?, title, wordCou
 | `PATCH /api/lists/:id` `{name}` | 重命名 | useStudyList |
 | `DELETE /api/lists/:id` | 删除，`default` 被服务端拒绝 | useStudyList |
 | `GET /api/lists/:id/words` | 列表词条 | useStudyList.fetchListWords |
-| `POST /api/lists/:id/words` `{text, sourceIds?, senseIds?, translationIds?}` | 加一条并保存选择的中文词义 | useStudyList.addItem |
-| `PATCH /api/lists/:id/words/:text` `{senseIds}` | 兼容旧数据的释义设置，空数组=恢复自动 | useStudyList.updateItemSenses |
+| `POST /api/lists/:id/words` `{text, sourceIds?, senseIds?, translationIds?, customTranslations?}` | 加一条并保存选择的中文词义；没带快照时用 customs 兜底 | useStudyList.addItem |
+| `PATCH /api/lists/:id/words/:text` `{senseIds?, translationIds?, translation?, customTranslations?}` | 改释义 / 中文快照 / 自定义词义；空数组=恢复自动，`translation:''` 且有 customs 时用 customs 重建 | useStudyList.updateItemSenses / updateItemTranslations |
 | `DELETE /api/lists/:id/words/:text` | 移除 | useStudyList.removeItem |
-| `POST /api/lists/:id/import` `{items}`（每项可带 `translationIds`） | 批量导入，返回 `{added, skipped, queued}` | useStudyList.importItems |
+| `POST /api/lists/:id/import` `{items}`（每项可带 `translationIds?` / `customTranslations?`） | 批量导入，返回 `{added, skipped, queued}` | useStudyList.importItems |
 | `POST /api/lists/:id/remove` `{words}` | 批量移除，归一化去重后只写一次盘，返回 `{removed, missing}`；`words` 为空 → 400 | useStudyList.removeItems |
+| `GET /api/lists/:id/batches` | 批次（按 addedAt 自然日分组）的显示名 `{batchNames}` | useStudyList.fetchBatches |
+| `PATCH /api/lists/:id/batches` `{date:'2026-09-15', name}` | 重命名批次；空串=重置为日期；非法日期 400、超 40 字 409 | useStudyList.renameBatch |
 | `GET /api/word-lists?word=` | 这个词在哪些列表里 | useStudy、useStudyList.getWordListIds |
 | `POST /api/lists/:id/start` `{words, startedAt?, restart?, scope?}` | 标记开始学习，scope 只进打标日志不影响排期 | useStudyPlan.startWords |
-| `POST /api/lists/:id/review` | 打卡，支持 `successKind=spelling` 与每词 `requestIds` 幂等；`through` 触发按周补轮 | useStudyPlan.reviewWords |
+ | `POST /api/lists/:id/review` | 打卡：`done` 进入下一轮 / `again` 没记住 / `stop` 退出 / `tally` 熟悉度计数（`successKind` 必传，只计数不动排期）；`done`/`again` 会把 scope 写进 `reviewScope` 影响排期（week → 下周一）；每词 `requestIds` 幂等 | useStudyPlan.reviewWords |
 | `POST /api/lists/:id/mark` `{words, action?, scope?}` | 只记打标（当前只允许 `print`），不动排期 | —（前端已无调用方，留作底层原语） |
+| `POST /api/lists/:id/tally-undo` `{words, successKind, scope?, now?}` | 撤销本周期内最近一次会拼 / 会读 / 知意：删最近一条本周期内的 tally mark，对应累计计数 -1（下限 0），并软删对应永久事件；`undone` 表示实际撤销了几条 | useStudyPlan.undoTally |
 | `GET /api/study/plan` | 所有在学的词 + 节奏 + 服务端今天 0 点 | useStudyPlan |
 | `GET|PUT /api/study/goal` `{libraryId}` | 目标词库，空串=不设目标 | useStudyGoal |
 | `GET /api/print-batches?limit=` | 打印记录（新在前，默认 20 条，最多留 60 条） | usePrintBatches |
@@ -199,8 +210,10 @@ PrintBatch       { id, printedAt, kind: 'start'|'review', scope?, title, wordCou
 
 ```
 cache/dict-cache.json    { [归一化后的词]: DictionaryEntry }
-cache/study-lists.json   { lists: [ { id, name, createdAt, words: [ StudyWordItem 的持久字段（含可选 translation） ] } ] }
-                         持久字段含 marks / 各累计次数 / processedReviewKeys，不含 nextDueAt / state
+cache/study-lists.json   { lists: [ { id, name, createdAt, batchNames: { '2026-09-15': 显示名 }, words: [ StudyWordItem 的持久字段（含可选 translation） ] } ] }
+                             batchNames 是批次（按 addedAt 自然日分组）的可显示名，没有自定义名的日期留在日期本身
+                        持久字段含 marks / 各累计次数 / lastDoneAt / processedReviewKeys，不含 nextDueAt / state
+                        reviewScope 也落盘（最近一次打卡粒度，week 词排到下周一）
 cache/vocab-labels.json  { labels: { [词库id]: 标签 } }
 cache/study-goal.json    { libraryId }        // 第一次 PUT 才创建
 cache/print-batches.json { batches: [ { id, printedAt, kind, scope?, title, wordCount,
@@ -221,29 +234,34 @@ data/ecdict/meta.json    { format, count, builtAt, source, sourceBytes, columns 
 ```
 REVIEW_INTERVALS = [1, 2, 4, 7, 15, 30, 60]   // 天
 nextDueAt(item) = !startedAt ? null
-                : stage >= 7 ? null
-                : startOfDay(startedAt) + INTERVALS[stage] * DAY
-state           = !startedAt ? new : stage >= 7 ? mastered
+                : stage > 7 ? null
+                : stage === 0 ? startOfDay(startedAt)
+                : reviewScope === 'week' ? startOfWeek(lastDoneAt ?? startedAt) + 7 * DAY
+                : startOfDay(lastDoneAt ?? startedAt) + INTERVALS[stage-1] * DAY
+state           = !startedAt ? new : stage > 7 ? mastered
                 : nextDueAt <= startOfDay(now) ? due : scheduled
 
 start   已有 startedAt 的词默认 skipped（不清进度）；restart:true 才重置 stage=0 / reviewedAt=[]
         记一条 mark：第一次 start，重开 restart
-review  done → stage+1（上限 7）；again → stage=0 且 startedAt=now；stop → 删掉 startedAt/stage/reviewedAt 退回 new
+review  done → stage+1（上限 7）且 lastDoneAt=now，并把粒度写进 reviewScope（week = 排到下周一，day = 按天顺延）；
+        一次点击只推进一轮。按周词同一周内再点 done 仍停在下周一，不继续往后滚
+        again → stage=0 且 startedAt=now 且清 lastDoneAt（同样写 reviewScope）；stop → 删掉
+        startedAt/stage/reviewedAt/lastDoneAt/reviewScope 退回 new
         reviewedAt 只保留最近 40 条；每次 done/again 都 reviewCount++；结束时记一条 mark
-        spelling = done + spellingCount++；done/again 分别增加 rememberedCount/forgottenCount
+        tally（successKind=spelling/reading/meaning 必传）→ 只加对应熟悉度计数，不动轮次 / reviewedAt / 排期
         requestIds / processedReviewKeys 保证同一复习任务重复提交不重复计数
-        按周（scope='week'，through=该周最后一毫秒，缺省 endOfWeek(now)）：done 之后继续
-        while nextDueAt <= through 就 stage++，把这一周内排到的多个轮次一次过完
 mark    POST /mark 只 pushMark，不动 stage / startedAt；当前页面不调用，action 主要用于 print，保留 spelling 兼容旧调用
 
 applyReview() 是打卡的唯一实现：列表打卡（/api/lists/:id/review）和按打印批次整批打卡
 （/api/print-batches/:id/review）都走它。整批打卡先按 listId 把批次里的词分组，再逐个列表调用；
-scope 不传就沿用打印那一刻记下的粒度，所以「按周印的卡片按周打卡」是默认行为。
+scope 不传就沿用打印那一刻记下的粒度；该粒度会经 `reviewScope` 影响排期（按周批次整批打卡后排到下周一）。
 ```
 
 `nextDueAt` / `state` / `weekStart` 都是读接口时算的派生字段，不写进文件。到期判断只比「天」，同一天内几点无所谓。前端 StudyPage 额外做一件事：把所有逾期的词折叠进「今天」（按周模式折叠进「本周」），且只有当前这一天 / 这一周允许打卡。
 
-按周只改「一次打卡推几轮」，**不改 start 的时间语义**（startedAt 不对齐到周一，否则刚开始学的词立刻变逾期）。
+按周不只是展示粒度：按周打卡会把 `reviewScope` 持久化成 `week`，`nextDueAt` 直接排到**下周一**（真正的一周一次）；
+按天打卡写 `day`，仍按间隔逐天顺延。旧数据没有该字段，等价于 `day`，行为不变。前端 StudyPage 的按周分桶
+（`startOfWeek(nextDueAt)`）天然适配下周一排期，不用改。
 
 ## 词典链路（本地优先）
 
@@ -293,11 +311,14 @@ GET /api/dict → ensureEntry(word, force) → resolveEntry(word, force) → { e
 - 词库标签的改名入口**只有词库页**。查词页 / 学习列表 / 英语学习页里的标签都是只读 `<Tag color="blue">`，别再给它们加 `onClick` 或把 `LibraryTag` 装回去；`updateLabel` 只应该传给 `LibrariesPage`。
 - `openCardWindow()` 必须在 click 事件里同步调用，否则被浏览器当弹窗拦掉：流程是先开一个进度页，等释义查完再回填卡片 HTML。卡片没开出来就不写学习状态，避免开始时间和手里的卡片对不上。
 - `sense.id` 用「词性 + 序号」而不是内容 hash，重抓后 id 仍然对得上，所以 `senseIds` 存 id 是安全的。
+- 中文快照的合并语义前后端必须一致：选中词典词义 + 自定义词义 →「选中词义；自定义」；没选中词典词义但填了自定义 → 只剩自定义。服务端 `selectedTranslation(entry, ids, customs)` 和前端 `formatTranslationWithCustom` 是两处实现，改一处要同步另一处和测试断言。
 - 旧版服务没有 prefetch 接口时会回 404，`useDictPrefetch` 必须按 stale 处理；照抄响应体进 state 会让界面显示 `undefined/undefined` 并且「补齐中」永远转下去（这是修过的真实 bug，别改回去）。
 - `detectType`：命中任意词库就算 `word`（`a few` 这类固定短语也算），否则含空格才算 `sentence`。
-- 前端 `roundsInWeek()`（StudyPage）是服务端 review 里 catchUp 循环的镜像，用来提示「连过 N 轮」。**改一边必须改另一边**，否则界面提示和实际进度对不上。
-- `markWords` 仍保留在 `useStudyPlan` 作为兼容性的纯标记原语，但当前页面没有调用它完成“会拼写”；“会拼写”必须走 `/api/lists/:id/review`，以便同时推进轮次、增加 `spellingCount` / `rememberedCount` / `reviewCount` 并参与幂等。打印现在走 `POST /api/print-batches`，它自己会给每个词打一条 `print` 标，再单独打标就重复了；`/api/lists/:id/mark` 仍保留供测试和未来纯标记动作使用。
+- 打卡一次只推进一轮；下次复习锚点：按天词锚定最近一次 `done` 打卡当天（`lastDoneAt`）按间隔顺延，
+  按周词（`reviewScope` 为 `week`）锚到 `startOfWeek(lastDoneAt) + 7 天`（下周一）。改动排期锚点要同步 `nextDueAt` 和测试断言。
+- `markWords` 仍保留在 `useStudyPlan` 作为兼容性的纯标记原语，但当前页面没有调用它；「会拼 / 会读 / 知意」走 `/api/lists/:id/review` 的 `tally`（只计数不推进轮次），「进入下一轮」走同接口的 `done`。打印现在走 `POST /api/print-batches`，它自己会给每个词打一条 `print` 标，再单独打标就重复了；`/api/lists/:id/mark` 仍保留供测试和未来纯标记动作使用。
 - 卡片导出失败和留档失败要分开处理：卡片窗口没开出来就既不写学习状态也不留档；卡片开出来但留档接口失败时只提示「卡片已导出，但打印记录没保存」，别把已经开始学的状态回滚掉。
+- 打印页卡片右上角的 ✕ 只是「这次打印不要这张卡」：页面脚本调主窗口的 `__removePrintCard`（`renderCardsInto` 登记的会话，按 `data-print-id` 找回）过滤后整页重渲，沿用用户调过的字号 / 缩放 / 模式并还原滚动；主窗口不可用时就地把卡片清空兜底。它**不改学习列表、开始学习状态和打印留档**——留档用的是用户最初选中的列表，删词纯粹是打印页本地行为。
 - `GET /api/dict` 必须把 query 里的 `refresh` 透传给 `ensureEntry`，**别写死 `true`**（改成本地优先之前就是写死的）：写死等于每次查词都跳过缓存去打外部接口，本地词典刚写好的中文又被百度翻译结果盖回去。
 - 本地词典没装是正常状态，不是错误：`ecdictInfo().ready === false`、`localEntry` 返回 null、`useDictSources` 返回 null，界面上什么都不显示，链路自动回落外部接口。别在这条路径上抛异常。
 - `data/` 不进 git（csv 约 200MB、索引十几 MB），也别提交：换台机器重跑 `npm run ecdict:fetch` 就有。词典产物是可再生的派生数据。
@@ -315,10 +336,11 @@ GET /api/dict → ensureEntry(word, force) → resolveEntry(word, force) → { e
 | 释义数据兼容与上限 | `src/components/SensePicker.tsx`（当前无页面引用） + 服务端 `MAX_PICKED_SENSES` |
 | 导入筛选 / 去重 / 预览 | `src/pages/ImportPage.tsx`（`wordForms` 管词形宽松匹配） |
 | 学习列表行样式、多选批量删除 | `src/pages/ListsPage.tsx` + `useStudyList.removeItems` + 服务端 `POST /api/lists/:id/remove` |
+| 学习列表批次分组 / 批次重命名 | `src/pages/ListsPage.tsx`（`visibleBatches` / `batchKeyOf`）+ `useStudyList.fetchBatches` / `renameBatch` + 服务端 `GET|PATCH /api/lists/:id/batches`（落盘 `batchNames`） |
 | 目标达成度算法 | `src/components/StudyGoal.tsx` |
 | 挑词弹窗 / 月历 / 打卡 | `src/pages/StudyPage.tsx` |
 | 打印记录、整批打卡 | `src/pages/StudyPage.tsx` 的打印记录 section + `src/hooks/usePrintBatches.ts` + 服务端打印批次小节（`MAX_PRINT_BATCHES` / `enrichBatch`） |
-| 按天 / 按周粒度、连过多轮提示 | `src/pages/StudyPage.tsx` 的 `mode` / `dueByWeek` / `roundsInWeek` + 服务端 review 的 catchUp |
+| 按天 / 按周粒度、打卡按钮（会拼/会读/知意/✅下一轮） | `src/pages/StudyPage.tsx` 的 `mode` / `dueByWeek` / `handleWordAction` + 服务端 review 的 done/tally 语义 |
 | 打标日志字段、保留条数 | 服务端 `pushMark` / `MAX_MARKS` / `PURE_MARK_ACTIONS` / `withoutMarks` |
 | 卡片版式、打印 CSS、每页行列 | `src/utils/flashcards.ts` + StudyPage 的 `LAYOUTS` |
 | 复习节奏、到期判断 | 服务端 `REVIEW_INTERVALS` / `nextDueAt` / `studyState` |
@@ -339,7 +361,7 @@ GET /api/dict → ensureEntry(word, force) → resolveEntry(word, force) → { e
 ```bash
 export PATH=/Users/rextao/.nvm/versions/node/v24.18.0/bin:$PATH
 npm run build          # tsc -b && vite build，必须 exit 0
-npm run test:server    # 动过 server/ 或 scripts/ 就跑，期望「159 passed, 0 failed」
+npm run test:server    # 动过 server/ 或 scripts/ 就跑，期望「284 passed, 0 failed」
 ```
 
 改完后自查：有没有新增原生 `<select>` / `<textarea>` / `checkbox`；有没有新引依赖；有没有把 `nextDueAt` / `state` 这类派生字段写进 JSON 文件；归一化规则是不是几处都改了；本地词典没装（`data/ecdict/` 不存在）时功能是不是照样能跑。

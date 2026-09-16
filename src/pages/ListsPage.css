@@ -140,6 +140,55 @@
 
 .lists-toolbar__filter { width: 160px; }
 
+/* 批次开关：放在筛选输入框左边，不换行 */
+.lists-toolbar__batch-toggle { white-space: nowrap; }
+
+/* 批次分组视图：一个自然日一组，头部是日期名 + 数量 + 重命名 */
+.word-batches { margin-top: 4px; }
+
+.word-batch { margin-bottom: 18px; }
+
+/* 批次头部可点击：点标题折叠 / 展开该批次 */
+.word-batch__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  user-select: none;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.word-batch__head:focus-visible {
+  outline: 2px solid var(--color-primary, #2563eb);
+  outline-offset: 2px;
+}
+
+.word-batch__head--collapsed { border-bottom-color: transparent; }
+
+.word-batch__chevron {
+  width: 12px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.word-batch__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.word-batch__count {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.word-batch__rename { margin-left: auto; }
+
+.word-batch__draft { max-width: 260px; }
+
 /* 多选操作条：只有开了多选才出现，压在词条清单上面 */
 .lists-select {
   display: flex;
