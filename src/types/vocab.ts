@@ -107,15 +107,6 @@ export type StudyReviewAction = 'done' | 'again' | 'stop' | 'tally'
 /** 打标粒度：按天一次，还是一周一次 */
 export type StudyMarkScope = 'day' | 'week'
 
-/** 一次打标记录，界面上不显示，留给后续统计类功能 */
-export interface StudyMark {
-  at: number
-  action: StudyMarkAction
-  scope?: StudyMarkScope
-  /** 打标之后的轮次，便于回溯当时进度 */
-  stage?: number
-}
-
 // 永久学习记录（由独立历史库提供，不随学习列表词条删除）
 
 /** 一次不可变的学习操作；词义信息仅在数据层保留，当前界面按单词聚合展示。 */
@@ -179,8 +170,6 @@ export interface StudyWordItem {
   lastDoneAt?: number
    /** 最近一次打卡的粒度；week 表示按周复习，之后排到下周一，否则按天顺延 */
    reviewScope?: 'day' | 'week'
-  /** 当前列表的兼容镜像，仅保留最近 40 条；永久历史不截断 */
-  marks?: StudyMark[]
   /** 累计打标次数，不随 marks 截断而丢失 */
   markCount?: number
   /** 累计复习打卡次数（done 与 again 各算一次） */

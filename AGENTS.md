@@ -139,11 +139,10 @@ VocabLibraryInfo extends VocabLibrary { file }               // file 如 vocab/k
 StudyState       'new' | 'due' | 'scheduled' | 'mastered'
 StudyMarkAction  'start' | 'restart' | 'done' | 'again' | 'stop' | 'print' | 'spelling' | 'reading' | 'meaning'
 StudyMarkScope   'day' | 'week'
-StudyMark        { at, action: StudyMarkAction, scope?, stage? }    // stage = 打标之后的轮次
 StudyWordItem    { word, type: 'word'|'sentence', sourceIds: string[], addedAt, phonetic?, translation?,
                    senseIds?, customTranslations?: string[], startedAt?, stage?, reviewedAt?: number[], lastDoneAt?,
                    reviewScope?: 'day' | 'week',    // 最近一次 done/again 打卡的粒度，week = 排到下周一
-                   marks?: StudyMark[], markCount?, reviewCount?, spellingCount?, readingCount?,
+                   markCount?, reviewCount?, spellingCount?, readingCount?,
                    rememberedCount?, forgottenCount?, processedReviewKeys?, // 日志、累计次数与幂等键，界面不显示
                    nextDueAt?: number|null, state?: StudyState }   // 后两个是服务端派生，不落盘
 StudyList        { id, name, createdAt, wordCount }
@@ -161,7 +160,7 @@ PrintBatch       { id, printedAt, kind: 'start'|'review', scope?, title, wordCou
 
 `phonetic` 和 `translation` 是加入学习列表时保存的音标、中文翻译快照，旧数据可以没有；`translationIds` 是加入时选择的中文词义 id 子集。学习列表显示已保存的中文词义，旧数据则回退到词典摘要。`senseIds` 是兼容旧数据的英文释义 id 子集，当前界面不提供英文释义选择入口。中文释义**全集**永远存在词典缓存里。`customTranslations` 是用户手填的自定义中文词义（没有词性、没有 id），加入时并入 `translation` 快照一起背诵，单独落盘只是为了二次编辑时能还原成可删标签；上限 6 条 / 单条 60 字（`MAX_CUSTOM_TRANSLATIONS` / `MAX_CUSTOM_TRANSLATION_LEN`，前后端常量同名同值）。
 
-`marks` / `markCount` / `reviewCount` / `spellingCount` / `rememberedCount` / `forgottenCount` = 打标日志和累计次数，**界面上一律不显示**，数据落盘供后续统计使用。`marks` 服务端只留最近 40 条（`MAX_MARKS`），`markCount` 记总次数所以截断也不丢；`reviewCount` 只数实际 done/again 复习操作（done = 进入下一轮）；`spellingCount` / `readingCount` / `rememberedCount` / `forgottenCount` 分别统计会拼、会读、知意和没记住（按钮与统计文案统一为：会拼 | 会读 | 知意），**四者完全独立**。会拼 / 会读 / 知意走 `action='tally'`（`successKind` 必传），只加对应计数，**不推进轮次、不改排期**，可重复点击各算一次；`done` 只推进轮次不加熟悉度计数。`lastDoneAt` 记最近一次 done 打卡时间，是轮次排期的锚点。`processedReviewKeys` 最多保留最近 80 个复习任务键，用于网络重试和重复点击幂等。`/api/study/plan` 会剥掉 `marks` 和幂等键（响应体太大），要完整日志走 `/api/lists/:id/words`。
+`markCount` / `reviewCount` / `spellingCount` / `rememberedCount` / `forgottenCount` = 去规范化的累计次数，**界面上一律不显示**，落盘供后续统计使用。打标日志本身（时间 / 动作 / 粒度 / 轮次）**只写 SQLite 事件表**，JSON 里不再留 `marks` 镜像：两处来源容易打架，撤销已改成事件软删，镜像同步不上。`markCount` 记总打标次数；`reviewCount` 只数实际 done/again 复习操作（done = 进入下一轮）；`spellingCount` / `readingCount` / `rememberedCount` / `forgottenCount` 分别统计会拼、会读、知意和没记住（按钮与统计文案统一为：会拼 | 会读 | 知意），**四者完全独立**。会拼 / 会读 / 知意走 action=`tally`（`successKind` 必传），只加对应计数，**不推进轮次、不改排期**，可重复点击各算一次；done 只推进轮次不加熟悉度计数。`lastDoneAt` 记最近一次 done 打卡时间，是轮次排期的锚点。`processedReviewKeys` 最多保留最近 80 个复习任务键，用于网络重试和重复点击幂等。`saveLists()` 落盘时顺手 delete `item.marks`，老数据残留下次保存自动清掉；要打标日志走 `/api/study/history`。
 
 打印批次文件里**只存 `listId` + `word`**，每个词的 `state` / `stage` / `nextDueAt` 以及批次上的 `dueCount` / `markableCount` / `missingCount` 都是读接口时从学习列表现算的（`enrichBatch`）——同一个词的进度只有学习列表一个来源，不会两处打架。打印之后被移出列表的词，批次里标 `missing`，整批打卡时跳过它。
 
@@ -212,7 +211,7 @@ PrintBatch       { id, printedAt, kind: 'start'|'review', scope?, title, wordCou
 cache/dict-cache.json    { [归一化后的词]: DictionaryEntry }
 cache/study-lists.json   { lists: [ { id, name, createdAt, batchNames: { '2026-09-15': 显示名 }, words: [ StudyWordItem 的持久字段（含可选 translation） ] } ] }
                              batchNames 是批次（按 addedAt 自然日分组）的可显示名，没有自定义名的日期留在日期本身
-                        持久字段含 marks / 各累计次数 / lastDoneAt / processedReviewKeys，不含 nextDueAt / state
+                        持久字段含 各累计次数 / lastDoneAt / processedReviewKeys，不含 nextDueAt / state
                         reviewScope 也落盘（最近一次打卡粒度，week 词排到下周一）
 cache/vocab-labels.json  { labels: { [词库id]: 标签 } }
 cache/study-goal.json    { libraryId }        // 第一次 PUT 才创建

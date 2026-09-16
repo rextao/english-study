@@ -113,6 +113,14 @@ function historyEvents(body, word) {
   })
 }
 
+/** 打标日志以 SQLite 事件表为唯一来源：按动作筛选某个词的永久事件。 */
+async function wordEvents(word, action) {
+  const params = new URLSearchParams({ word, limit: '100' })
+  if (action) params.set('action', action)
+  const r = await call('GET', '/api/study/history?' + params)
+  return historyEvents(r.body, word)
+}
+
 function eventAt(event) {
   return Number(event?.at ?? event?.occurredAt)
 }
@@ -471,7 +479,7 @@ check('会拼只累计拼写次数，不动轮次和排期',
   r.body?.updated === 1 && melon?.spellingCount === 1
   && melon?.readingCount === 0 && melon?.rememberedCount === 0 && melon?.reviewCount === 0
   && melon.stage === 0 && melon.nextDueAt === startOfDayMs(threeDaysAgo)
-  && melon.marks?.at(-1)?.action === 'spelling', melon)
+  && (await wordEvents('melon', 'spelling')).some(e => e.action === 'spelling'), melon)
 
 r = await call('POST', '/api/lists/' + studyId + '/review', {
   words: ['melon'], action: 'tally', successKind: 'spelling', requestIds: { melon: spellingRequestId },
@@ -501,7 +509,7 @@ check('会读只累计阅读次数，不影响记住 / 拼写次数和轮次',
   && apricot?.rememberedCount === 0 && apricot?.spellingCount === 0
   && apricot?.reviewCount === 0 && apricot.stage === 0
   && apricot.nextDueAt === startOfDayMs(threeDaysAgo)
-  && apricot.marks?.at(-1)?.action === 'reading', apricot)
+  && (await wordEvents('apricot', 'reading')).some(e => e.action === 'reading'), apricot)
 
 r = await call('POST', '/api/lists/' + studyId + '/review', {
   words: ['apricot'], action: 'tally', successKind: 'reading',
@@ -537,15 +545,15 @@ check('撤销前学习成果页能看到两次会读',
 
 r = await call('POST', '/api/lists/' + studyId + '/tally-undo', { words: ['apricot'], successKind: 'reading' })
 apricot = r.body?.items?.find(w => w.word === 'apricot')
-check('撤销一次：会读次数减一，marks 也少一条',
+check('撤销一次：会读次数减一，永久事件软删一条',
   r.body?.ok === true && r.body?.undone === 1 && apricot?.readingCount === 1
-  && apricot?.marks?.filter(m => m.action === 'reading').length === 1, apricot)
+  && (await wordEvents('apricot', 'reading')).length === 1, apricot)
 
 r = await call('POST', '/api/lists/' + studyId + '/tally-undo', { words: ['apricot'], successKind: 'reading' })
 apricot = r.body?.items?.find(w => w.word === 'apricot')
-check('再撤销一次：会读次数归零，marks 里一条不剩',
+check('再撤销一次：会读次数归零，事件表一条不剩',
   r.body?.undone === 1 && apricot?.readingCount === 0
-  && !apricot?.marks?.some(m => m.action === 'reading'), apricot)
+  && (await wordEvents('apricot', 'reading')).length === 0, apricot)
 
 r = await call('POST', '/api/lists/' + studyId + '/tally-undo', { words: ['apricot'], successKind: 'reading' })
 apricot = r.body?.items?.find(w => w.word === 'apricot')
@@ -594,7 +602,7 @@ check('没记住 -> 轮次归零并从今天重开',
   melon?.stage === 0 && melon.state === 'due' && melon.nextDueAt === startOfDayMs(Date.now())
   && melon.reviewedAt.length === 2 && melon.lastDoneAt === undefined
   && melon.rememberedCount === 0 && melon.forgottenCount === 1
-  && melon.marks?.at(-1)?.action === 'again', melon)
+  && (await wordEvents('melon', 'again')).some(e => e.action === 'again'), melon)
 
 r = await call('POST', '/api/lists/' + studyId + '/review', {
   words: ['melon'], action: 'again', requestIds: { melon: againRequestId },
@@ -696,15 +704,16 @@ check('停止学习 -> updated', r.body?.updated === 1, r.body)
 r = await call('GET', '/api/lists/' + weekId + '/words')
 papaya = r.body.find(w => w.word === 'papaya')
 check('打标日志落盘：时间 / 动作 / 粒度 / 次数',
-  papaya?.markCount === 3 && papaya.reviewCount === 1 && papaya.marks?.length === 3
-  && papaya.marks[0].action === 'start' && papaya.marks[0].scope === 'week'
-  && papaya.marks[1].action === 'done' && papaya.marks[1].scope === undefined
-  && papaya.marks[2].action === 'print' && papaya.marks[2].scope === 'week'
-  && papaya.marks.every(m => typeof m.at === 'number'), papaya)
+  papaya?.markCount === 3 && papaya.reviewCount === 1
+  && (await wordEvents('papaya', 'start')).some(e => e.scope === 'week' && typeof e.at === 'number')
+  && (await wordEvents('papaya', 'done')).some(e => e.scope === undefined && typeof e.at === 'number')
+  && (await wordEvents('papaya', 'print')).some(e => e.scope === 'week' && typeof e.at === 'number'), papaya)
 const guava = r.body.find(w => w.word === 'guava')
 check('重开与停止各留一条打标',
   guava?.markCount === 3
-  && JSON.stringify(guava.marks.map(m => m.action)) === '["start","restart","stop"]', guava)
+  && (await wordEvents('guava', 'start')).length >= 1
+  && (await wordEvents('guava', 'restart')).length >= 1
+  && (await wordEvents('guava', 'stop')).length >= 1, guava)
 
 r = await call('GET', '/api/study/plan')
 const planMango = r.body?.items?.find(w => w.word === 'mango')
@@ -1230,8 +1239,8 @@ check('打印记录带上来源与打印时的粒度',
 r = await call('GET', '/api/lists/' + printListId + '/words')
 let plum = r.body.find(w => w.word === 'plum')
 check('打印本身也记一条打标',
-  plum?.markCount === 2 && plum.marks[1].action === 'print'
-  && plum.marks[1].at === monday && plum.marks[1].scope === 'week', plum)
+  plum?.markCount === 2
+  && (await wordEvents('plum', 'print')).some(e => e.at === monday && e.scope === 'week'), plum)
 
 r = await call('POST', '/api/print-batches', { groups: [{ listId: printListId, words: ['plum'] }] })
 const printB = r.body?.batch

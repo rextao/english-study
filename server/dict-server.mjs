@@ -107,8 +107,6 @@ const DAY = 86400000
 /** 复习节奏（天）：首次打卡后第 1 / 2 / 4 / 7 / 15 / 30 / 60 天各复习一次 */
 const REVIEW_INTERVALS = [1, 2, 4, 7, 15, 30, 60]
 
-/** 当前学习列表的兼容镜像上限；完整历史永久写入独立 SQLite，不受这里限制。 */
-const MAX_MARKS = 40
 /** 复习请求幂等键保留窗口，覆盖网络重试但避免学习列表无限增长。 */
 const MAX_REVIEW_KEYS = 80
 /** 只记打标、不动复习排期的动作 */
@@ -141,22 +139,15 @@ function normalizeScope(input) {
 }
 
 /**
- * 追加一条打标日志：记时间、动作、粒度和当时轮次。
- * marks 只作为当前排期的兼容镜像保留最近 MAX_MARKS 条；永久事件由 SQLite 保存。
+ * 记一次打标：只累加 markCount 这个去规范化的总次数。
+ * 打标日志（时间 / 动作 / 粒度 / 轮次）由 SQLite 事件表保存，JSON 里不再留 marks 镜像，
+ * 免得两处来源互相打架；要日志走 /api/study/history。
  */
 function pushMark(item, action, at, extra) {
-  const mark = { at, action }
-  const scope = normalizeScope(extra && extra.scope)
-  if (scope) mark.scope = scope
-  if (Number.isFinite(extra && extra.stage)) mark.stage = extra.stage
-  const history = Array.isArray(item.marks) ? item.marks : []
-  history.push(mark)
-  item.marks = history.slice(-MAX_MARKS)
   item.markCount = (Number(item.markCount) || 0) + 1
-  return mark
 }
 
-/** 去掉打标日志的副本：复习计划一次返回几百个词，日志跟着走响应体会很大 */
+/** 去掉残留的 marks 副本：老数据落盘后可能还带着，响应里不往外吐 */
 function withoutMarks(item) {
   const out = Object.assign({}, item)
   delete out.marks
@@ -221,23 +212,15 @@ function enrichItem(item, now) {
 
 /**
  * 本周期（按天 / 按周）内各熟悉度维度的点击次数，供复习页按钮直接展示。
- * 从 marks 兼容镜像里数最近一段；撤销也只动这段镜像，计数与可撤销条数天然一致。
+ * 直接从事件表现算，撤销软删事件后次数天然回退，不依赖 JSON 镜像。
  */
-function tallyPeriodCounts(item, now) {
-  const marks = Array.isArray(item.marks) ? item.marks : []
-  const dayStart = startOfDay(now)
-  const weekStart = startOfWeek(now)
-  const day = { spelling: 0, reading: 0, meaning: 0 }
-  const week = { spelling: 0, reading: 0, meaning: 0 }
-  for (const mark of marks) {
-    const at = Number(mark && mark.at)
-    if (!Number.isFinite(at)) continue
-    if (mark.action === 'spelling' || mark.action === 'reading' || mark.action === 'meaning') {
-      if (at >= dayStart) day[mark.action]++
-      if (at >= weekStart) week[mark.action]++
-    }
-  }
-  return { day, week }
+function tallyPeriodCounts(item, listId, now) {
+  return studyHistory.periodTallyCounts({
+    listId,
+    word: item.word,
+    dayStart: startOfDay(now),
+    weekStart: startOfWeek(now),
+  })
 }
 
 /**
@@ -514,7 +497,13 @@ function loadLists() {
   }
   return data
 }
-function saveLists(data) { saveJson(LISTS_FILE, data) }
+function saveLists(data) {
+  // marks 镜像已废弃：永久打标日志只在 SQLite 事件表；落盘时顺手清掉旧数据残留
+  for (const list of data?.lists || []) {
+    for (const item of list.words || []) delete item.marks
+  }
+  saveJson(LISTS_FILE, data)
+}
 
 /** 把词典里已经拿到的中文翻译同步到学习列表词条；不改变列表页面的展示规则。 */
 function selectedTranslation(entry, ids, customs) {
@@ -1959,20 +1948,15 @@ const server = http.createServer(async (req, res) => {
       const items = []
       for (const item of list.words) {
         if (!targets.has(item.word)) continue
-        const marks = Array.isArray(item.marks) ? item.marks : []
-        let index = -1
-        for (let i = marks.length - 1; i >= 0; i--) {
-          const mark = marks[i]
-          if (mark && mark.action === kind && Number(mark.at) >= from) { index = i; break }
+        // 事件表是唯一来源：软删本周期内最近一条 tally 事件，累计计数跟着回退
+        const result = studyHistory.undoTallyEvent({ listId, word: item.word, action: kind, from })
+        if (result.deleted > 0) {
+          if (kind === 'spelling') item.spellingCount = Math.max(0, countOf(item.spellingCount) - 1)
+          else if (kind === 'reading') item.readingCount = Math.max(0, countOf(item.readingCount) - 1)
+          else item.rememberedCount = Math.max(0, countOf(item.rememberedCount) - 1)
+          item.markCount = Math.max(0, countOf(item.markCount) - 1)
+          undone++
         }
-        if (index < 0) { items.push(enrichItem(item, now)); continue }
-        const mark = marks.splice(index, 1)[0]
-        if (kind === 'spelling') item.spellingCount = Math.max(0, countOf(item.spellingCount) - 1)
-        else if (kind === 'reading') item.readingCount = Math.max(0, countOf(item.readingCount) - 1)
-        else item.rememberedCount = Math.max(0, countOf(item.rememberedCount) - 1)
-        item.markCount = Math.max(0, countOf(item.markCount) - 1)
-        studyHistory.undoTallyEvent({ listId, word: item.word, action: kind, at: Number(mark.at) })
-        undone++
         items.push(enrichItem(item, now))
       }
       saveLists(data)
@@ -2049,7 +2033,7 @@ const server = http.createServer(async (req, res) => {
         }))
         // 本周期会拼 / 会读 / 知意次数：按钮直接展示，撤销也只认这段镜像
         const planItem = items[items.length - 1]
-        planItem.tallyCounts = tallyPeriodCounts(item, now)
+       planItem.tallyCounts = tallyPeriodCounts(item, list.id, now)
       }
     }
     items.sort((a, b) => {
