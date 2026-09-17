@@ -14,7 +14,12 @@ data/
 .idea/
 
 # 本机永久学习历史及删除前自动备份
-cache/*.sqlite
 cache/*.sqlite-wal
 cache/*.sqlite-shm
 cache/backups/
+cache/dict-cache.json.bak
+
+# 唯一的落盘数据文件：学习列表 / 学习历史 / 词库标签 / 目标 / 打印批次 / 词典缓存都在这一个库里，
+# 提交它就能在另一台机器 git pull 拿到完整数据（库里其余文件都是备份 / 临时产物，不进 git）
+cache/*
+!cache/study-history.sqlite

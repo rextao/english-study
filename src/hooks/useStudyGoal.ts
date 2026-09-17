@@ -4,7 +4,7 @@ const SERVER = 'http://127.0.0.1:3456'
 const GOAL_URL = SERVER + '/api/study/goal'
 
 /**
- * 学习目标 = 某个词库。只存「目标是哪个词库」，存在服务端 cache/study-goal.json，
+* 学习目标 = 某个词库。只存「目标是哪个词库」，存在服务端（study-history.sqlite），
  * 不用 localStorage，后续换成云端数据库时只要改这个接口。
  */
 export function useStudyGoal() {

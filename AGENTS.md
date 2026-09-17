@@ -5,6 +5,7 @@
 ## 是什么
 
 本机单机跑的背单词应用。前端 React 19 + TypeScript + Vite 6（`src/`），后端是一个 Node 原生 `node:http` 写的本地服务（`server/dict-server.mjs`，监听 127.0.0.1:3456），数据库就是 JSON 文件（`cache/`、`vocab/`）。释义优先查本机 ECDICT（开源英汉简明字典，约 77 万词条，产物在 `data/ecdict/`，读取层 `server/ecdict.mjs`），本地查不到才打外部接口。UI 文案和代码注释一律中文。
+本机单机跑的背单词应用。前端 React 19 + TypeScript + Vite 6（`src/`），后端是一个 Node 原生 `node:http` 写的本地服务（`server/dict-server.mjs`，监听 127.0.0.1:3456），数据库是一个 SQLite 单文件 `cache/study-history.sqlite`（学习列表 / 历史 / 标签 / 目标 / 打印批次 / 词典缓存全在里头，提交它即可跨设备共享），词库本体是 `vocab/` 下的 JSON。释义优先查本机 ECDICT（开源英汉简明字典，约 77 万词条，产物在 `data/ecdict/`，读取层 `server/ecdict.mjs`），本地查不到才打外部接口。UI 文案和代码注释一律中文。
 
 ## 硬约束（动手前先看）
 
@@ -17,6 +18,7 @@
 - **TS 严格**：`tsconfig.app.json` 开了 `strict` + `noUnusedLocals` + `noUnusedParameters` + `noFallthroughCasesInSwitch`（**没开** `noUncheckedIndexedAccess`）。
 - **无法实测运行中的页面**：连不上 localhost，只能靠 `tsc` + `vite build` + 读代码推断，别声称「已在浏览器里验证」。
 - **验证命令**：`npm run build`（= `tsc -b && vite build`）必须 exit 0；动过服务端再跑 `npm run test:server`（284 项，跑在临时 `DICT_DATA_DIR` + `DICT_ECDICT_DIR` + `DICT_NO_NETWORK=1`，不会碰真实 `cache/` 和 `data/`）。
+ - **验证命令**：`npm run build`（= `tsc -b && vite build`）必须 exit 0；动过服务端再跑 `npm run test:server`（315 项，跑在临时 `DICT_DATA_DIR` + `DICT_ECDICT_DIR` + `DICT_NO_NETWORK=1`，不会碰真实 `cache/` 和 `data/`）。
 
 ## 目录地图（一行一职责）
 
@@ -80,10 +82,15 @@ src/utils/translations.ts      中文词义工具：translationOptions（把缓�
 
 server/dict-server.mjs         全部后端逻辑：路由 + 词典缓存 + 本地词典优先 + 外部接口 + 学习列表 + 复习进度
                                + 打印批次 + 标签 + 目标
+server/db.mjs                  study-history.sqlite 的共享连接层：openStudyDb（按解析路径缓存、常驻、
+                               DELETE 日志模式无侧车文件）/ openStudyDbSnapshot（测试断言用的临时只读短连接）
+server/study-lists.mjs         学习列表 store：lists / list_words 表，启动时把 study-lists.json 一次性迁进库
+server/kv.mjs                  小文档 store：kv 表（标签 / 目标 / 打印批次整份 JSON 存一行）+ dict_cache 表
+                               （一个词一行）；启动时把四个老 json 一次性迁进库；缓存重载靠 PRAGMA data_version
 server/ecdict.mjs              本地 ECDICT 读取层：index.bin 读进内存二分 → 按偏移从 records.tsv 读那一行；
                                导出 ecdictEntry / ecdictRecord / ecdictInfo / resetEcdict / hashKey / STORE_FILES 等
 server/text.mjs                normalizeText（trim + 空白压缩 + 小写）；服务端和 ecdict.mjs 共用这一份
-server/dict-server.test.mjs    304 项断言测试；临时 DICT_DATA_DIR + DICT_ECDICT_DIR + DICT_NO_NETWORK=1
+server/dict-server.test.mjs    315 项断言测试；临时 DICT_DATA_DIR + DICT_ECDICT_DIR + DICT_NO_NETWORK=1
                                + DICT_SERVER_NO_LISTEN=1
 
 scripts/ecdict-fetch.mjs       装词典一条龙：下 zip → unzipFirstCsv（零依赖解 zip）→ buildEcdict → 试查 apple 自检；
@@ -94,10 +101,13 @@ scripts/ecdict-build.mjs       buildEcdict：流式解析 ecdict.csv → 同词�
 vocab/format.md                词库统一格式（唯一规范来源）
 vocab/ket.json                 剑桥 A2 Key，id=a2-key-2020，1661 条词条
 vocab/parse_a2_key.py          pdftotext 文本 → 词库 JSON；正则与该 PDF 版式绑定，不通用
-cache/*.json                   运行时数据，结构见下
+cache/study-history.sqlite     唯一的运行时数据文件：学习列表 / 学习历史 / 词库标签 / 学习目标 /
+                              打印批次 / 词典缓存全在这一个库里，提交它即可跨设备共享（见「跨设备共享」）
+cache/backups/                 迁移前 / 删除前的自动备份，不进 git
 data/ecdict.csv                ECDICT 原始 csv（约 200MB），只在建索引时读，建完可以删
 data/ecdict/                   词典产物 records.tsv + index.bin + meta.json（十几 MB），服务端查词直接读它
 .gitignore                     node_modules / dist / data / .DS_Store（`data/` 太大，不进 git）
+.gitignore                     `cache/*` 全部忽略，只 `!cache/study-history.sqlite` 放行一个文件
 506886-a2-key-2020-vocabulary-list.pdf   词库原始 PDF
 ```
 
@@ -111,12 +121,12 @@ App.tsx（唯一状态中枢，避免切 tab 后数据不同步）
  └ useTabRoute       → [tab, setTab]
 
 页面 / 组件 ──fetch http://127.0.0.1:3456── server/dict-server.mjs
-                                             ├ cache/dict-cache.json
-                                             ├ cache/study-lists.json
-                                             ├ cache/vocab-labels.json
-                                             ├ cache/study-goal.json
-                                             ├ cache/print-batches.json
-                                             ├ data/ecdict/（本地词典，只读，查词优先用它）
+                                             ├ cache/study-history.sqlite（唯一的落盘来源）
+                                             │    ├ lists / list_words（学习列表，study-lists.mjs）
+                                             │    ├ learning_events / learning_event_meanings（打标日志，study-history.mjs）
+                                             │    ├ kv（标签 / 目标 / 打印批次，kv.mjs）
+                                             │    └ dict_cache（词典缓存，kv.mjs）
+                                             └ data/ecdict/（本地词典，只读，查词优先用它）
                                              └ 外部：dictionaryapi.dev / 百度大模型文本翻译 API（本地查不到才走）
 
 vocab/*.json ──import.meta.glob(eager, 构建期打包)──▶ useVocabLibraries（服务没起也能浏览词库）
@@ -208,23 +218,37 @@ PrintBatch       { id, printedAt, kind: 'start'|'review', scope?, title, wordCou
 ## 落盘文件结构
 
 ```
-cache/dict-cache.json    { [归一化后的词]: DictionaryEntry }
-cache/study-lists.json   { lists: [ { id, name, createdAt, batchNames: { '2026-09-15': 显示名 }, words: [ StudyWordItem 的持久字段（含可选 translation） ] } ] }
-                             batchNames 是批次（按 addedAt 自然日分组）的可显示名，没有自定义名的日期留在日期本身
-                        持久字段含 各累计次数 / lastDoneAt / processedReviewKeys，不含 nextDueAt / state
-                        reviewScope 也落盘（最近一次打卡粒度，week 词排到下周一）
-cache/vocab-labels.json  { labels: { [词库id]: 标签 } }
-cache/study-goal.json    { libraryId }        // 第一次 PUT 才创建
-cache/print-batches.json { batches: [ { id, printedAt, kind, scope?, title, wordCount,
-                                        items: [ { listId, listName, word } ],
-                                        reviewedAt?, reviewAction?, reviewedCount?, reviewCount? } ] }
-                         只存打印了哪些词；进度和 dueCount 这些读接口时现算，不落盘
+cache/study-history.sqlite   一个库装全部运行时数据，提交它即跨设备共享；DELETE 日志模式无 -wal/-shm 侧车
+  lists                 学习列表头（id / name / createdAt / batchNames JSON）；study-lists.mjs
+  list_words            列表词条（持久字段含各累计次数 / lastDoneAt / processedReviewKeys /
+                         reviewScope；不含 nextDueAt / state / marks；批次名 batchNames 存列表头上）
+  learning_events       打标日志（动作 / 时间 / 粒度 / 轮次），撤销=软删；study-history.mjs
+  learning_event_meanings  事件关联的词义快照
+  kv                    一整份 JSON 存一行：vocab-labels / study-goal / print-batches（KV_KEYS）；kv.mjs
+  dict_cache            一个词一行 entry_json；kv.mjs
+  schema_migrations     一次性迁移标记（study-lists / marks / 四个小文档各一条），二次启动不重跑
+  meaning_profiles / legacy_totals  词义画像与历史总量（study-history.mjs）
+
+老 json（study-lists / vocab-labels / study-goal / print-batches / dict-cache）只在第一次启动时
+迁移一次：读出来 → 事务里入库 + 记标记 → 提交后备份到 cache/backups/ 再删文件。之后 sqlite 是唯一来源。
 
 data/ecdict/records.tsv  一行一条词，TAB 分隔，列 = RECORD_COLUMNS
                          key / word / phonetic / translation / definition / exchange / tag / frq
 data/ecdict/index.bin    定长 16 字节 × 词数：h1 h2 offset length（都是 uint32BE），按哈希升序，二分用
 data/ecdict/meta.json    { format, count, builtAt, source, sourceBytes, columns }，构建时最后才写
 ```
+
+## 跨设备共享
+
+数据全在 `cache/study-history.sqlite` 一个文件里，`.gitignore` 只放行它：
+
+1. A 机正常用，数据自动写库；想同步时提交 `cache/study-history.sqlite` 即可
+2. B 机 `git pull`，拿到完整的学习列表 / 进度 / 标签 / 目标 / 打印批次 / 词典缓存
+3. B 机直接启动服务就能用，不用重新查词、重新导入
+
+注意：这是「手动提交、手动拉取」的顺序交接，不是实时同步。两台机各自改了再合并会冲突，
+那时以某一台的 sqlite 为准即可（库是二进制，无法合并冲突，只能整体取舍）。
+词典产物 `data/ecdict/` 不进 git，B 机要重跑 `npm run ecdict:fetch`。
 
 归一化主键 = `normalizeText` = trim + 连续空白压成一个空格 + 转小写。服务端已经收成一份（`server/text.mjs`，`ecdict.mjs` 里的 `ecdictKey` 直接复用它，**词典索引就是按这个主键建的，改它必须重建 `data/ecdict/`**）；前端还是各写一遍：`useDictBatch.keyOf`、`ImportPage.normalize`、`StudyGoal.keyOf`、`flashcards.ts`。改规则这 4 处要一起改。
 
@@ -291,7 +315,7 @@ GET /api/dict → ensureEntry(word, force) → resolveEntry(word, force) → { e
 - `fillFromLocal(words)` 在 `POST /api/dict/batch` 里先跑一遍：本地能补的一次补齐、只写一次盘，这些词就不用再排队补齐了。
 - 容量上限：`MAX_SENSES_PER_POS=12`、`MAX_SENSES=40`、`MAX_PICKED_SENSES=12`。
 - `isBadTranslation`：空 / 等于原词 / **一个汉字都没有** → 当失败（百度接口返回错误提示时不会写入缓存）。
-- 缓存常驻内存，按文件 mtime + size 变化自动重读，所以手改 `dict-cache.json` 也能生效。
+- 缓存常驻内存，别的连接改了库（PRAGMA data_version 变了）下次 getCache 就整表重读；本连接自己的写不算，所以写完不会触发无谓重载。
 - 补齐队列：`PREFETCH_CONCURRENCY=2`、`PREFETCH_PACE_MS=250`（`NO_NETWORK` 时 0），两个免费接口都限流，别调高。**只有 `resolveEntry` 报 `network===true` 才 sleep**，本地命中的词一个接一个过，导入几百个常见词几乎瞬间完成。
 - `DICT_ECDICT_OFF=1` 把本地词典整个跳过（`localEntry` 返回 null、`fillFromLocal` 返回 0、`/api/dict/sources` 报 `disabled`、`staleAgainstLocal` 恒为 false），用来对比外部接口的效果或排查词典本身。
 

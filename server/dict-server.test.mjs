@@ -9,6 +9,8 @@ import path from 'node:path'
 import zlib from 'node:zlib'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { createStudyListsStore, readStudyLists } from './study-lists.mjs'
+import { createKvStore, readKv, readDictCache, writeDictCache, KV_KEYS } from './kv.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dict-test-'))
@@ -222,13 +224,13 @@ r = await call('GET', '/api/lists')
 check('现在有 2 个列表', r.body.length === 2, r.body)
 
 // 首页加入学习直接保存搜索结果快照，不由写列表接口重新查询词典。
-fs.writeFileSync(path.join(dataDir, 'dict-cache.json'), JSON.stringify({
+writeDictCache(dataDir, {
   apple: {
     word: 'apple', phonetic: '/ˈæpəl/', translation: '苹果',
     senses: [{ id: 'noun#0', pos: 'noun', definition: 'a fruit' }],
     cachedAt: Date.now(), status: 'ok', source: 'api',
   },
-}), 'utf8')
+})
 r = await call('POST', '/api/lists/default/words', {
   text: '  ApPle ', sourceIds: ['a2-key-2020'], phonetic: '/ˈæpəl/', translation: 'n. 苹果',
   translationIds: ['api#0::0'],
@@ -327,8 +329,7 @@ check('41 字批次名 -> 409 标签过长', r.status === 409 && r.body?.error =
 
 // batchNames 落盘持久化
 r = await call('PATCH', '/api/lists/' + batchListId + '/batches', { date: '2026-09-15', name: '秋词汇' })
-const savedBatchLists = JSON.parse(fs.readFileSync(path.join(dataDir, 'study-lists.json'), 'utf8'))
-const savedBatchList = savedBatchLists.lists.find(l => l.id === batchListId)
+const savedBatchList = readStudyLists(dataDir).lists.find(l => l.id === batchListId)
 check('batchNames 字段落盘', savedBatchList?.batchNames?.['2026-09-15'] === '秋词汇', savedBatchList)
 
 // 重复单词永远留在旧批次：addedAt 不变
@@ -344,19 +345,18 @@ const dupItems = dupWords.body?.filter(i => i.word === 'batch-dup') ?? []
 check('重复单词只有一条且 addedAt 不变（留在旧批次）',
   dupItems.length === 1 && dupItems[0].addedAt === dupAddedAt, dupWords.body)
 
-// 旧数据补齐：无 batchNames 字段的列表也不报错
+// 空列表的批次接口：新建列表自带空 batchNames，不能因为没批次就报错
 await waitForPrefetch()
-const listsFile = path.join(dataDir, 'study-lists.json')
-const listsSnapshot = fs.readFileSync(listsFile, 'utf8')
-const legacyLists = JSON.parse(listsSnapshot)
-legacyLists.lists.push({ id: 'legacy-batches', words: [] })
-fs.writeFileSync(listsFile, JSON.stringify(legacyLists), 'utf8')
-r = await call('GET', '/api/lists/legacy-batches/words')
-check('旧列表 GET words 正常', r.status === 200, r.body)
-r = await call('GET', '/api/lists/legacy-batches/batches')
-check('旧列表 GET batches 返回空对象不报错',
+r = await call('POST', '/api/lists', { name: 'empty-batches' })
+const emptyBatchesId = r.body?.id
+check('空批次列表创建成功', r.status === 200 && r.body?.ok === true && !!emptyBatchesId, r.body)
+r = await call('GET', '/api/lists/' + emptyBatchesId + '/words')
+check('空列表 GET words 正常', r.status === 200 && Array.isArray(r.body) && r.body.length === 0, r.body)
+r = await call('GET', '/api/lists/' + emptyBatchesId + '/batches')
+check('空列表 GET batches 返回空对象不报错',
   r.status === 200 && r.body?.batchNames && Object.keys(r.body.batchNames).length === 0, r.body)
-fs.writeFileSync(listsFile, listsSnapshot, 'utf8')
+r = await call('DELETE', '/api/lists/' + emptyBatchesId)
+check('删除空批次测试列表', r.body?.ok === true, r.body)
 // 清掉本组用例创建的列表，免得影响后面「回到 1 个列表」的断言
 r = await call('DELETE', '/api/lists/' + batchListId)
 check('删除批次测试列表', r.body?.ok === true, r.body)
@@ -784,9 +784,8 @@ check('清空自定义词义 -> 字段不落盘，快照保留',
   && r.body?.item?.translation === '改过的叫法,另一条', r.body)
 
 // 选中的词典词义与自定义词义合并：词典词义按词性分组在前，自定义跟在后面
-const customCacheFile = path.join(dataDir, 'dict-cache.json')
-fs.writeFileSync(customCacheFile, JSON.stringify({
-  ...JSON.parse(fs.readFileSync(customCacheFile, 'utf8')),
+writeDictCache(dataDir, {
+  ...readDictCache(dataDir),
   loquat: {
     word: 'loquat', phonetic: '/ˈloʊkwɑːt/', translation: 'n. 枇杷',
     translations: [
@@ -795,7 +794,7 @@ fs.writeFileSync(customCacheFile, JSON.stringify({
     ],
     senses: [], cachedAt: Date.now(), status: 'ok', source: 'ecdict',
   },
-}))
+})
 
 r = await call('POST', '/api/lists/' + studyId + '/import', {
   items: [{ text: 'loquat', translationIds: ['translation#0'], customTranslations: ['我背的就是这个'] }],
@@ -997,7 +996,7 @@ r = await call('GET', '/api/study/history?word=long-history&limit=200')
 check('同一个 requestId 重试不重复插入永久事件',
   historyEvents(r.body, 'long-history').filter(event => event.requestId === idempotentRequestId).length === 1, r.body)
 
-// 物理删除按单词清除 SQLite 事件及 JSON 次数镜像，但保留当前复习排期。
+// 物理删除按单词清除 SQLite 事件，并回退同一个库里的列表累计计数，但保留当前复习排期。
 r = await call('GET', '/api/lists/' + longHistoryListId + '/words')
 const scheduleBeforePurge = r.body?.find(item => item.word === 'long-history')
 const backupDir = path.join(dataDir, 'backups')
@@ -1005,7 +1004,7 @@ const backupsBeforePurge = fs.existsSync(backupDir) ? fs.readdirSync(backupDir).
 r = await call('POST', '/api/study/history/purge', { words: ['long-history'] })
 check('物理删除选中单词返回删除数量并创建备份',
   r.status === 200 && r.body?.ok === true && r.body?.deletedEvents >= 46
-  && fs.readdirSync(backupDir).length >= backupsBeforePurge + 2, r.body)
+  && fs.readdirSync(backupDir).length >= backupsBeforePurge + 1, r.body)
 r = await call('GET', '/api/study/history?word=long-history&limit=100')
 check('物理删除包含正常和已逻辑删除的历史行',
   historyEvents(r.body, 'long-history').length === 0 && r.body?.total === 0, r.body)
@@ -1084,13 +1083,13 @@ fs.rmSync(restartDir, { recursive: true, force: true })
 
 await waitForPrefetch()
 
-fs.writeFileSync(path.join(dataDir, 'dict-cache.json'), JSON.stringify({
+writeDictCache(dataDir, {
   melon: { word: 'melon', phonetic: 'ˈmelən', translation: '瓜', meanings: [], cachedAt: Date.now() },
   lemon: {
     word: 'lemon', cachedAt: Date.now(),
     meanings: [{ partOfSpeech: 'noun', definitions: ['a yellow citrus fruit'], examples: ['a slice of lemon'] }],
   },
-}), 'utf8')
+})
 
 r = await call('POST', '/api/dict/batch', { words: ['Melon', 'grape', 'LEMON'] })
 check('批量取缓存：命中 melon、缺 grape',
@@ -1178,10 +1177,10 @@ check('重置打印标签', r.body?.ok === true && r.body.existed === true, r.bo
 r = await call('GET', '/api/vocab-print-labels')
 check('打印标签重置后只剩一条', JSON.stringify(r.body.printLabels) === '{"b1-pet":"PET PRINT"}', r.body)
 
-const saved = JSON.parse(fs.readFileSync(path.join(dataDir, 'study-lists.json'), 'utf8'))
+const saved = readStudyLists(dataDir)
 check('已落盘', Array.isArray(saved.lists) && saved.lists[0].id === 'default', saved)
 
-const savedLabels = JSON.parse(fs.readFileSync(path.join(dataDir, 'vocab-labels.json'), 'utf8'))
+const savedLabels = readKv(dataDir, KV_KEYS.labels, { labels: {}, printLabels: {} })
 check('标签已落盘', savedLabels.labels['b1-pet'] === 'PET', savedLabels)
 check('打印标签已落盘', savedLabels.printLabels['b1-pet'] === 'PET PRINT', savedLabels)
 
@@ -1202,7 +1201,7 @@ check('目标 libraryId 非字符串 -> 400', r.status === 400 && r.body.ok === 
 r = await call('GET', '/api/study/goal')
 check('非法请求不会覆盖已存的目标', r.body?.libraryId === 'a2-key-2020', r.body)
 
-const savedGoal = JSON.parse(fs.readFileSync(path.join(dataDir, 'study-goal.json'), 'utf8'))
+const savedGoal = readKv(dataDir, KV_KEYS.goal, {})
 check('目标已落盘', savedGoal.libraryId === 'a2-key-2020', savedGoal)
 
 r = await call('PUT', '/api/study/goal', { libraryId: '' })
@@ -1293,7 +1292,7 @@ check('相同词组的旧打印记录已移除，其他批次仍保留',
   && r.body.batches.some(b => b.id === printA?.id)
   && r.body.batches.some(b => b.id === printB?.id), r.body)
 
-const dedupedPrints = JSON.parse(fs.readFileSync(path.join(dataDir, 'print-batches.json'), 'utf8'))
+const dedupedPrints = readKv(dataDir, KV_KEYS.prints, { batches: [] })
 check('最新的相同词组记录落盘在最前', dedupedPrints.batches[0]?.id === latestCrossListPrint?.id, dedupedPrints)
 
 r = await call('DELETE', '/api/print-batches/' + latestCrossListPrint?.id)
@@ -1351,7 +1350,7 @@ check('被移除的词标成 missing 且不参与打卡',
   afterDrop?.missingCount === 1 && afterDrop.markableCount === 1
   && afterDrop.items.find(i => i.word === 'fig')?.missing === true, afterDrop)
 
-const savedPrints = JSON.parse(fs.readFileSync(path.join(dataDir, 'print-batches.json'), 'utf8'))
+const savedPrints = readKv(dataDir, KV_KEYS.prints, { batches: [] })
 const storedA = savedPrints.batches.find(b => b.id === printA?.id)
 check('打印记录已落盘且不含派生字段',
   storedA?.reviewAction === 'done' && storedA.items[0].word === 'fig'
@@ -1475,8 +1474,7 @@ check('本地补齐后不再算 incomplete', r.body?.incomplete?.length === 0, r
 // ── 装词典之前留下的旧缓存要被就地升级 ────────────────────────────────────
 // 模拟真实场景：这两条是外部接口时代抓的，status 已经是 ok、还带着例句，
 // 从前会被「缓存 ok 就直接返回」挡住，永远换不成 ECDICT 的释义。
-const cacheFile = path.join(dataDir, 'dict-cache.json')
-const staleCache = JSON.parse(fs.readFileSync(cacheFile, 'utf8'))
+const staleCache = readDictCache(dataDir)
 staleCache.banana = {
   word: 'banana', phonetic: '/old-api/', translation: '香蕉（机翻）',
   senses: [{ id: 'noun#0', pos: 'noun', definition: 'stale english definition', example: 'I ate a banana.' }],
@@ -1487,7 +1485,7 @@ staleCache.multi = {
   senses: [{ id: 'noun#0', pos: 'noun', definition: 'stale def', example: 'stale example' }],
   cachedAt: Date.now(), status: 'ok', source: 'api',
 }
-fs.writeFileSync(cacheFile, JSON.stringify(staleCache), 'utf8')
+writeDictCache(dataDir, staleCache)
 
 r = await call('GET', '/api/dict?word=banana')
 check('抓齐但不是本地词典的旧缓存，查词时就地换成 ECDICT',
@@ -1603,7 +1601,7 @@ check('百度大模型翻译请求使用 appid/from/to/q 格式',
   && kiwiBaiduBody.to === 'zh'
   && kiwiBaiduBody.q === 'kiwi'
   && kiwiBaiduBody.model === undefined, { headers: kiwiBaiduCall?.options?.headers, body: kiwiBaiduBody })
-const kiwiCache = JSON.parse(fs.readFileSync(path.join(baiduDir, 'dict-cache.json'), 'utf8'))
+const kiwiCache = readDictCache(baiduDir)
 check('百度中文会写入缓存', kiwiCache.kiwi?.translation === '猕猴桃', kiwiCache.kiwi)
 check('拼写状态会持久化到缓存', kiwiCache.kiwi?.spellingStatus === 'valid', kiwiCache.kiwi)
 
@@ -1612,7 +1610,7 @@ r = await callOn(baiduServer, 'GET', '/api/dict?word=got')
 check('本地未命中且免费词典明确 404 时标记为可能拼写错误',
   r.body?.spellingStatus === 'suspect'
   && r.body?.errors?.some(error => error.source === 'dictionaryapi' && error.code === 'not_found'), r.body)
-const suspectCache = JSON.parse(fs.readFileSync(path.join(baiduDir, 'dict-cache.json'), 'utf8'))
+const suspectCache = readDictCache(baiduDir)
 check('可能拼写错误状态会持久化到缓存', suspectCache.got?.spellingStatus === 'suspect', suspectCache.got)
 
 fetchCalls.length = 0
@@ -1697,22 +1695,21 @@ check('批量查询把缺句子音标的缓存标为 incomplete',
   r.body?.incomplete?.length === 0, r.body)
 
 // 已有中文但缺句子音标的旧缓存需要重新补齐。
-const baiduCacheFile = path.join(baiduDir, 'dict-cache.json')
-const sentenceCache = JSON.parse(fs.readFileSync(baiduCacheFile, 'utf8'))
+const sentenceCache = readDictCache(baiduDir)
 delete sentenceCache['how are you?'].phonetic
-fs.writeFileSync(baiduCacheFile, JSON.stringify(sentenceCache), 'utf8')
+writeDictCache(baiduDir, sentenceCache)
 fetchCalls.length = 0
 r = await callOn(baiduServer, 'POST', '/api/dict/batch', { words: ['How are you?'] })
 check('批量查询把缺句子音标的缓存标为 incomplete',
   r.body?.incomplete?.includes('how are you?'), r.body)
 
 // 旧的 ECDICT 句子缓存也不能挡住百度翻译
-const baiduCache = JSON.parse(fs.readFileSync(baiduCacheFile, 'utf8'))
+const baiduCache = readDictCache(baiduDir)
 baiduCache['how are you?'] = {
   word: 'how are you?', phonetic: '/old/', translation: '旧中文', senses: [],
   cachedAt: Date.now(), status: 'ok', source: 'ecdict',
 }
-fs.writeFileSync(baiduCacheFile, JSON.stringify(baiduCache), 'utf8')
+writeDictCache(baiduDir, baiduCache)
 fetchCalls.length = 0
 r = await callOn(baiduServer, 'GET', '/api/dict?word=How%20are%20you%3F')
 check('旧的句子缓存也会更新为百度结果',
@@ -1819,6 +1816,117 @@ catch (e) { zipErr = e.message }
 check('不是 zip 就报错而不是写出半个文件',
   zipErr.includes('zip') && !fs.existsSync(path.join(dataDir, 'never.csv')), zipErr)
 
+
+// ── study-lists.json -> sqlite 一次性迁移（真实数据路径）────────────────────
+// 老用户第一次启动会走这条路径：老 json 必须完整搬进库、然后删掉，重启不能再跑
+{
+  const migrateDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dict-migrate-'))
+  const migrateListsFile = path.join(migrateDir, 'study-lists.json')
+  fs.writeFileSync(migrateListsFile, JSON.stringify({
+    lists: [
+      { id: 'default', name: '默认列表', createdAt: 1789000000000,
+        batchNames: { '2026-09-01': '秋词汇' },
+        words: [
+          { word: 'apple', type: 'word', sourceIds: ['a2-key-2020'], addedAt: 1789100000000,
+            phonetic: '/æpl/', translation: 'n. 苹果', translationIds: ['noun#0'],
+            customTranslations: ['自家苹果'], startedAt: 1789200000000, stage: 2,
+            reviewedAt: [1789300000000, 1789350000000], lastDoneAt: 1789400000000,
+            reviewScope: 'week', markCount: 3, reviewCount: 2, spellingCount: 1,
+            rememberedCount: 1, forgottenCount: 1, processedReviewKeys: ['req-1', 'req-2'] },
+          { word: 'a few', type: 'sentence', displayText: 'A few', sourceIds: [],
+            addedAt: 1789150000000, translation: '少数几个' },
+        ] },
+      { id: 'list_extra', name: '额外列表', createdAt: 1789050000000,
+        words: [{ word: 'grape', type: 'word', sourceIds: [], addedAt: 1789120000000 }] },
+    ],
+  }, null, 2), 'utf8')
+
+  const migrated = createStudyListsStore({ dataDir: migrateDir, listsFile: migrateListsFile }).load()
+  const defaultList = migrated.lists.find(l => l.id === 'default')
+  const apple = defaultList.words.find(w => w.word === 'apple')
+  const few = defaultList.words.find(w => w.word === 'a few')
+  check('迁移：两个列表都进库且保持顺序',
+    migrated.lists.length === 2 && migrated.lists[0].id === 'default'
+    && migrated.lists[1].id === 'list_extra', migrated)
+  check('迁移：批次名保留', defaultList.batchNames['2026-09-01'] === '秋词汇', defaultList)
+  check('迁移：复习进度 / 词义快照 / 计数 / 幂等键原样往返',
+    apple.phonetic === '/æpl/' && apple.translation === 'n. 苹果'
+    && apple.customTranslations.join() === '自家苹果'
+    && apple.startedAt === 1789200000000 && apple.stage === 2
+    && apple.reviewedAt.join() === '1789300000000,1789350000000'
+    && apple.lastDoneAt === 1789400000000 && apple.reviewScope === 'week'
+    && apple.markCount === 3 && apple.reviewCount === 2 && apple.spellingCount === 1
+    && apple.rememberedCount === 1 && apple.forgottenCount === 1
+    && apple.processedReviewKeys.join() === 'req-1,req-2', apple)
+  check('迁移：句子保留 displayText，词保持 word 类型',
+    few.type === 'sentence' && few.displayText === 'A few' && few.translation === '少数几个'
+    && apple.type === 'word' && !('displayText' in apple), few)
+  check('迁移：老 json 删除并留了备份',
+    !fs.existsSync(migrateListsFile)
+    && fs.readdirSync(path.join(migrateDir, 'backups'))
+      .some(f => f.startsWith('study-lists.before-sqlite-')))
+
+  // 模拟重启：迁移标记已入库，不能再跑；数据必须原样还在
+  const restarted = createStudyListsStore({ dataDir: migrateDir, listsFile: migrateListsFile }).load()
+  const apple2 = restarted.lists.find(l => l.id === 'default').words.find(w => w.word === 'apple')
+  check('迁移：二次启动幂等不重跑，数据不丢',
+    restarted.lists.length === 2 && apple2.startedAt === 1789200000000
+    && apple2.markCount === 3 && apple2.processedReviewKeys.join() === 'req-1,req-2'
+    && !fs.existsSync(migrateListsFile), apple2)
+}
+
+// ── kv 小文档 json -> sqlite 一次性迁移（真实数据路径）──────────────────────
+// 老用户的 vocab-labels / study-goal / print-batches / dict-cache 四个 json
+// 第一次启动都要搬进同一个库然后删掉，重启不能再跑
+{
+  const kvDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dict-kv-'))
+  const legacy = {
+    labels: path.join(kvDir, 'vocab-labels.json'),
+    goal: path.join(kvDir, 'study-goal.json'),
+    prints: path.join(kvDir, 'print-batches.json'),
+    dictCache: path.join(kvDir, 'dict-cache.json'),
+  }
+  fs.writeFileSync(legacy.labels, JSON.stringify({
+    labels: { 'a2-key-2020': 'A2' }, printLabels: { 'ket': 'KET 打印' },
+  }), 'utf8')
+  fs.writeFileSync(legacy.goal, JSON.stringify({ libraryId: 'a2-key-2020' }), 'utf8')
+  fs.writeFileSync(legacy.prints, JSON.stringify({
+    batches: [{ id: 'print_1', printedAt: 1789000000000, kind: 'start', scope: 'day',
+      title: '第一批', wordCount: 2,
+      items: [{ listId: 'default', listName: '默认列表', word: 'apple' },
+              { listId: 'default', listName: '默认列表', word: 'grape' }] }],
+  }), 'utf8')
+  fs.writeFileSync(legacy.dictCache, JSON.stringify({
+    apple: { word: 'apple', phonetic: '/æpl/', translation: '苹果',
+      senses: [{ id: 'noun#0', pos: 'noun', definition: 'a fruit' }],
+      cachedAt: 1789100000000, status: 'ok', source: 'ecdict' },
+    grape: { word: 'grape', phonetic: '/ɡreɪp/', translation: '葡萄',
+      senses: [], cachedAt: 1789110000000, status: 'partial', source: 'api' },
+  }), 'utf8')
+
+  createKvStore({ dataDir: kvDir, legacyFiles: legacy })
+  const after = createKvStore({ dataDir: kvDir, legacyFiles: legacy })
+  const labels = after.get(KV_KEYS.labels, null)
+  const goal = after.get(KV_KEYS.goal, null)
+  const prints = after.get(KV_KEYS.prints, null)
+  const cache = after.loadCacheMap()
+  check('kv 迁移：标签 / 打印标签 / 目标 / 打印批次 / 词典缓存都原样进库',
+    labels?.labels?.['a2-key-2020'] === 'A2' && labels?.printLabels?.['ket'] === 'KET 打印'
+    && goal?.libraryId === 'a2-key-2020'
+    && prints?.batches?.length === 1 && prints.batches[0].items.length === 2
+    && cache.apple?.translation === '苹果' && cache.grape?.status === 'partial',
+    { labels, goal, printsBatchCount: prints?.batches?.length, cacheKeys: Object.keys(cache) })
+  check('kv 迁移：四个老 json 删除并留了备份',
+    !fs.existsSync(legacy.labels) && !fs.existsSync(legacy.goal)
+    && !fs.existsSync(legacy.prints) && !fs.existsSync(legacy.dictCache)
+    && fs.readdirSync(path.join(kvDir, 'backups'))
+      .filter(f => f.includes('.before-sqlite-')).length === 4,
+    fs.readdirSync(path.join(kvDir, 'backups')))
+  check('kv 迁移：二次启动幂等不重跑，数据不丢',
+    Object.keys(after.loadCacheMap()).length === 2 && goal.libraryId === 'a2-key-2020',
+    { cacheKeys: Object.keys(after.loadCacheMap()), goal })
+  fs.rmSync(kvDir, { recursive: true, force: true })
+}
 
 console.log('')
 console.log(pass + ' passed, ' + fail + ' failed')

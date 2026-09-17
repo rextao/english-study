@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { createHash, randomUUID } from 'node:crypto'
-import { DatabaseSync } from 'node:sqlite'
 import { normalizeText } from './text.mjs'
+import { openStudyDb } from './db.mjs'
 
 const HISTORY_SCHEMA_VERSION = 1
 
@@ -105,13 +105,9 @@ export function createStudyHistoryStore(options) {
   const dbFile = path.join(dataDir, 'study-history.sqlite')
   const backupDir = path.join(dataDir, 'backups')
   fs.mkdirSync(dataDir, { recursive: true })
-  const db = new DatabaseSync(dbFile)
-  // DELETE 模式：每次事务直接写主库，不产生 -wal / -shm 侧车文件，
-  // 这样单个 study-history.sqlite 就是完整数据，可以安全提交到 git 给别的设备拉取
-  db.exec('PRAGMA journal_mode = DELETE')
-  db.exec('PRAGMA synchronous = FULL')
-  db.exec('PRAGMA foreign_keys = ON')
-  db.exec('PRAGMA busy_timeout = 5000')
+  // 和学习列表 store 共用同一条连接（db.mjs 负责 DELETE 模式 / PRAGMA），
+  // purge 这类跨表操作才能在同一个事务里完成
+  const db = openStudyDb(dataDir)
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       key TEXT PRIMARY KEY,
@@ -449,18 +445,6 @@ export function createStudyHistoryStore(options) {
 
     const reason = purgeAll ? 'before-purge-all' : 'before-purge-words'
     const backupFile = backup(reason)
-    let listsSnapshot = null
-    let listsBackupFile = null
-    try {
-      listsSnapshot = fs.readFileSync(listsFile, 'utf8')
-      fs.mkdirSync(backupDir, { recursive: true })
-      listsBackupFile = path.join(
-        backupDir, 'study-lists.' + reason + '-' + Date.now() + '-' + randomUUID() + '.json',
-      )
-      fs.writeFileSync(listsBackupFile, listsSnapshot, { encoding: 'utf8', flag: 'wx', mode: 0o600 })
-    } catch (error) {
-      if (error?.code !== 'ENOENT') throw error
-    }
     db.exec('BEGIN IMMEDIATE')
     try {
       let eventMeaningResult
@@ -481,41 +465,18 @@ export function createStudyHistoryStore(options) {
         DELETE FROM meaning_profiles
         WHERE NOT EXISTS (
           SELECT 1 FROM learning_event_meanings em
-          WHERE em.meaning_key = meaning_profiles.meaning_key
-        )
-      `).run()
-      if (listsSnapshot !== null) {
-        const data = JSON.parse(listsSnapshot)
-        const wanted = new Set(words)
-        for (const list of Array.isArray(data?.lists) ? data.lists : []) {
-          for (const item of Array.isArray(list?.words) ? list.words : []) {
-            if (!purgeAll && !wanted.has(normalizeText(item?.word))) continue
-            delete item.marks
-            delete item.reviewedAt
-            delete item.markCount
-            delete item.reviewCount
-            delete item.spellingCount
-            delete item.readingCount
-            delete item.rememberedCount
-            delete item.forgottenCount
-            // startedAt / stage 维持当前排期；processedReviewKeys 维持请求幂等。
-          }
-        }
-        const temp = listsFile + '.purge-' + process.pid + '-' + Date.now()
-        fs.writeFileSync(temp, JSON.stringify(data, null, 2), { encoding: 'utf8', flag: 'wx', mode: 0o600 })
-        fs.renameSync(temp, listsFile)
-      }
+        WHERE em.meaning_key = meaning_profiles.meaning_key
+       )
+     `).run()
       db.exec('COMMIT')
       return {
         deletedEvents: Number(eventResult.changes),
         deletedEventMeanings: Number(eventMeaningResult.changes),
         deletedMeanings: Number(meaningResult.changes),
         backup: path.basename(backupFile),
-        listsBackup: listsBackupFile ? path.basename(listsBackupFile) : null,
       }
     } catch (error) {
       db.exec('ROLLBACK')
-      if (listsSnapshot !== null) fs.writeFileSync(listsFile, listsSnapshot, 'utf8')
       throw error
     }
   }

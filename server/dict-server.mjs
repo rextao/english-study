@@ -50,6 +50,8 @@ import { fileURLToPath } from 'node:url'
 import { capitalizeSentence, normalizeText } from './text.mjs'
 import { ecdictEntry, ecdictInfo, ecdictDir } from './ecdict.mjs'
 import { createStudyHistoryStore } from './study-history.mjs'
+import { createStudyListsStore } from './study-lists.mjs'
+import { createKvStore, KV_KEYS } from './kv.mjs'
 
 const __dirname  = path.dirname(fileURLToPath(import.meta.url))
 // 数据目录：默认 ../cache，可用 DICT_DATA_DIR 覆盖（便于测试 / 后续迁移到云端）
@@ -63,10 +65,22 @@ const PORT       = Number(process.env.DICT_PORT) || 3456
 
 fs.mkdirSync(DATA_DIR, { recursive: true })
 
-const studyHistory = createStudyHistoryStore({ dataDir: DATA_DIR, listsFile: LISTS_FILE })
-
 /** 默认列表：始终存在，不允许删除 */
 const DEFAULT_LIST_ID = 'default'
+
+// 学习历史先建：它要从 study-lists.json 把老的 marks 导成事件，
+// 之后学习列表 store 才能把同一个 json 导进 sqlite 并删掉它——顺序不能反
+const studyHistory = createStudyHistoryStore({ dataDir: DATA_DIR, listsFile: LISTS_FILE })
+const studyLists = createStudyListsStore({
+  dataDir: DATA_DIR, listsFile: LISTS_FILE,
+  defaultListId: DEFAULT_LIST_ID, defaultListName: '默认列表',
+})
+// 小文档（词库标签 / 学习目标 / 打印批次 / 词典缓存）也收进同一个 study-history.sqlite：
+// 启动时把老 json 迁进库并删掉，之后 sqlite 是唯一落盘来源，不再有两份真相来回同步
+const kv = createKvStore({
+  dataDir: DATA_DIR,
+  legacyFiles: { labels: LABELS_FILE, goal: GOAL_FILE, prints: PRINTS_FILE, dictCache: CACHE_FILE },
+})
 
 // ── 释义容量上限 ──────────────────────────────────────────────────────────
 
@@ -298,29 +312,6 @@ function applyReview(list, targets, action, options) {
 
 // ── Data helpers ──────────────────────────────────────────────────────────
 
-function loadJson(file, fallback) {
-  try { return JSON.parse(fs.readFileSync(file, 'utf8')) }
-  catch { return fallback }
-}
-function saveJson(file, data) {
-  const temp = file + '.tmp-' + process.pid + '-' + Date.now()
-  const fd = fs.openSync(temp, 'wx', 0o600)
-  try {
-    fs.writeFileSync(fd, JSON.stringify(data, null, 2), 'utf8')
-    fs.fsyncSync(fd)
-  } finally {
-    fs.closeSync(fd)
-  }
-  try {
-    fs.renameSync(temp, file)
-    const dirFd = fs.openSync(path.dirname(file), 'r')
-    try { fs.fsyncSync(dirFd) } finally { fs.closeSync(dirFd) }
-  } catch (error) {
-    try { fs.unlinkSync(temp) } catch {}
-    throw error
-  }
-}
-
 function recordStudyEvent(list, event) {
   return studyHistory.record({
     item: event.item, listId: list.id, listName: list.name, action: event.action,
@@ -443,12 +434,8 @@ function makeDefaultList() {
 
 /** { lists: [ { id, name, createdAt, words: [{word, type, sourceIds, addedAt, translation?}] } ] } */
 function loadLists() {
-  const data = loadJson(LISTS_FILE, null)
-  if (!data || !Array.isArray(data.lists)) {
-    const init = { lists: [makeDefaultList()] }
-    saveJson(LISTS_FILE, init)
-    return init
-  }
+  // 数据在 study-history.sqlite 的 lists / list_words 表里；store 返回和老 json 同构的结构
+  const data = studyLists.load()
   // default 列表必须存在
   if (!data.lists.some(l => l.id === DEFAULT_LIST_ID)) {
     data.lists.unshift(makeDefaultList())
@@ -498,11 +485,8 @@ function loadLists() {
   return data
 }
 function saveLists(data) {
-  // marks 镜像已废弃：永久打标日志只在 SQLite 事件表；落盘时顺手清掉旧数据残留
-  for (const list of data?.lists || []) {
-    for (const item of list.words || []) delete item.marks
-  }
-  saveJson(LISTS_FILE, data)
+  // 一次事务整库重写；marks 镜像已废弃，事件表是唯一来源，这里没有 marks 列可清
+  studyLists.save(data)
 }
 
 /** 把词典里已经拿到的中文翻译同步到学习列表词条；不改变列表页面的展示规则。 */
@@ -559,7 +543,7 @@ const MAX_LABEL_LENGTH = 40
  * 词库本体由前端在构建期打包 vocab/*.json，服务端只存「标签覆写」，没有覆写就用词库 id。
  */
 function loadLabels() {
-  const data = loadJson(LABELS_FILE, null)
+  const data = kv.get(KV_KEYS.labels, null)
   const labels = {}
   const printLabels = {}
   if (data && typeof data.labels === 'object' && data.labels !== null) {
@@ -574,7 +558,7 @@ function loadLabels() {
   }
   return { labels, printLabels }
 }
-function saveLabels(data) { saveJson(LABELS_FILE, data) }
+function saveLabels(data) { kv.set(KV_KEYS.labels, data) }
 
 /** 词库 id 再长就是脏数据了 */
 const MAX_LIBRARY_ID_LENGTH = 80
@@ -585,11 +569,11 @@ const MAX_LIBRARY_ID_LENGTH = 80
  * 达成度由前端拿本地词库和正在学习的词现算。
  */
 function loadGoal() {
-  const data = loadJson(GOAL_FILE, null)
+  const data = kv.get(KV_KEYS.goal, null)
   const libraryId = data && typeof data.libraryId === 'string' ? data.libraryId.trim() : ''
   return { libraryId }
 }
-function saveGoal(data) { saveJson(GOAL_FILE, data) }
+function saveGoal(data) { kv.set(KV_KEYS.goal, data) }
 
 // ── 打印批次（导出卡片的留档） ─────────────────────────────────────────────
 
@@ -608,14 +592,14 @@ const PRINT_KINDS = new Set(['start', 'review', 'custom'])
  * 免得同一个词在两处各存一份状态、互相矛盾。
  */
 function loadPrints() {
-  const data = loadJson(PRINTS_FILE, null)
+  const data = kv.get(KV_KEYS.prints, null)
   if (!data || !Array.isArray(data.batches)) return { batches: [] }
   for (const batch of data.batches) {
     if (!Array.isArray(batch.items)) batch.items = []
   }
   return data
 }
-function savePrints(data) { saveJson(PRINTS_FILE, data) }
+function savePrints(data) { kv.set(KV_KEYS.prints, data) }
 
 /** 批次 id 用打印时间；同一毫秒内又打了一批就加后缀 */
 function uniquePrintId(batches, printedAt) {
@@ -806,33 +790,26 @@ function normalizeEntry(word, raw) {
 
 // 缓存常驻内存，省掉每个请求都读一遍整个 json
 let cacheMap = null
-let cacheStamp = ''
+let cacheStamp = NaN
 
-function cacheFileStamp() {
-  try { const st = fs.statSync(CACHE_FILE); return st.mtimeMs + ':' + st.size }
-  catch { return '' }
-}
-
-/** 拿缓存；文件被外部动过（修改时间或体积变了）就重新读一遍 */
+/** 拿缓存；别的连接改了库（PRAGMA data_version 变了）就整表重读一遍 */
 function getCache() {
-  const stamp = cacheFileStamp()
-  if (cacheMap && stamp === cacheStamp) return cacheMap
-  const raw = loadJson(CACHE_FILE, {})
+  const version = kv.cacheVersion()
+  if (cacheMap && version === cacheStamp) return cacheMap
+  const raw = kv.loadCacheMap()
   const next = {}
-  for (const [key, value] of Object.entries(raw && typeof raw === 'object' ? raw : {})) {
+  for (const [key, value] of Object.entries(raw)) {
     const word = normalizeText(key)
     if (word) next[word] = normalizeEntry(word, value)
   }
   cacheMap = next
-  cacheStamp = stamp
+  cacheStamp = version
   return cacheMap
 }
 
 function putCache(entry) {
-  const cache = getCache()
-  cache[entry.word] = entry
-  saveJson(CACHE_FILE, cache)
-  cacheStamp = cacheFileStamp()
+  getCache()[entry.word] = entry
+  kv.putCacheEntry(entry)
   return entry
 }
 
@@ -1283,17 +1260,17 @@ async function ensureEntry(word, force) {
 function fillFromLocal(words) {
   if (LOCAL_DICT_OFF) return 0
   const cache = getCache()
+  const changed = []
   let filled = 0
   for (const word of words) {
     const local = isSentence(word) ? null : localEntry(word)
     if (!local) continue
-    cache[word] = mergeEntry(word, { local, old: cache[word] })
+    const entry = mergeEntry(word, { local, old: cache[word] })
+    cache[word] = entry
+    changed.push(entry)
     filled++
   }
-  if (filled > 0) {
-    saveJson(CACHE_FILE, cache)
-    cacheStamp = cacheFileStamp()
-  }
+  if (filled > 0) kv.putCacheEntries(changed)
   return filled
 }
 
@@ -2078,6 +2055,10 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, { ok: false, error: '至少选择一个单词' }, 400)
     }
     const result = studyHistory.purge({ all, words })
+    // 事件删了，列表里冗余的累计计数 / 复习时间也一起回退，两边重新对齐
+    if (result.deletedEvents > 0) {
+      studyLists.resetStats({ words, all })
+    }
     return sendJson(res, { ok: true, ...result })
   }
 
@@ -2385,11 +2366,8 @@ const server = http.createServer(async (req, res) => {
 if (process.env.DICT_SERVER_NO_LISTEN !== '1') {
   server.listen(PORT, '127.0.0.1', () => {
     console.log('dict-server  http://127.0.0.1:' + PORT)
-    console.log('dict  cache: ' + CACHE_FILE)
-    console.log('lists file:  ' + LISTS_FILE)
-    console.log('labels file: ' + LABELS_FILE)
-    console.log('goal  file:  ' + GOAL_FILE)
-    console.log('print file:  ' + PRINTS_FILE)
+    // 词典缓存 / 词库标签 / 学习目标 / 打印批次 / 学习列表 / 学习历史都在这一个库里
+    console.log('study    db: ' + studyHistory.dbFile)
     const local = LOCAL_DICT_OFF ? null : ecdictInfo()
     if (LOCAL_DICT_OFF) console.log('本地词典: 已关闭（DICT_ECDICT_OFF=1）')
     else if (local.ready) console.log('本地词典: ' + local.count + ' 条 · ' + local.dir)
