@@ -1,13 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { TabKey } from '../components/Nav'
 
-const TAB_KEYS: TabKey[] = ['search', 'import', 'lists', 'libraries', 'achievements', 'records', 'study']
+const TAB_KEYS: TabKey[] = ['search', 'lists', 'settings', 'achievements', 'records', 'study']
 const DEFAULT_TAB: TabKey = 'search'
+
+/** 老书签兼容：批量导入并进了查词页，词库页并进了设置页 */
+const LEGACY_TABS: Record<string, TabKey> = {
+  import: 'search',
+  libraries: 'settings',
+}
 
 /** 从 #/lists 这种 hash 里取出页面名，认不出来就回落到查词页 */
 function parseHash(): TabKey {
   const raw = window.location.hash.replace(/^#\/?/, '').trim()
-  return TAB_KEYS.find(key => key === raw) ?? DEFAULT_TAB
+  // raw 是 string，TAB_KEYS 是 TabKey[]，这里窄化一下类型
+  if (TAB_KEYS.includes(raw as TabKey)) return raw as TabKey
+  return LEGACY_TABS[raw] ?? DEFAULT_TAB
 }
 
 /**

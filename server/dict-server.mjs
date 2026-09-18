@@ -49,6 +49,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { capitalizeSentence, normalizeText } from './text.mjs'
 import { ecdictEntry, ecdictInfo, ecdictDir } from './ecdict.mjs'
+import { baiduKeys, baiduKeyStatus, writeDictKeys } from './dict-keys.mjs'
 import { createStudyHistoryStore } from './study-history.mjs'
 import { createStudyListsStore } from './study-lists.mjs'
 import { createKvStore, KV_KEYS } from './kv.mjs'
@@ -960,18 +961,20 @@ async function fetchSentencePhonetic(text) {
  */
 async function fetchBaiduTranslation(text) {
   if (NO_NETWORK) return { translation: undefined, errors: [] }
-  if (!BAIDU_TRANSLATE_API_KEY || !BAIDU_TRANSLATE_APP_ID) {
+  // 密钥优先读设置页写的 cache/dict-keys.json，其次环境变量；两边都没有才算没配置
+  const { apiKey, appId } = baiduKeys(DATA_DIR)
+  if (!apiKey || !appId) {
     return { translation: undefined, errors: [publicNetworkError(makeNetworkError('baidu', 'not_configured'), 'baidu')] }
   }
   try {
     const headers = { 'Content-Type': 'application/json' }
-    headers.Authorization = 'Bearer ' + BAIDU_TRANSLATE_API_KEY
+    headers.Authorization = 'Bearer ' + apiKey
     const data = await fetchJson(BAIDU_TRANSLATE_API_URL, {
       source: 'baidu',
       method: 'POST',
       headers,
       body: JSON.stringify({
-        appid: BAIDU_TRANSLATE_APP_ID,
+        appid: appId,
         from: 'en',
         to: 'zh',
         q: text,
@@ -1510,12 +1513,56 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, { total: all.length, complete, incomplete: all.length - complete })
   }
 
-  // GET /api/dict/sources  — 词典来源状态：本地词典装没装、能不能联网
-  if (method === 'GET' && pathname === '/api/dict/sources') {
-    const local = LOCAL_DICT_OFF
-      ? { ready: false, disabled: true, count: 0, dir: ecdictDir() }
-      : ecdictInfo()
-    return sendJson(res, { local, network: !NO_NETWORK })
+ // GET /api/dict/sources  — 词典来源状态：本地词典装没装、能不能联网
+ if (method === 'GET' && pathname === '/api/dict/sources') {
+   const local = LOCAL_DICT_OFF
+     ? { ready: false, disabled: true, count: 0, dir: ecdictDir() }
+     : ecdictInfo()
+    // 顺带给设置页一份完整的查词链路状态：每一步是否可用、需要密钥的接口配没配 key
+    const cached = Object.values(getCache())
+    const baidu = baiduKeyStatus(DATA_DIR)
+    return sendJson(res, {
+      local,
+      network: !NO_NETWORK,
+      cache: { total: cached.length, complete: cached.filter(e => e.status === 'ok').length },
+      external: [
+        {
+          id: 'dictionaryapi',
+          name: 'Free Dictionary API',
+          url: 'https://api.dictionaryapi.dev',
+          needsKey: false,
+          available: !NO_NETWORK,
+        },
+        {
+          id: 'baidu',
+          name: '百度翻译',
+          url: BAIDU_TRANSLATE_API_URL,
+          needsKey: true,
+          available: !NO_NETWORK && baidu.hasKey && baidu.hasAppId,
+          ...baidu,
+        },
+      ],
+    })
+  }
+
+  // PUT /api/dict/keys — 配置查词链路里需要密钥的接口（目前只有百度翻译）
+  // 密钥写进 cache/dict-keys.json（不进 git），覆盖环境变量；null = 清除覆盖项
+  if (method === 'PUT' && pathname === '/api/dict/keys') {
+    let body
+    try { body = await readBody(req) } catch { return sendJson(res, { error: 'invalid JSON' }, 400) }
+    if (!body || typeof body !== 'object') return sendJson(res, { error: 'invalid JSON' }, 400)
+    const patch = {}
+    if (Object.hasOwn(body, 'baiduApiKey')) patch.baiduApiKey = body.baiduApiKey
+    if (Object.hasOwn(body, 'baiduAppId')) patch.baiduAppId = body.baiduAppId
+    if (Object.keys(patch).length === 0) {
+      return sendJson(res, { ok: false, error: '没有要更新的配置项' }, 400)
+    }
+    try {
+      const baidu = writeDictKeys(DATA_DIR, patch)
+      return sendJson(res, { ok: true, baidu })
+    } catch (error) {
+      return sendJson(res, { ok: false, error: error?.message || '保存失败' }, 400)
+    }
   }
 
   // POST /api/dict/batch  — 只读缓存的批量查询，打印卡片前先把已有释义捞出来

@@ -1510,6 +1510,35 @@ check('来源接口报本地词典就绪',
   r.body?.local?.ready === true && r.body?.local?.count === 10, r.body)
 check('来源接口报当前不联网', r.body?.network === false, r.body)
 
+// ── 设置页：查词链路状态 + 密钥配置 ──────────────────────────────────────
+
+check('来源接口报外部查词链路',
+  Array.isArray(r.body?.external) && r.body.external.length === 2
+  && r.body.external[0].id === 'dictionaryapi' && r.body.external[0].needsKey === false
+  && r.body.external[1].id === 'baidu' && r.body.external[1].needsKey === true, r.body)
+check('来源接口报缓存条数', typeof r.body?.cache?.total === 'number', r.body)
+check('离线模式下外部接口全部不可用',
+  r.body.external.every(step => step.available === false), r.body)
+check('未配置百度密钥的接口显示为跳过',
+  r.body.external[1].hasKey === false && r.body.external[1].hasAppId === false, r.body)
+
+r = await call('PUT', '/api/dict/keys', { baiduApiKey: 'file-key-1234' })
+check('设置页保存百度 key 后返回脱敏预览',
+  r.status === 200 && r.body?.ok === true && r.body?.baidu?.hasKey === true
+  && r.body.baidu.keyHint === '••••1234', r.body)
+r = await call('GET', '/api/dict/sources')
+check('保存后来源接口反映新 key',
+  r.body?.external?.[1]?.hasKey === true && r.body.external[1].keyHint === '••••1234', r.body)
+r = await call('PUT', '/api/dict/keys', { baiduApiKey: null })
+check('清除 key 后回落环境变量（此处为空）',
+  r.status === 200 && r.body?.baidu?.hasKey === false, r.body)
+r = await call('PUT', '/api/dict/keys', { baiduApiKey: '' })
+check('空串 key 被拒绝', r.status === 400 && r.body?.ok === false, r.body)
+r = await call('PUT', '/api/dict/keys', {})
+check('没有要更新的字段被拒绝', r.status === 400 && r.body?.ok === false, r.body)
+r = await call('PUT', '/api/dict/keys', { unsupported: 'x' })
+check('不支持的配置项被拒绝', r.status === 400 && r.body?.ok === false, r.body)
+
 // ── 百度翻译链路（本地 mock，不访问真实网络）──────────────────────────────
 
 console.log('')
@@ -1726,6 +1755,27 @@ r = await callOn(baiduServer, 'GET', '/api/lists/default/words')
 check('批量导入词条能同步保存中文翻译',
   r.body?.find(item => item.word === 'kiwi')?.translation === '猕猴桃'
   && r.body?.find(item => item.word === 'how are you?')?.translation === '你今天好吗？', r.body)
+
+// 设置页保存的 key 覆盖环境变量，并且真的发到百度请求里
+r = await callOn(baiduServer, 'PUT', '/api/dict/keys', { baiduApiKey: 'file-key-abcd', baiduAppId: 'file-app-wxyz' })
+check('设置页 key 覆盖环境变量',
+  r.status === 200 && r.body?.baidu?.keyHint === '••••abcd'
+  && r.body?.baidu?.appIdHint === '••••wxyz', r.body)
+fetchCalls.length = 0
+r = await callOn(baiduServer, 'GET', '/api/dict?word=mango')
+const mangoBaidu = fetchCalls.find(call => call.url === 'http://baidu.mock/translate')
+check('查词请求实际带上设置页保存的 key',
+  r.body?.translation === '你今天好吗？'
+  && mangoBaidu?.options?.headers?.Authorization === 'Bearer file-key-abcd'
+  && JSON.parse(mangoBaidu.options.body).appid === 'file-app-wxyz', mangoBaidu)
+r = await callOn(baiduServer, 'PUT', '/api/dict/keys', { baiduApiKey: null, baiduAppId: null })
+check('清除后回落环境变量',
+  r.status === 200 && r.body?.baidu?.keyHint === '••••real' && r.body?.baidu?.appIdHint === '••••real', r.body)
+fetchCalls.length = 0
+r = await callOn(baiduServer, 'GET', '/api/dict?word=peach')
+const peachBaidu = fetchCalls.find(call => call.url === 'http://baidu.mock/translate')
+check('清除后查词回落到环境变量的 key',
+  peachBaidu?.options?.headers?.Authorization === 'Bearer test-key-not-real', peachBaidu)
 
 await new Promise(resolve => baiduServer.close(resolve))
 globalThis.fetch = oldFetch

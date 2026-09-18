@@ -1,0 +1,161 @@
+.settings-page { padding-bottom: 96px; }
+
+/* 两个子菜单切换，复用分段控件的 pill 质感 */
+.settings-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 28px;
+  padding: 3px;
+  border-radius: var(--radius);
+  background: var(--color-surface-hover);
+  width: fit-content;
+}
+
+.settings-tabs__btn {
+  padding: 6px 18px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .15s, color .15s, box-shadow .15s;
+}
+
+.settings-tabs__btn:hover:not(.settings-tabs__btn--active) { color: var(--color-text); }
+
+.settings-tabs__btn:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+
+.settings-tabs__btn--active {
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.settings-section { margin-bottom: 44px; }
+
+.settings-section__head { margin-bottom: 14px; }
+
+.settings-section__title {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+}
+
+.settings-section__head .hint {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+/* ---------------- 查词链路 ---------------- */
+
+.chain {
+  list-style: none;
+  counter-reset: chain;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chain-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+/* 跳过的步骤整张卡压暗，一眼能看出查词时不会走它 */
+.chain-step--off {
+  background: var(--color-surface-sunken);
+  border-style: dashed;
+  opacity: .72;
+}
+
+.chain-step__index {
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-dark);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 24px;
+  text-align: center;
+}
+
+.chain-step--off .chain-step__index {
+  background: var(--color-surface);
+  color: var(--color-text-subtle);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+
+.chain-step__main { min-width: 0; flex: 1; }
+
+.chain-step__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chain-step__name { font-size: 14px; font-weight: 600; }
+
+.chain-step__stat {
+  font-size: 11px;
+  color: var(--color-text-subtle);
+  font-family: var(--font-mono);
+}
+
+.chain-step__desc {
+  margin-top: 5px;
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+.chain-step__reason {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--ui-gold-text);
+  line-height: 1.6;
+}
+
+/* ---------------- 密钥表单 ---------------- */
+
+.key-form {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.key-form__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.key-form__label { width: 56px; flex-shrink: 0; }
+
+.key-form__row .ui-input { width: 280px; max-width: 100%; }
+
+.key-form__actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.key-form__hint { line-height: 1.7; }
+
+.key-form__error { font-size: 12px; }
+
+@media (max-width: 640px) {
+  .key-form__row .ui-input { width: 100%; }
+}

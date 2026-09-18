@@ -11,14 +11,15 @@
 
 - **Node 24**：每条 node / npm 命令前先 `export PATH=/Users/rextao/.nvm/versions/node/v24.18.0/bin:$PATH`。
 - **git 仓库零 commit**：`.git` 在，但一次提交都没有、所有文件都是 untracked，删掉不可恢复。删任何文件前先问用户。
+- **AI 锁定区不可改动**：用户用 `<!-- AI_LOCK_START -->` / `<!-- AI_LOCK_END -->` 包起来的文字（目前 README.md 开头有一段），任何情况下都不要修改、删除、挪位置或改写——重排格式、批量替换、翻译、润色、压缩文档时也必须原样保留，两条标记注释本身也不要动。非要动那块区域时先问用户。
 - **装不了新依赖**：环境无外网，`npm i <pkg>` 必定失败。这就是没有 antd、没有 eslint、没有测试框架的原因——服务端测试是手写断言。
 - **服务端零依赖**：`dict-server.mjs` 只用 `node:http / fs / path / url`，不要引入 express 之类；`scripts/ecdict-*.mjs` 同样只用内置模块（解 zip 用 `node:zlib`）。
 - **本地词典数据在沙箱里装不上**：`npm run ecdict:fetch` 要连 GitHub，只能让用户在自己机器上跑。代码必须在没装词典时照常工作（`ecdictInfo().ready === false` → 自动回落外部接口），别写成硬依赖。
 - **UI 禁原生控件**：页面里不要出现 `<select>`、`<textarea>`、`type='checkbox'`，统一用 `src/ui` 里的 `Select` / `TextArea` / `Checkbox`。
 - **TS 严格**：`tsconfig.app.json` 开了 `strict` + `noUnusedLocals` + `noUnusedParameters` + `noFallthroughCasesInSwitch`（**没开** `noUncheckedIndexedAccess`）。
 - **无法实测运行中的页面**：连不上 localhost，只能靠 `tsc` + `vite build` + 读代码推断，别声称「已在浏览器里验证」。
-- **验证命令**：`npm run build`（= `tsc -b && vite build`）必须 exit 0；动过服务端再跑 `npm run test:server`（284 项，跑在临时 `DICT_DATA_DIR` + `DICT_ECDICT_DIR` + `DICT_NO_NETWORK=1`，不会碰真实 `cache/` 和 `data/`）。
- - **验证命令**：`npm run build`（= `tsc -b && vite build`）必须 exit 0；动过服务端再跑 `npm run test:server`（315 项，跑在临时 `DICT_DATA_DIR` + `DICT_ECDICT_DIR` + `DICT_NO_NETWORK=1`，不会碰真实 `cache/` 和 `data/`）。
+- **验证命令**：`npm run build`（= `tsc -b && vite build`）必须 exit 0；动过服务端再跑 `npm run test:server`（329 项，跑在临时 `DICT_DATA_DIR` + `DICT_ECDICT_DIR` + `DICT_NO_NETWORK=1`，不会碰真实 `cache/` 和 `data/`）。
+- **密钥不进 git**：百度翻译 API Key / App ID 只能存在 `cache/dict-keys.json`（`cache/*` 被忽略）或本机 `.env.local`，绝不能写进 `cache/study-history.sqlite`——那个库是要提交共享的。
 
 ## 目录地图（一行一职责）
 
@@ -31,21 +32,35 @@ src/App.css                    通用类：.page/--narrow/--wide(1080) .card/--p
 src/index.css                  设计 token：--color-* --radius-* --shadow-* --content-width --nav-height --font-*
 src/types/vocab.ts             所有共享类型；前后端字段的唯一约定处
 
-src/pages/SearchPage.tsx       查词页：输入 400ms 防抖 → useDictionary；词库命中 → useVocabMatch；渲染 WordCard
+src/pages/SearchPage.tsx       查词页：标题左上角一个切换按钮（mode state）切到批量导入，导入模式内嵌 ImportPage embedded；
+                               查词模式 = 输入 400ms 防抖 → useDictionary；词库命中 → useVocabMatch；渲染 WordCard
 src/pages/ImportPage.tsx       批量导入：多行文本 → 归一化 / 去重 / 词库筛选（NO_FILTER | ANY_LIB | 词库 id）
-                               → 预览上限 200 行 → study.importItems → useDictPrefetch 盯后台补齐进度
+                              → 预览上限 200 行 → study.importItems → useDictPrefetch 盯后台补齐进度
+                              ；embedded=true 时不渲染页头和 .page 外壳（嵌进查词页），目标列表控件抽成 targetControls 复用
 src/pages/ListsPage.tsx        学习列表：切换 / 新建 / 重命名 / 删除；词条平铺一行一个；useDictBatch 取音标和中文词义；
                                显示加入时保存的中文词义（兼容旧数据的默认摘要），不显示英文释义；
                                「批次」checkbox → 按加入日期分成批次展示，点批次标题就地折叠 / 展开，批次可就地重命名（自定义名 + 只读日期 Tag）；
                                「多选」开关 → 每行勾选框（点词也能勾）+ 全选（只勾当前筛选出的）+ 批量删除（二次确认）
-src/pages/LibrariesPage.tsx    词库页：只显示 name + file + 标签改名 / 重置默认值
+src/pages/LibrariesPage.tsx    词库标签页（已并进设置页）：只显示 name + file + 显示标签 / 打印标签改名 / 重置默认值；
+                               embedded=true 时不渲染页头，主体抽成 content 变量
 src/pages/StudyPage.tsx        英语学习页：StudyGoal + 挑词弹窗（Modal，勾词 → 打印卡片 + plan.startWords；
                                分组与学习列表批次共用同一份 batchNames，学习列表改名这里同步）
                                + 月历复习计划：「按天 / 按周」粒度切换（mode，只存组件 state），
                                按天选一天 / 按周选整周，逾期折叠进今天或本周，只有当前这天 / 这周可打卡
                                + 打印记录：每导出一次卡片留一条档，可整批打卡 / 删记录（usePrintBatches）
 
-src/components/Nav.tsx         顶部导航：四个普通 tab +「英语学习」流光胶囊（角标 = plan.dueCount）；TabKey 定义在此
+src/pages/SettingsPage.tsx     设置页（tab=settings）：顶部「词库配置 / 查询链路」子菜单切换（section state，默认词库配置）；
+                               查询链路 = useDictSources.chain 排成有序列表（缓存 → 本地词典 → dictionaryapi
+                               → 百度翻译），不可用的步骤灰色标「跳过」并给原因；百度步骤内嵌 API Key / App ID 表单，
+                               PUT /api/dict/keys 保存（密钥只进 cache/dict-keys.json，不进 git）；
+                               词库配置 = LibrariesPage embedded
+src/pages/AchievementsPage.tsx     学习成果页（tab=achievements）：目标达成度统计；onManageRecords 跳记录页
+src/pages/LearningRecordsPage.tsx  学习记录页（tab=records，导航里没有，从成果页进）：学习 / 打卡日志明细
+
+src/components/Nav.tsx         顶部导航：普通 tab = 查词 / 学习列表 / 学习成果（列表角标 = totalItems）
+                               + 右侧「英语学习」流光胶囊（角标 = plan.dueCount）+ 再右边一个齿轮图标按钮（设置，
+                               nav__icon-btn，不进分段控件）；TabKey 定义在此（settings / records 都不在 tab 里，
+                               visibleActive 把 records 高亮到「学习成果」）
 src/components/PageHeader.tsx  页面标题区（title / subtitle / actions），样式在 App.css
 src/components/WordCard.tsx    词卡：音标 / 来源标签 / 词库标签 / 中文释义 / 右上角「加入学习」小按钮；
                                首页的目标列表在搜索区域选择，点击「+ 学习」先选择中文词义再加入（不列词性、不列英文释义）；
@@ -55,12 +70,15 @@ src/components/SensePicker.tsx 旧版释义选择组件，当前页面不再引�
 src/components/StudyGoal.tsx   目标模块：目标词库（useStudyGoal）vs 已开始学的词 → 达成度 +「目标外的获得」；
                                buildFormIndex 做词形宽松匹配
 
-src/hooks/useTabRoute.ts       hash 路由（#/search #/import #/lists #/libraries #/study），刷新与前进后退都停在原页
+src/hooks/useTabRoute.ts       hash 路由（#/search #/lists #/settings #/achievements #/records #/study），刷新与前进后退都停在原页；
+                               LEGACY_TABS 把 #/import → #/search、#/libraries → #/settings，老书签不会失效
 src/hooks/useSearch.ts         useVocabMatch：词 → 命中的词库 id 列表（纯内存 Map，不走网络）
 src/hooks/useDictionary.ts     单词查询 GET /api/dict
 src/hooks/useDictBatch.ts      批量读缓存 POST /api/dict/batch → entries / missing / incomplete / pending
 src/hooks/useDictPrefetch.ts   后台补齐队列：repair() 排队 + 1.2s 轮询进度；响应认不出就报 stale 而不是照抄进 state
-src/hooks/useDictSources.ts    词典来源状态 GET /api/dict/sources；字段校验不过（含旧服务 404）返回 null，界面就不显示
+src/hooks/useDictSources.ts    词典来源状态 GET /api/dict/sources（字段校验不过 / 老服务 404 → null，界面不显示）；
+                               buildChain 排成设置页的查词链路（缓存 → 本地词典 → dictionaryapi → 百度翻译，不可用给原因）；
+                               saveKeys / clearKeys → PUT /api/dict/keys（字符串=覆盖，null=清除），写完重拉状态
 src/hooks/useStudy.ts          某个词在哪些学习列表里（查词页用）
 src/hooks/useStudyList.ts      学习列表全套 CRUD + 导入 + senseIds + 批量移除（removeItems）；导出类型 StudyListApi
 src/hooks/useStudyPlan.ts      复习计划 GET /api/study/plan + startWords + reviewWords；
@@ -90,7 +108,9 @@ server/kv.mjs                  小文档 store：kv 表（标签 / 目标 / 打�
 server/ecdict.mjs              本地 ECDICT 读取层：index.bin 读进内存二分 → 按偏移从 records.tsv 读那一行；
                                导出 ecdictEntry / ecdictRecord / ecdictInfo / resetEcdict / hashKey / STORE_FILES 等
 server/text.mjs                normalizeText（trim + 空白压缩 + 小写）；服务端和 ecdict.mjs 共用这一份
-server/dict-server.test.mjs    315 项断言测试；临时 DICT_DATA_DIR + DICT_ECDICT_DIR + DICT_NO_NETWORK=1
+server/dict-keys.mjs           百度翻译密钥覆盖层：cache/dict-keys.json（文件 > 环境变量，hasOwn 判定空串=禁用）
+                               / baiduKeyStatus 脱敏只给后 4 位 / writeDictKeys（null=清除，空串或超 200 字抛错 → 400）
+server/dict-server.test.mjs    329 项断言测试（含 14 项密钥覆盖：文件覆盖环境变量、进 Authorization 头、清除回落）
                                + DICT_SERVER_NO_LISTEN=1
 
 scripts/ecdict-fetch.mjs       装词典一条龙：下 zip → unzipFirstCsv（零依赖解 zip）→ buildEcdict → 试查 apple 自检；
@@ -104,9 +124,11 @@ vocab/parse_a2_key.py          pdftotext 文本 → 词库 JSON；正则与该 P
 cache/study-history.sqlite     唯一的运行时数据文件：学习列表 / 学习历史 / 词库标签 / 学习目标 /
                               打印批次 / 词典缓存全在这一个库里，提交它即可跨设备共享（见「跨设备共享」）
 cache/backups/                 迁移前 / 删除前的自动备份，不进 git
-data/ecdict.csv                ECDICT 原始 csv（约 200MB），只在建索引时读，建完可以删
-data/ecdict/                   词典产物 records.tsv + index.bin + meta.json（十几 MB），服务端查词直接读它
-.gitignore                     node_modules / dist / data / .DS_Store（`data/` 太大，不进 git）
+data/ecdict.csv                ECDICT 原始 csv（约 200MB），只在建索引时读，建完可以删；不进 git
+data/ecdict/                   词典产物 records.tsv + index.bin + meta.json（约 80MB），服务端查词直接读它；
+                               随仓库提交，新机器 git pull 就有（.gitattributes 标成二进制，防止换行符
+                               转换破坏 index.bin 里的字节偏移；升级版本时本地重跑 ecdict:fetch 再提交产物）
+.gitignore                     node_modules / dist / .DS_Store / data/ecdict.csv（词典产物 data/ecdict/ 进 git）
 .gitignore                     `cache/*` 全部忽略，只 `!cache/study-history.sqlite` 放行一个文件
 506886-a2-key-2020-vocabulary-list.pdf   词库原始 PDF
 ```
@@ -132,7 +154,7 @@ App.tsx（唯一状态中枢，避免切 tab 后数据不同步）
 vocab/*.json ──import.meta.glob(eager, 构建期打包)──▶ useVocabLibraries（服务没起也能浏览词库）
 ```
 
-页面内的局部状态：`useDictionary` + `useStudy` 在 SearchPage；`useDictBatch` 在 ListsPage；`useDictPrefetch` 在 ImportPage；`useStudyGoal` 在 StudyGoal 组件内部；`usePrintBatches` 在 StudyPage 内部（只有那一页要打印记录）。
+页面内的局部状态：`useDictionary` + `useStudy` 在 SearchPage；`useDictBatch` 在 ListsPage；`useDictPrefetch` 在 ImportPage（查词页以 embedded 形式渲染时也归 SearchPage）；`useStudyGoal` 在 StudyGoal 组件内部；`useDictSources`（查词链路 + 密钥读写）在 SettingsPage；`usePrintBatches` 在 StudyPage 内部（只有那一页要打印记录）。
 
 ## 类型契约（`src/types/vocab.ts`）
 
@@ -183,7 +205,8 @@ PrintBatch       { id, printedAt, kind: 'start'|'review', scope?, title, wordCou
 | `POST /api/dict/prefetch` `{words, force?}` | 把词排进后台补齐队列 | （导入接口内部） |
 | `GET /api/dict/prefetch` | 队列进度 `{total,done,failed,pending,running,finished}` | useDictPrefetch |
 | `POST /api/dict/repair` `{words?, force?}` | 扫学习列表里缺音标 / 缺释义的词并排队；`force:true` 连已经 `ok` 的也重查（把旧机翻译文换成 ECDICT） | useDictPrefetch.repair |
-| `GET /api/dict/sources` | 词典来源状态 `{local: {ready, count, dir, builtAt, ...}, network}` | useDictSources |
+| `GET /api/dict/sources` | 词典来源状态 `{local:{ready,count,dir,disabled}}, network, cache:{total,complete}, external:[{id,name,url,needsKey,available,hasKey,hasAppId,keyHint,appIdHint}]`；老服务没 external 数组，前端返回 null 不显示 | useDictSources（设置页查词链路） |
+| `PUT /api/dict/keys` `{baiduApiKey?, baiduAppId?}` | 配置百度翻译密钥覆盖项：字符串=覆盖、null=清除回落环境变量；写 `cache/dict-keys.json`，返回脱敏 `{ok, baidu}`；空串 / 超长 / 空对象 → 400 | useDictSources.saveKeys / clearKeys |
 | `GET /api/cache/stats` | 缓存统计 | — |
 | `GET /api/lists` | 所有列表（含 default） | useStudyList |
 | `POST /api/lists` `{name}` | 新建列表，重名报错 | useStudyList |
@@ -213,7 +236,7 @@ PrintBatch       { id, printedAt, kind: 'start'|'review', scope?, title, wordCou
 | `PATCH /api/vocab-labels/:id` `{label}` | 改标签（拦空值、重名、超 40 字） | useVocabLibraries |
 | `DELETE /api/vocab-labels/:id` | 重置为默认（回落到词库 id） | useVocabLibraries |
 
-环境变量：`DICT_PORT`（默认 3456）、`DICT_DATA_DIR`（默认 `../cache`）、`DICT_ECDICT_DIR`（默认 `../data/ecdict`）、`DICT_ECDICT_OFF=1`（这次启动不用本地词典）、`DICT_NO_NETWORK=1`（只吃缓存 + 本地词典）、`DICT_SERVER_NO_LISTEN=1`（只导出 server，测试用）。
+环境变量：`DICT_PORT`（默认 3456）、`DICT_DATA_DIR`（默认 `../cache`）、`DICT_ECDICT_DIR`（默认 `../data/ecdict`）、`DICT_ECDICT_OFF=1`（这次启动不用本地词典）、`DICT_NO_NETWORK=1`（只吃缓存 + 本地词典）、`DICT_SERVER_NO_LISTEN=1`（只导出 server，测试用）。百度翻译密钥走 `BAIDU_TRANSLATE_API_KEY` / `BAIDU_TRANSLATE_APP_ID`（写在 `.env.local`，`dev:all` 用 `--env-file-if-exists` 加载），也可以在设置页填，页面配置存在 `cache/dict-keys.json` 里、覆盖环境变量。
 
 ## 落盘文件结构
 
@@ -228,6 +251,10 @@ cache/study-history.sqlite   一个库装全部运行时数据，提交它即跨
   dict_cache            一个词一行 entry_json；kv.mjs
   schema_migrations     一次性迁移标记（study-lists / marks / 四个小文档各一条），二次启动不重跑
   meaning_profiles / legacy_totals  词义画像与历史总量（study-history.mjs）
+
+cache/dict-keys.json         查词链路里需要密钥的接口的覆盖项（目前只有 baiduApiKey / baiduAppId）；
+                             不进 git（`cache/*` 全被忽略），也不会进 sqlite——那库要提交共享；
+                             文件 > 环境变量，文件里写空串 = 明确禁用（dict-keys.mjs）
 
 老 json（study-lists / vocab-labels / study-goal / print-batches / dict-cache）只在第一次启动时
 迁移一次：读出来 → 事务里入库 + 记标记 → 提交后备份到 cache/backups/ 再删文件。之后 sqlite 是唯一来源。
@@ -248,7 +275,7 @@ data/ecdict/meta.json    { format, count, builtAt, source, sourceBytes, columns 
 
 注意：这是「手动提交、手动拉取」的顺序交接，不是实时同步。两台机各自改了再合并会冲突，
 那时以某一台的 sqlite 为准即可（库是二进制，无法合并冲突，只能整体取舍）。
-词典产物 `data/ecdict/` 不进 git，B 机要重跑 `npm run ecdict:fetch`。
+词典产物 `data/ecdict/` 随仓库提交，B 机 `git pull` 就有，不用重跑 `npm run ecdict:fetch`；只有升级词典版本时才需要重跑并把新产物提交上去。
 
 归一化主键 = `normalizeText` = trim + 连续空白压成一个空格 + 转小写。服务端已经收成一份（`server/text.mjs`，`ecdict.mjs` 里的 `ecdictKey` 直接复用它，**词典索引就是按这个主键建的，改它必须重建 `data/ecdict/`**）；前端还是各写一遍：`useDictBatch.keyOf`、`ImportPage.normalize`、`StudyGoal.keyOf`、`flashcards.ts`。改规则这 4 处要一起改。
 
@@ -344,7 +371,7 @@ GET /api/dict → ensureEntry(word, force) → resolveEntry(word, force) → { e
 - 打印页卡片右上角的 ✕ 只是「这次打印不要这张卡」：页面脚本调主窗口的 `__removePrintCard`（`renderCardsInto` 登记的会话，按 `data-print-id` 找回）过滤后整页重渲，沿用用户调过的字号 / 缩放 / 模式并还原滚动；主窗口不可用时就地把卡片清空兜底。它**不改学习列表、开始学习状态和打印留档**——留档用的是用户最初选中的列表，删词纯粹是打印页本地行为。
 - `GET /api/dict` 必须把 query 里的 `refresh` 透传给 `ensureEntry`，**别写死 `true`**（改成本地优先之前就是写死的）：写死等于每次查词都跳过缓存去打外部接口，本地词典刚写好的中文又被百度翻译结果盖回去。
 - 本地词典没装是正常状态，不是错误：`ecdictInfo().ready === false`、`localEntry` 返回 null、`useDictSources` 返回 null，界面上什么都不显示，链路自动回落外部接口。别在这条路径上抛异常。
-- `data/` 不进 git（csv 约 200MB、索引十几 MB），也别提交：换台机器重跑 `npm run ecdict:fetch` 就有。词典产物是可再生的派生数据。
+- 词典产物 `data/ecdict/` 提交进 git（约 80MB，`.gitattributes` 标成二进制保护 `index.bin` 里的字节偏移），新机器不用再装；原始 csv `data/ecdict.csv` 仍是可再生的派生数据、不进 git。升级词典版本时本地跑 `npm run ecdict:fetch`，把新的 `data/ecdict/` 三个文件一起提交。
 - 改 `unzipFirstCsv`（`scripts/ecdict-fetch.mjs`）要跑测试里手搓 zip 那组用例——沙箱里下不到真 zip，那组是唯一的验证手段。它只认 store / deflate，zip64 会明确报错让人手动解压。
 
 ## 改动落点索引
@@ -352,10 +379,13 @@ GET /api/dict → ensureEntry(word, force) → resolveEntry(word, force) → { e
 | 想改什么 | 改哪里 |
 | --- | --- |
 | 导航菜单、学习入口胶囊 | `src/components/Nav.tsx` + `Nav.css` |
+| 批量导入入口 | 查词页 `src/pages/SearchPage.tsx` 标题左上角的切换按钮（导入模式下变成「← 返回查询」）；老书签 `#/import` 由 `useTabRoute` 的 `LEGACY_TABS` 接住 |
+| 设置入口 | `src/components/Nav.tsx` 英语学习右边的齿轮图标按钮（`nav__icon-btn`），不再是导航 tab |
 | 有哪些页面 / 默认页 | `useTabRoute.ts` 的 `TAB_KEYS` + `Nav.tsx` 的 `TabKey`、`TABS` + `App.tsx` 的分支 |
 | 查词交互、防抖 | `src/pages/SearchPage.tsx` |
 | 词卡展示、加入学习按钮和首页目标列表 | `src/components/WordCard.tsx` + `src/pages/SearchPage.tsx` |
-| 词库标签改名交互 | 只有 `src/pages/LibrariesPage.tsx`（别的页面一律只读 `<Tag>`，不给入口） |
+| 词库标签改名交互 | 只有 `src/pages/LibrariesPage.tsx`（已嵌进 `SettingsPage`；别的页面一律只读 `<Tag>`，不给入口） |
+| 查词链路展示、密钥配置 | `src/pages/SettingsPage.tsx` + `useDictSources.ts` 的 `buildChain` / `saveKeys` + 服务端 `GET /api/dict/sources` / `PUT /api/dict/keys` + `server/dict-keys.mjs` |
 | 释义数据兼容与上限 | `src/components/SensePicker.tsx`（当前无页面引用） + 服务端 `MAX_PICKED_SENSES` |
 | 导入筛选 / 去重 / 预览 | `src/pages/ImportPage.tsx`（`wordForms` 管词形宽松匹配） |
 | 学习列表行样式、多选批量删除 | `src/pages/ListsPage.tsx` + `useStudyList.removeItems` + 服务端 `POST /api/lists/:id/remove` |
@@ -384,7 +414,7 @@ GET /api/dict → ensureEntry(word, force) → resolveEntry(word, force) → { e
 ```bash
 export PATH=/Users/rextao/.nvm/versions/node/v24.18.0/bin:$PATH
 npm run build          # tsc -b && vite build，必须 exit 0
-npm run test:server    # 动过 server/ 或 scripts/ 就跑，期望「284 passed, 0 failed」
+npm run test:server    # 动过 server/ 或 scripts/ 就跑，期望「329 passed, 0 failed」
 ```
 
 改完后自查：有没有新增原生 `<select>` / `<textarea>` / `checkbox`；有没有新引依赖；有没有把 `nextDueAt` / `state` 这类派生字段写进 JSON 文件；归一化规则是不是几处都改了；本地词典没装（`data/ecdict/` 不存在）时功能是不是照样能跑。

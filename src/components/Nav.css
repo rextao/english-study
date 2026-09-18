@@ -172,6 +172,32 @@
 
 .nav__cta--active::before { opacity: .8; }
 
+/* 设置入口：英语学习右边的齿轮图标按钮，安静的圆形，点下去亮一圈 */
+.nav__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color .15s, border-color .15s, box-shadow .15s;
+}
+
+.nav__icon-btn:hover { color: var(--color-text); border-color: var(--color-border-strong); }
+
+.nav__icon-btn:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+
+.nav__icon-btn--active {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
 /* 单独一层负责裁剪高光，这样按钮本体不用 overflow:hidden，光晕才能溢出 */
 .nav__cta-shine {
   position: absolute;

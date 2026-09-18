@@ -98,9 +98,11 @@ interface ImportPageProps {
   libraries: VocabLibrary[]
   getLabelById: (id: string) => string
   study: StudyListApi
+  /** 嵌入查词页时不画自己的 .page 容器和标题，由查词页提供版式 */
+  embedded?: boolean
 }
 
-export function ImportPage({ libraries, getLabelById, study }: ImportPageProps) {
+export function ImportPage({ libraries, getLabelById, study, embedded }: ImportPageProps) {
   const { lists, createList, importItems, fetchListWords } = study
   const { getSourceIds } = useVocabMatch(libraries)
 
@@ -421,14 +423,9 @@ export function ImportPage({ libraries, getLabelById, study }: ImportPageProps) 
     ? lists.map(l => ({ value: l.id, label: l.name, extra: l.wordCount + ' 条' }))
     : [{ value: 'default', label: '默认列表' }]
 
-  return (
-    <div className="page import-page">
-      <PageHeader
-        title="批量导入"
-        subtitle="每行一个单词或句子，导入前会标出所属词库、重复项和被筛掉的行"
-        actions={
-          <>
-            <div className="import-target">
+const targetControls = (
+  <>
+    <div className="import-target">
               <label className="field-label" htmlFor="import-target">导入到</label>
               <Select
                 id="import-target"
@@ -467,11 +464,15 @@ export function ImportPage({ libraries, getLabelById, study }: ImportPageProps) 
               </div>
             ) : (
               <Button size="small" onClick={() => setAdding(true)}>+ 新建列表</Button>
-            )}
-          </>
-        }
-      />
+          )}
 
+          </>
+  )
+
+  // 嵌入搜索页时没有 PageHeader，导入到 / 新建列表单独占一行
+  const body = (
+    <>
+      {embedded && <div className="import-target-row">{targetControls}</div>}
       <div className="import-page__body">
         <div className="import-col">
           <div className="import-section">
@@ -704,8 +705,23 @@ export function ImportPage({ libraries, getLabelById, study }: ImportPageProps) 
               )
             })}
           </div>
-        </Modal>
-      )}
+       </Modal>
+     )}
+    </>
+  )
+
+  if (embedded) {
+    return body
+  }
+
+  return (
+    <div className="page import-page">
+      <PageHeader
+        title="批量导入"
+        subtitle="每行一个单词或句子，导入前会标出所属词库、重复项和被筛掉的行"
+        actions={targetControls}
+      />
+      {body}
     </div>
   )
-}
+ }

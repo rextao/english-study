@@ -1,27 +1,37 @@
 import './Nav.css'
 
-export type TabKey = 'search' | 'import' | 'lists' | 'libraries' | 'achievements' | 'records' | 'study'
+export type TabKey = 'search' | 'lists' | 'settings' | 'achievements' | 'records' | 'study'
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'search', label: '查词' },
-  { key: 'import', label: '批量导入' },
   { key: 'lists',  label: '学习列表' },
-  { key: 'libraries', label: '词库' },
   { key: 'achievements', label: '学习成果' },
 ]
+
+/** 设置入口的齿轮图标，放英语学习右边，不占分段控件的位置 */
+const gearIcon = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+    <path
+      d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+)
 
 interface NavProps {
   active: TabKey
   onChange: (tab: TabKey) => void
   /** 所有学习列表里的词条总数，显示在「学习列表」上 */
   totalItems: number
-  /** 词库数量，显示在「词库」上 */
-  libraryCount: number
   /** 今天要复习的词数，显示在「英语学习」入口的角标上 */
   dueToday: number
 }
 
-export function Nav({ active, onChange, totalItems, libraryCount, dueToday }: NavProps) {
+export function Nav({ active, onChange, totalItems, dueToday }: NavProps) {
   const visibleActive = active === 'records' ? 'achievements' : active
 
   return (
@@ -34,7 +44,7 @@ export function Nav({ active, onChange, totalItems, libraryCount, dueToday }: Na
 
         <div className="nav__tabs">
           {TABS.map(tab => {
-            const badge = tab.key === 'lists' ? totalItems : tab.key === 'libraries' ? libraryCount : 0
+            const badge = tab.key === 'lists' ? totalItems : 0
             return (
               <button
                 key={tab.key}
@@ -62,6 +72,18 @@ export function Nav({ active, onChange, totalItems, libraryCount, dueToday }: Na
           <span className="nav__cta-icon" aria-hidden="true">⚡</span>
           <span className="nav__cta-label">英语学习</span>
           {dueToday > 0 && <span className="nav__cta-badge">{dueToday}</span>}
+        </button>
+
+        {/* 设置：齿轮图标按钮，待在英语学习右侧，不进分段控件 */}
+        <button
+          type="button"
+          className={'nav__icon-btn' + (active === 'settings' ? ' nav__icon-btn--active' : '')}
+          aria-current={active === 'settings' ? 'page' : undefined}
+          aria-label="设置"
+          title="设置"
+          onClick={() => onChange('settings')}
+        >
+          {gearIcon}
         </button>
       </div>
     </nav>

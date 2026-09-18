@@ -4,9 +4,8 @@ import { useStudyPlan } from './hooks/useStudyPlan'
 import { useTabRoute } from './hooks/useTabRoute'
 import { Nav } from './components/Nav'
 import { SearchPage } from './pages/SearchPage'
-import { ImportPage } from './pages/ImportPage'
 import { ListsPage } from './pages/ListsPage'
-import { LibrariesPage } from './pages/LibrariesPage'
+import { SettingsPage } from './pages/SettingsPage'
 import { StudyPage } from './pages/StudyPage'
 import { AchievementsPage } from './pages/AchievementsPage'
 import { LearningRecordsPage } from './pages/LearningRecordsPage'
@@ -50,7 +49,6 @@ export default function App() {
         active={tab}
         onChange={setTab}
         totalItems={totalItems}
-        libraryCount={libraries.length}
         dueToday={plan.dueCount}
       />
 
@@ -70,21 +68,14 @@ export default function App() {
             study={study}
           />
         )}
-        {tab === 'import' && (
-          <ImportPage
-            libraries={libraries}
-            getLabelById={getLabelById}
-            study={study}
-          />
-        )}
         {tab === 'lists' && (
           <ListsPage
             getLabelById={getLabelById}
             study={study}
           />
         )}
-        {tab === 'libraries' && (
-          <LibrariesPage
+        {tab === 'settings' && (
+          <SettingsPage
             libraries={libraries}
             getLabelById={getLabelById}
             hasCustomLabel={hasCustomLabel}

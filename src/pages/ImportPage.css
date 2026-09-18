@@ -7,6 +7,15 @@
   gap: 24px;
 }
 
+/* 嵌入查词页时没有 PageHeader，「导入到 / 新建列表」单独占一行 */
+.import-target-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
 .import-col {
   display: flex;
   flex-direction: column;

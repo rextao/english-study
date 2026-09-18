@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "count": 770611,
+  "builtAt": 1788513824567,
+  "source": "ecdict.csv",
+  "sourceBytes": 65933428,
+  "columns": [
+    "key",
+    "word",
+    "phonetic",
+    "translation",
+    "definition",
+    "exchange",
+    "tag",
+    "frq"
+  ]
+}

@@ -16,7 +16,9 @@ interface LibrariesPageProps {
   onRenamePrintLabel: (id: string, label: string) => Promise<UpdateLabelResult>
   onResetPrintLabel: (id: string) => void
   offline: boolean
-}
+  /** 嵌入设置页时不画自己的 .page 容器和标题，由设置页提供版式 */
+  embedded?: boolean
+ }
 
 export function LibrariesPage({
   libraries,
@@ -29,6 +31,7 @@ export function LibrariesPage({
   onRenamePrintLabel,
   onResetPrintLabel,
   offline,
+  embedded,
 }: LibrariesPageProps) {
   const [keyword, setKeyword]   = useState('')
   // 只存「改过的」草稿，没草稿就直接显示已保存的标签，省掉一套同步逻辑
@@ -95,13 +98,8 @@ export function LibrariesPage({
     clearPrintDraft(id)
   }
 
-  return (
-    <div className="page libs-page">
-      <PageHeader
-        title="词库"
-        subtitle="显示标签用于页面展示；打印标签用于卡片右上角，未设置时沿用显示标签。"
-      />
-
+const content = (
+    <>
       {offline && (
         <div className="callout callout--warn libs-notice">
          本地服务未启动，标签改动先记在浏览器里，服务起来后会自动同步到 cache/vocab-labels.json。
@@ -217,7 +215,21 @@ export function LibrariesPage({
             </li>
           )
         })}
-      </ul>
+     </ul>
+    </>
+  )
+
+  if (embedded) {
+    return content
+  }
+
+  return (
+    <div className="page libs-page">
+      <PageHeader
+        title="词库"
+        subtitle="显示标签用于页面展示；打印标签用于卡片右上角，未设置时沿用显示标签。"
+      />
+      {content}
     </div>
   )
-}
+ }

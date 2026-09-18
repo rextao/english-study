@@ -6,9 +6,12 @@ dist/
 .env.*
 !.env.example
 
-# ECDICT 原始数据与编译产物：csv 约 200MB，索引十几 MB，都不进 git
-# 换台机器跑 npm run ecdict:fetch 重新装
-data/
+# ECDICT 的编译产物 data/ecdict/（records.tsv + index.bin + meta.json）提交进仓库，
+# 新机器 git pull 就能直接用，不用再跑 ecdict:fetch；.gitattributes 里已标成二进制。
+# 只排除可再生的构建输入：原始 csv、下载的压缩包、构建中途的 .tmp
+data/ecdict.csv
+data/*.zip
+data/ecdict/*.tmp
 
 .DS_Store
 .idea/

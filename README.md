@@ -1,15 +1,25 @@
 # 背单词（English-skill）
 
 一个完全跑在本机的英语背单词工具：查词 → 选择目标学习列表并加入 → 按艾宾浩斯节奏复习 → 打印正反面卡片。
-词库来自剑桥官方词汇表 PDF，解析成统一格式的 JSON；所有数据都是项目目录里的文件，不依赖任何云服务。
+词库来自剑桥官方词汇表 PDF，解析成统一格式的 JSON；数据都在项目目录里，不依赖任何云服务。
 
 > 要让 AI 接手这个项目，让它先读根目录的 `AGENTS.md`，那是给 AI 的项目地图（目录职责、类型契约、接口表、改动落点），能省掉一整轮全量读代码。
+
+
+
+<!-- AI_LOCK_START -->
+
+目的：为了可以将单词打印出来，让小朋友背诵，顺便可以复习记录，希望3年后能KET 优秀，加油~
+
+<!-- AI_LOCK_END -->
+
+
 
 ## 技术栈
 
 - 前端：React 19 + TypeScript + Vite 6（`src/`）
 - 后端：Node 24 原生 `node:http` 写的本地小服务（`server/dict-server.mjs`），零依赖、零框架
-- 存储：项目目录下的 JSON 文件（`cache/`、`vocab/`）
+- 存储：一个 SQLite 单文件 `cache/study-history.sqlite`（学习列表 / 进度 / 标签 / 目标 / 打印记录 / 词典缓存全在里头），提交它即可跨设备共享
 - 词典：本机 ECDICT（英汉简明字典，开源，约 77 万词条，产物在 `data/`），查不到才走外部接口
 - UI 组件全部手写在 `src/ui/`，API 刻意对齐 antd，将来想换成真 antd 基本只改 import
 
@@ -18,11 +28,15 @@
 需要 Node >= 24。
 
 ```bash
-npm install
-npm run dev:all      # 同时起本地服务(3456) + 前端(5173)
+git clone https://github.com/rextao/english-study.git   # 已经克隆过就 cd 进去 git pull 拉到最新
+cd english-study
+npm install             # 装依赖（仅前端，服务端零依赖）
+npm run dev:all         # 起本地服务(3456) + 前端(5173)
 ```
 
-然后打开 http://localhost:5173 。
+打开 http://localhost:5173 就能用了。学习数据都在 `cache/study-history.sqlite` 里，跟着仓库一起走（见「跨设备同步」）；以前版本留下的 `cache/*.json` 会在服务第一次启动时自动迁进 SQLite 并备份到 `cache/backups/`，不用手动处理。
+
+本地词典的查询产物 `data/ecdict/`（77 万词条）已经一起提交进仓库，`git pull` 就有，开箱即用。只有想升级词典版本时才需要跑 `npm run ecdict:fetch`（要连 GitHub，见「释义从哪来」），装完重启一次服务才生效。
 
 | 命令 | 作用 |
 | --- | --- |
@@ -30,13 +44,13 @@ npm run dev:all      # 同时起本地服务(3456) + 前端(5173)
 | `npm run server` | 只起本地服务（`--watch`，改完自动重启） |
 | `npm run dev:all` | 两个一起起，日常用这个 |
 | `npm run build` | 类型检查 + 打包到 `dist/` |
-| `npm run test:server` | 服务端测试，159 项，跑在临时目录且不联网，不会动你的数据 |
-| `npm run ecdict:fetch` | 装本地英汉词典：下载 ECDICT + 解压 + 建索引，一次就够 |
+| `npm run test:server` | 服务端测试，329 项，跑在临时目录且不联网，不会动你的数据 |
+| `npm run ecdict:fetch` | 升级本地英汉词典版本：下载 ECDICT + 解压 + 建索引（仓库里已带一份，一般不用跑） |
 | `npm run ecdict:build` | 已经有 `data/ecdict.csv` 时只重建索引 |
 
 查词和学习列表都要本地服务在跑；服务没起时页面顶部会给提示，此时词库浏览仍然可用（词库 JSON 是打包进前端的）。
 
-第一次用建议先跑一次 `npm run ecdict:fetch` 装上本地词典（详见下面「释义从哪来」），之后查词基本不用等外部接口。装完要重启本地服务才生效。
+本地词典已经随仓库一起到了（`data/ecdict/`），查词基本不用等外部接口。想换更新的词典版本才跑 `npm run ecdict:fetch`（详见「释义从哪来」），装完要重启本地服务才生效。
 
 ## 五个页面
 
@@ -47,11 +61,12 @@ npm run dev:all      # 同时起本地服务(3456) + 前端(5173)
 词的右上角有个小按钮，点它把词加进学习列表。
 音标旁边的小标签标释义来源：绿色「本地词典」= 本机 ECDICT，蓝色「在线词典」= 外部接口。搜索框下面那行会告诉你本地词典装没装、收了多少词。
 
-### 批量导入
+### 批量导入（查词页里的第二个模式）
 
+查词页标题左上角有一个「批量导入」按钮，点一下就切到批量导入模式；导入模式下按钮变成「← 返回查询」，点回来。
 粘贴多行文本，每行一个单词或句子；确认导入前可以逐条选择要背的中文词义。
 输入框上方是词库筛选标签，点一下就只留下属于该词库的行；句子按「句中出现过该词库的词」判断，能容忍 apples → apple 这类常见变形。
-右侧选导入到哪个学习列表，也可以现场新建列表。
+左上角选导入到哪个学习列表，也可以现场新建列表。
 导入完成后，服务端会在后台排队把音标和释义补上，页面上能看到进度。
 
 ### 学习列表
@@ -60,10 +75,16 @@ npm run dev:all      # 同时起本地服务(3456) + 前端(5173)
 词条一行一个平铺，显示单词、音标、已选择的中文词义和词库标签，也能移除；加入时选择的词义会保存为快照。
 要一次清掉一批，点工具条上的「多选」：每行前面出现勾选框（点词本身也能勾），上方有全选、已选条数和「删除选中」。筛选状态下全选只勾筛出来的那些。
 
-### 词库
+### 设置
 
-只显示词库名称、来源文件，以及标签的改名和重置默认值。
-标签就是这个词库在别处（查词页、导入页）显示成什么名字，默认是词库 id。
+**词库**：只显示词库名称、来源文件，以及标签的改名和重置默认值。
+标签就是这个词库在别处（查词页、导入页）显示成什么名字，默认是词库 id；另有单独的打印标签，印在卡片右上角，没设过就沿用显示标签。
+
+**查词链路**：按顺序列出查词时会依次尝试的来源——本地缓存 → 本机词典 → Free Dictionary API → 百度翻译，某一步拿到完整释义就不再往后走。
+灰色的步骤表示查词时会被跳过：词典没装、以离线模式启动（DICT_NO_NETWORK=1），或需要密钥的接口没配密钥。
+百度翻译要 API Key 和 App ID，可以直接在页面上填，密钥存在本机 cache/dict-keys.json（不进 git，只留后 4 位预览）；
+也可以写在 .env.local 的 BAIDU_TRANSLATE_API_KEY / BAIDU_TRANSLATE_APP_ID 里，页面配置优先于环境变量，点「清除」就回落回去。
+没配密钥时中文翻译那一步会跳过，新查的词可能没有中文释义。
 
 ### 英语学习
 
@@ -85,18 +106,17 @@ npm run dev:all      # 同时起本地服务(3456) + 前端(5173)
 
 ## 数据存在哪
 
-全是项目目录下的 JSON 文件，能直接看、直接备份；将来换成云数据库时，只要替换服务端的读写函数。
-数据全在一个 SQLite 文件里（`cache/study-history.sqlite`），学习列表、学习进度、词库标签、学习目标、打印记录、词典缓存都在这一个库里；把这个文件提交到 git，另一台机器拉下来就能接着用（见最下面的「跨设备同步」）。
+数据全在一个 SQLite 文件里（`cache/study-history.sqlite`）：学习列表、学习进度、词库标签、学习目标、打印记录、词典缓存都在这一个库里。能直接看、直接备份；把这个文件提交到 git，另一台机器拉下来就能接着用（见「跨设备同步」）。
 
 | 文件 | 内容 |
 | --- | --- |
 | `cache/study-history.sqlite` | 唯一的数据文件：学习列表 / 词条 / 打标日志 / 词库标签 / 学习目标 / 打印记录 / 词典缓存全在里面 |
 | `cache/backups/` | 迁移到 SQLite 之前、删除之前的自动备份（不进 git） |
 | `vocab/*.json` | 词库本身，统一格式，见下 |
-| `data/ecdict.csv` | ECDICT 原始数据（约 200MB），只在建索引时读，建完想省空间可以删 |
-| `data/ecdict/` | 本地词典索引（`records.tsv` + `index.bin` + `meta.json`，十几 MB），服务端查词直接读它 |
+| `data/ecdict.csv` | ECDICT 原始数据（约 200MB），只在建索引时读，建完想省空间可以删；不进 git |
+| `data/ecdict/` | 本地词典索引（`records.tsv` + `index.bin` + `meta.json`，约 80MB），随仓库提交，服务端查词直接读它 |
 
-`cache/` 和 `vocab/` 是你的数据，`data/` 是可以随时重建的词典产物，所以 `.gitignore` 里排掉了 `data/`。
+`cache/study-history.sqlite`、`vocab/` 和 `data/ecdict/` 都跟着仓库走（前两个是你的数据，第三个是随仓库提交的词典产物），`data/ecdict.csv` 和 `cache/backups/` 是可以随时重建的产物，所以 `.gitignore` 里排掉了它们。
 
 环境变量：`DICT_DATA_DIR` 把 `cache/` 换到别处，`DICT_PORT` 换端口（换端口要同步改前端 hook 里写死的地址），
 `DICT_ECDICT_DIR` 换本地词典产物目录，`DICT_ECDICT_OFF=1` 这次启动不用本地词典。
@@ -144,14 +164,13 @@ python3 vocab/parse_a2_key.py
 npm run ecdict:fetch
 ```
 
-它做三件事：从 GitHub Releases 下 `ecdict-csv-28.zip`（约 60MB）→ 解压出约 200MB 的 csv 到 `data/ecdict.csv` → 编译成 `data/ecdict/` 里十几 MB 的索引。`data/` 不进 git，换台机器重跑一次就行。**装完要重启本地服务才生效。**
+它做三件事：从 GitHub Releases 下 `ecdict-csv-28.zip`（约 60MB）→ 解压出约 200MB 的 csv 到 `data/ecdict.csv` → 编译成 `data/ecdict/` 里约 80MB 的索引。编译产物已经提交进仓库，换台机器 `git pull` 就有，平时不用跑这个命令；只有想升级词典版本时才需要重跑。**装完要重启本地服务才生效。**
 
 下载不通（连不上 GitHub）时手动装：自己下 `ecdict-csv-28.zip`，把解压出来的 csv 放成 `data/ecdict.csv`，再跑 `npm run ecdict:build` 建索引。也可以换个下载地址：`ECDICT_URL=<地址> npm run ecdict:fetch`。
 
 查一个词的顺序：
 
-1. `cache/dict-cache.json` 里已经查齐的（`status: ok`）直接用；
-1. 词典缓存里已经查齐的（`status: ok`）直接用；
+1. SQLite 词典缓存里已经查齐的（`status: ok`）直接用；
 2. 本机 ECDICT：音标 + 中文 + 英文释义，一次网络请求都不发；
 3. 本地还是缺东西，才走外部接口——dictionaryapi.dev 给单词音标和英文释义全集，百度大模型文本翻译 API 给中文；句子直接交给百度翻译。
 
@@ -165,8 +184,6 @@ npm run ecdict:fetch
 
 设 `DICT_NO_NETWORK=1` 可以完全断网跑（只吃缓存 + 本地词典），服务端测试就是这么跑的。
 
-## 常见问题
-
 ## 跨设备同步
 
 数据都在 `cache/study-history.sqlite` 一个文件里，git 提交它就能换设备接着用：
@@ -177,13 +194,13 @@ npm run ecdict:fetch
 
 这是「手动提交、手动拉取」的顺序交接，不是实时同步——两台机同时改了同一个库再合并会冲突，
 SQLite 是二进制文件没法自动合并，这时以某一台的数据为准重新提交一次就行。
-本地词典索引 `data/ecdict/` 不进 git（太大），新机器上要重跑一次 `npm run ecdict:fetch`。
+本地词典索引 `data/ecdict/` 随仓库提交（约 80MB；`.gitattributes` 里标成二进制，防止 git 换行符转换破坏 `index.bin` 里的字节偏移），新机器 `git pull` 就有。
 以前版本留下的 `cache/*.json` 会在第一次启动服务时自动迁进 SQLite 并备份到 `cache/backups/`，不用手动处理。
 
 ## 常见问题
 
 - **页面提示「本地服务未启动」**：跑 `npm run dev:all`，或单独 `npm run server`。
-- **查词页提示「还没装本地词典」**：跑一次 `npm run ecdict:fetch`，装完重启本地服务。
+- **服务启动时提示「本地词典: 未安装」**：产物随仓库走，`git pull` 应该就有；确认 `data/ecdict/` 下 `records.tsv` / `index.bin` / `meta.json` 三个文件都在。想重建或升级版本才跑 `npm run ecdict:fetch`，装完重启本地服务。
 - **以前查过的词还是机翻中文**：装好本地词典并重启服务后不用管它，这些词下次被查到会自动换成 ECDICT 的音标和中文；想立刻全换完就给 `POST /api/dict/repair` 发一次带 `force: true` 的请求。
 - **`npm run ecdict:fetch` 下载失败**：手动下 `ecdict-csv-28.zip`，把解压出的 csv 放成 `data/ecdict.csv`，再跑 `npm run ecdict:build`；或者换地址 `ECDICT_URL=<镜像地址> npm run ecdict:fetch`。
 - **查词一直没有中文**：检查服务启动时是否同时配置了 BAIDU_TRANSLATE_API_KEY 和 BAIDU_TRANSLATE_APP_ID，以及百度翻译 API 是否可用。服务端会把「一个汉字都没有」的返回当失败，不会把错误提示写进缓存。

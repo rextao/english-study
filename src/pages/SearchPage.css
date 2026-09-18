@@ -12,6 +12,34 @@
   letter-spacing: -.03em;
 }
 
+/* 标题左上角的模式切换：查词模式下是「批量导入」，导入模式下是「← 返回查询」 */
+.search-hero__toggle {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  padding: 5px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, box-shadow .15s;
+}
+
+.search-hero__toggle:hover { color: var(--color-text); border-color: var(--color-border-strong); }
+
+.search-hero__toggle:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+
+/* 查词模式的内容收进一个居中的窄列：切换到批量导入时页面容器宽度不变，
+   只有这列内容换成导入表单，标题和切换按钮都待在原地不动 */
+.search-main {
+  max-width: 620px;
+  margin: 0 auto;
+}
+
 .search-hero__subtitle {
   margin: 8px auto 0;
   max-width: 30ch;
@@ -75,5 +103,10 @@
     position: static;
     justify-content: center;
     margin-top: 10px;
+  }
+  /* 窄屏下切换按钮不再绝对定位，排在标题上方，避免和标题挤在一起 */
+  .search-hero__toggle {
+    position: static;
+    margin: 0 0 10px;
   }
 }

@@ -4,6 +4,7 @@ import { useVocabMatch } from '../hooks/useSearch'
 import { useStudy } from '../hooks/useStudy'
 import type { StudyListApi } from '../hooks/useStudyList'
 import { WordCard } from '../components/WordCard'
+import { ImportPage } from './ImportPage'
 import { Input, Select, Tag } from '../ui'
 import type { SelectOption } from '../ui'
 import type { VocabLibrary } from '../types/vocab'
@@ -33,6 +34,7 @@ interface SearchPageProps {
 
 export function SearchPage({ libraries, getLabelById, study }: SearchPageProps) {
   const [input, setInput] = useState('')
+  const [mode, setMode] = useState<'search' | 'import'>('search')
   const { entry, status, lookup, cancelLookup } = useDictionary()
   const { getSourceIds } = useVocabMatch(libraries)
   const { getStatus, getListIds, checkWord, markAdded } = useStudy()
@@ -136,21 +138,33 @@ export function SearchPage({ libraries, getLabelById, study }: SearchPageProps) 
   }
 
   return (
-    <div className="page page--narrow search-page">
+    <div className="page search-page">
       <div className="search-hero">
-        <h1 className="search-hero__title">查询</h1>
-        <div className="search-target">
-          <span className="field-label">学习列表</span>
-          <Select
-            aria-label="选择学习列表"
+        <button
+          type="button"
+          className="search-hero__toggle"
+          aria-label={mode === 'search' ? '切换到批量导入' : '返回查词'}
+          onClick={() => setMode(mode === 'search' ? 'import' : 'search')}
+        >
+          {mode === 'search' ? '批量导入' : '← 返回查询'}
+        </button>
+        <h1 className="search-hero__title">{mode === 'search' ? '查询' : '批量导入'}</h1>
+        {mode === 'search' && (
+          <div className="search-target">
+            <span className="field-label">学习列表</span>
+            <Select
+              aria-label="选择学习列表"
             size="small"
-            value={targetList}
-            options={listOptions}
-            onChange={setTargetList}
-          />
-        </div>
+              value={targetList}
+              options={listOptions}
+              onChange={setTargetList}
+            />
+          </div>
+        )}
       </div>
 
+      {mode === 'search' ? (
+        <div className="search-main">
       <div className="search-bar">
         <Input
           size="large"
@@ -192,7 +206,16 @@ export function SearchPage({ libraries, getLabelById, study }: SearchPageProps) 
           existingAllTranslations={targetItem !== null && !targetItem.translationIds?.length}
           existingCustomTranslations={targetItem?.customTranslations ?? []}
           onCheckStudy={checkWord}
-          onAddToList={handleAddToList}
+         onAddToList={handleAddToList}
+       />
+     )}
+        </div>
+      ) : (
+        <ImportPage
+          embedded
+          libraries={libraries}
+          getLabelById={getLabelById}
+          study={study}
         />
       )}
     </div>

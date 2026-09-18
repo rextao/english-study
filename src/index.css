@@ -41,7 +41,12 @@
   color-scheme: light;
 }
 
-html { -webkit-text-size-adjust: 100%; }
+html {
+  -webkit-text-size-adjust: 100%;
+  /* 永远给纵向滚动条留出位置：从短页面切到长页面时滚动条才出现/消失，
+     不会把居中的内容整体左右推一下，切换模式就不晃了 */
+  scrollbar-gutter: stable;
+}
 
 body {
   background: var(--color-bg);

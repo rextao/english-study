@@ -1,0 +1,5 @@
+# 本地词典产物 data/ecdict/ 提交进仓库。records.tsv 每行的字节偏移量存在 index.bin 里，
+# git 若对文本文件做换行符转换（Windows 的 autocrlf 等）会让偏移量整体错位、查词静默失败，
+# 所以这两个文件一律按二进制处理：不转换换行符、不做文本 diff。
+data/ecdict/records.tsv binary
+data/ecdict/index.bin binary
