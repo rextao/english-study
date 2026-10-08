@@ -53,6 +53,32 @@
   white-space: nowrap;
 }
 
+/* 可排序表头：整块标题变成可点击按钮，箭头贴在标题旁边 */
+.achievements-table__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.achievements-table__number .achievements-table__sort { justify-content: center; }
+
+.achievements-table__sort:hover { color: var(--color-text); }
+.achievements-table__sort--active { color: var(--color-primary); }
+
+.achievements-table__sort-arrow {
+  font-size: 11px;
+  line-height: 1;
+  opacity: 0.55;
+}
+
+.achievements-table__sort--active .achievements-table__sort-arrow { opacity: 1; }
+
 .achievements-table tbody tr:last-child td { border-bottom: none; }
 .achievements-table tbody tr:hover { background: var(--color-surface-sunken); }
 

@@ -340,11 +340,8 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
       else buckets.set(day, [item])
     }
     for (const bucket of Array.from(buckets.values())) {
-      bucket.sort((a, b) => {
-        const da = a.nextDueAt ?? 0
-        const db = b.nextDueAt ?? 0
-        return da === db ? a.word.localeCompare(b.word) : da - db
-      })
+      // 面板里的词按字母 a-z 排
+      bucket.sort((a, b) => a.word.localeCompare(b.word, 'en'))
     }
     return buckets
   }, [planData])
@@ -363,11 +360,8 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
       else buckets.set(week, [item])
     }
     for (const bucket of Array.from(buckets.values())) {
-      bucket.sort((a, b) => {
-        const da = a.nextDueAt ?? 0
-        const db = b.nextDueAt ?? 0
-        return da === db ? a.word.localeCompare(b.word) : da - db
-      })
+      // 面板里的词按字母 a-z 排
+      bucket.sort((a, b) => a.word.localeCompare(b.word, 'en'))
     }
     return buckets
   }, [planData, thisWeek])
@@ -1038,72 +1032,75 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
                       <span className="review-row__phonetic">{item.phonetic || entry?.phonetic || '—'}</span>
                       <span className="review-row__translation">{translation}</span>
                     </div>
-                    {canReview && (
-                      <span className="review-row__ops">
-                        {(['spelling', 'reading', 'meaning'] as const).map(kind => {
-                          const undo = (kind + '-undo') as WordAction
-                          const counts = item.tallyCounts?.[isWeek ? 'week' : 'day']
-                          const count = counts?.[kind] ?? 0
-                          return (
-                            <span key={kind} className="review-row__tally">
-                              <Button
-                                size="small"
-                                title={'记一次' + TALLY_LABEL[kind] + '（本周期内可重复）'}
-                                loading={action === kind}
-                                disabled={action != null}
-                                onClick={() => handleWordAction(item, kind)}
-                              >
-                                {TALLY_LABEL[kind]} {count}
-                              </Button>
-                              <Button
-                                size="small"
-                                className="review-row__tally-minus"
-                                title={'减少一次' + TALLY_LABEL[kind] + '（本周期内，最少 0）'}
-                                aria-label={'减少一次' + TALLY_LABEL[kind]}
-                                loading={action === undo}
-                                disabled={action != null || count <= 0}
-                                onClick={() => handleWordAction(item, undo)}
-                              >
-                                −
-                              </Button>
-                            </span>
-                          )
-                        })}
-                       <Button
-                         type="primary"
-                         size="small"
-                         className="review-row__done"
-                         title="进入下一轮"
-                         aria-label="进入下一轮"
-                         loading={action === 'next'}
-                         disabled={action != null}
-                         onClick={() => handleWordAction(item, 'next')}
-                       >
-                         <svg
-                           className="review-row__done-icon"
-                           viewBox="0 0 24 24"
-                           fill="none"
-                           aria-hidden="true"
-                           >
-                             <path
-                               d="M20 6 9 17l-5-5"
-                               stroke="currentColor"
-                               strokeWidth="2.6"
-                               strokeLinecap="round"
-                               strokeLinejoin="round"
-                             />
-                           </svg>
-                       </Button>
-                        <Button
-                          size="small"
-                          loading={action === 'again'}
-                          disabled={action != null}
-                          onClick={() => handleWordAction(item, 'again')}
-                        >
-                          没记住
-                        </Button>
-                      </span>
-                    )}
+                    <span className="review-row__ops">
+                      {(['spelling', 'reading', 'meaning'] as const).map(kind => {
+                        const undo = (kind + '-undo') as WordAction
+                        const counts = item.tallyCounts?.[isWeek ? 'week' : 'day']
+                        const count = counts?.[kind] ?? 0
+                        return (
+                          <span key={kind} className="review-row__tally">
+                            <Button
+                              size="small"
+                              title={'记一次' + TALLY_LABEL[kind] + '（本周期内可重复）'}
+                              loading={action === kind}
+                              disabled={action != null}
+                              onClick={() => handleWordAction(item, kind)}
+                            >
+                              {TALLY_LABEL[kind]} {count}
+                            </Button>
+                            <Button
+                              size="small"
+                              className="review-row__tally-minus"
+                              title={'减少一次' + TALLY_LABEL[kind] + '（本周期内，最少 0）'}
+                              aria-label={'减少一次' + TALLY_LABEL[kind]}
+                              loading={action === undo}
+                              disabled={action != null || count <= 0}
+                              onClick={() => handleWordAction(item, undo)}
+                            >
+                              −
+                            </Button>
+                          </span>
+                        )
+                      })}
+                      {/* 日期没到的批次只能计数（会拼 / 会读 / 知意），不出现「没记住」和「进入下一轮」 */}
+                      {canReview && (
+                        <>
+                          <Button
+                            type="primary"
+                            size="small"
+                            className="review-row__done"
+                            title="进入下一轮"
+                            aria-label="进入下一轮"
+                            loading={action === 'next'}
+                            disabled={action != null}
+                            onClick={() => handleWordAction(item, 'next')}
+                          >
+                            <svg
+                              className="review-row__done-icon"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M20 6 9 17l-5-5"
+                                stroke="currentColor"
+                                strokeWidth="2.6"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </Button>
+                          <Button
+                            size="small"
+                            loading={action === 'again'}
+                            disabled={action != null}
+                            onClick={() => handleWordAction(item, 'again')}
+                          >
+                            没记住
+                          </Button>
+                        </>
+                      )}
+                    </span>
                   </li>
                 )
               })}

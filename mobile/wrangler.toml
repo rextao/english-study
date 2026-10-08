@@ -1,0 +1,5 @@
+# Cloudflare Pages 项目配置（手机端）
+# 直连部署脚本：bash mobile/scripts/deploy.sh
+name = "english-study-mobile"
+pages_build_output_dir = "./dist"
+compatibility_date = "2026-10-08"
