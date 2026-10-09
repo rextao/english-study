@@ -57,6 +57,7 @@ import { createKvStore, KV_KEYS } from './kv.mjs'
 import {
   exportSnapshot, snapshotHash, summarizeSnapshot, localSummary, applySnapshot,
   readSyncState, writeSyncState, workerRequest, parseRemoteStatus,
+  computeSyncDiff,
 } from './sync.mjs'
 import { syncKeys, syncKeyStatus, writeSyncKeys } from './sync-keys.mjs'
 
@@ -2445,7 +2446,7 @@ const server = http.createServer(async (req, res) => {
     const state = readSyncState(DATA_DIR)
     const deviceLabel = state.deviceLabel || keys.deviceLabel || os.hostname()
     const local = localSummary(DATA_DIR, deviceLabel, state.lastSyncedHash)
-    if (!keys.url) {
+    if (!keys.token) {
       return sendJson(res, {
         configured: false, local, remote: null, remoteError: '',
         lastSyncedHash: state.lastSyncedHash, lastSyncAt: state.lastSyncAt,
@@ -2475,7 +2476,7 @@ const server = http.createServer(async (req, res) => {
    */
   if (method === 'POST' && pathname === '/api/sync/push') {
     const keys = syncKeys(DATA_DIR)
-    if (!keys.url) return sendJson(res, { ok: false, error: '还没配置云端同步地址' }, 400)
+    if (!keys.token) return sendJson(res, { ok: false, error: '还没配置同步令牌' }, 400)
     const state = readSyncState(DATA_DIR)
     const deviceLabel = state.deviceLabel || keys.deviceLabel || os.hostname()
     const snapshot = exportSnapshot(DATA_DIR, deviceLabel)
@@ -2508,7 +2509,7 @@ const server = http.createServer(async (req, res) => {
    */
   if (method === 'POST' && pathname === '/api/sync/pull') {
     const keys = syncKeys(DATA_DIR)
-    if (!keys.url) return sendJson(res, { ok: false, error: '还没配置云端同步地址' }, 400)
+    if (!keys.token) return sendJson(res, { ok: false, error: '还没配置同步令牌' }, 400)
     let body = {}
     try { body = await readBody(req) } catch { body = {} }
     const force = body?.force === true
@@ -2545,6 +2546,36 @@ const server = http.createServer(async (req, res) => {
     })
     console.log('[sync pull]', summary.hash.slice(0, 12), summary.wordCount + ' 词')
     return sendJson(res, { ok: true, summary })
+  }
+
+  /**
+   * GET /api/sync/diff — 本地快照和云端快照的「具体差异」，给设置页「查看差异」用。
+   * 列出哪些列表 / 词条本地独有、哪些云端独有、哪些改了名，再给学习记录和小文档的差异，
+   * 让用户在「用哪边覆盖哪边」之前能看清会覆盖掉什么。云端连不上回 502。
+   */
+  if (method === 'GET' && pathname === '/api/sync/diff') {
+    const keys = syncKeys(DATA_DIR)
+    if (!keys.token) return sendJson(res, { ok: false, error: '还没配置同步令牌' }, 400)
+    const state = readSyncState(DATA_DIR)
+    const deviceLabel = state.deviceLabel || keys.deviceLabel || os.hostname()
+    const localSnapshot = exportSnapshot(DATA_DIR, deviceLabel)
+    let remoteSnapshot
+    try {
+      remoteSnapshot = await workerRequest(keys, '/sync/snapshot')
+    } catch (error) {
+      console.warn('[sync diff] 拉取云端失败:', error.message)
+      return sendJson(res, { ok: false, error: error.message }, 502)
+    }
+    if (!remoteSnapshot || remoteSnapshot.version !== 1 || !remoteSnapshot.tables) {
+      return sendJson(res, { ok: false, error: '云端还没有可比对的数据' }, 404)
+    }
+    try {
+      const diff = computeSyncDiff(localSnapshot, remoteSnapshot)
+      return sendJson(res, { ok: true, ...diff })
+    } catch (error) {
+      console.warn('[sync diff] 比对失败:', error.message)
+      return sendJson(res, { ok: false, error: '比对差异失败：' + error.message }, 500)
+    }
   }
 
   sendJson(res, { error: 'not found' }, 404)

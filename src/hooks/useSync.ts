@@ -6,6 +6,7 @@ const CONFIG_URL = SERVER + '/api/sync/config'
 const STATUS_URL = SERVER + '/api/sync/status'
 const PUSH_URL = SERVER + '/api/sync/push'
 const PULL_URL = SERVER + '/api/sync/pull'
+const DIFF_URL = SERVER + '/api/sync/diff'
 
 /** 本地数据变动后多久重新查差异：写操作常常连续发生（比如连续打卡），防抖一下 */
 const RECHECK_DEBOUNCE_MS = 800
@@ -81,6 +82,51 @@ export interface PullResult {
   error?: string
 }
 
+/** 一个列表的概要（差异详情里用） */
+export interface SyncListInfo {
+  id: string
+  name: string
+  wordCount: number
+}
+
+/** 两边都在、但名字不同的列表 */
+export interface SyncRename {
+  id: string
+  localName: string
+  remoteName: string
+}
+
+/** 独有词条的取样：词 + 所在列表名 */
+export interface SyncWordSample {
+  word: string
+  listName: string
+}
+
+/** 本地 / 云端快照的「具体差异」，给设置页「查看差异」展示 */
+export interface SyncDiff {
+  lists: {
+    onlyLocal: SyncListInfo[]
+    onlyRemote: SyncListInfo[]
+    renamed: SyncRename[]
+    both: number
+  }
+  words: {
+    onlyLocalCount: number
+    onlyLocalSample: SyncWordSample[]
+    onlyRemoteCount: number
+    onlyRemoteSample: SyncWordSample[]
+  }
+  events: { local: number; remote: number }
+  kv: { key: string; label: string }[]
+  sampleLimit: number
+}
+
+export interface SyncDiffResult {
+  ok: boolean
+  diff?: SyncDiff
+  error?: string
+}
+
 function num(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0
 }
@@ -135,6 +181,50 @@ function toConfig(body: unknown): SyncConfig | null {
     tokenHint: str(obj.tokenHint),
     deviceLabel: str(obj.deviceLabel),
     configured: obj.configured,
+  }
+}
+
+function arr(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : []
+}
+
+function toListInfo(value: unknown): SyncListInfo {
+  const o = (value ?? {}) as JsonBody
+  return { id: str(o.id), name: str(o.name), wordCount: num(o.wordCount) }
+}
+
+function toWordSample(value: unknown): SyncWordSample {
+  const o = (value ?? {}) as JsonBody
+  return { word: str(o.word), listName: str(o.listName) }
+}
+
+/** 把服务端 /api/sync/diff 的返回收成界面用的结构，字段缺失时给安全默认值 */
+function parseDiff(body: JsonBody): SyncDiff {
+  const lists = (body.lists ?? {}) as JsonBody
+  const words = (body.words ?? {}) as JsonBody
+  const events = (body.events ?? {}) as JsonBody
+  return {
+    lists: {
+      onlyLocal: arr(lists.onlyLocal).map(toListInfo),
+      onlyRemote: arr(lists.onlyRemote).map(toListInfo),
+      renamed: arr(lists.renamed).map(v => {
+        const o = (v ?? {}) as JsonBody
+        return { id: str(o.id), localName: str(o.localName), remoteName: str(o.remoteName) }
+      }),
+      both: num(lists.both),
+    },
+    words: {
+      onlyLocalCount: num(words.onlyLocalCount),
+      onlyLocalSample: arr(words.onlyLocalSample).map(toWordSample),
+      onlyRemoteCount: num(words.onlyRemoteCount),
+      onlyRemoteSample: arr(words.onlyRemoteSample).map(toWordSample),
+    },
+    events: { local: num(events.local), remote: num(events.remote) },
+    kv: arr(body.kv).map(v => {
+      const o = (v ?? {}) as JsonBody
+      return { key: str(o.key), label: str(o.label) }
+    }),
+    sampleLimit: num(body.sampleLimit) || 12,
   }
 }
 
@@ -291,6 +381,15 @@ export function useSync() {
     return { ok: true }
   }, [check])
 
+  /** 拉取本地 / 云端快照的具体差异（设置页「查看差异」用）；只读，不改任何数据 */
+  const diff = useCallback(async (): Promise<SyncDiffResult> => {
+    const result = await sendJson(DIFF_URL, 'GET')
+    if (!result.ok || result.body?.ok !== true) {
+      return { ok: false, error: errorMessage(result, '读不到云端差异') }
+    }
+    return { ok: true, diff: parseDiff(result.body) }
+  }, [])
+
   const state = classifySync(status, checking)
 
   return {
@@ -305,5 +404,6 @@ export function useSync() {
     saveConfig,
     push,
     pull,
+    diff,
   }
 }

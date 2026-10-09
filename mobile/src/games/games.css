@@ -1,0 +1,93 @@
+/* 游戏列表 */
+.games {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.games__hint {
+  margin: 4px 2px 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.games__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.game-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.game-card__icon {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--game-accent) 32%, transparent), transparent 70%),
+    rgba(15, 23, 42, 0.6);
+  font-size: 30px;
+}
+
+.game-card__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.game-card__name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.game-card__tag {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.game-card__play {
+  flex: none;
+  padding: 9px 20px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--game-accent);
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.game-card__play:active {
+  opacity: 0.85;
+}
+
+.game-card__soon {
+  flex: none;
+  padding: 6px 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.game-card--soon {
+  opacity: 0.6;
+}

@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { SyncApi, SyncSummary } from '../hooks/useSync'
+import type { SyncApi, SyncDiff, SyncSummary } from '../hooks/useSync'
 import { Button, Input, Popconfirm, Tag } from '../ui'
 import './SyncPanel.css'
 
 interface SyncPanelProps {
   sync: SyncApi
+  /** 每变一次（且 >0）就自动展开并拉一次差异；顶部提示条点「详情」时递增 */
+  diffTick?: number
 }
 
 type ConfigField = 'url' | 'token' | 'deviceLabel'
@@ -54,15 +56,147 @@ function SummaryCard({ title, summary, extra }: {
   )
 }
 
-export function SyncPanel({ sync }: SyncPanelProps) {
-  const { config, status, busy, actionError, checking, saveConfig, push, pull, recheck } = sync
+/** 列表 / 词条样本等差异明细：没有任何差异时给一句「两边一致」 */
+function DiffDetails({ diff }: { diff: SyncDiff }) {
+  const { lists, words, events, kv, sampleLimit } = diff
+  const hasListDiff = lists.onlyLocal.length > 0 || lists.onlyRemote.length > 0 || lists.renamed.length > 0
+  const hasWordDiff = words.onlyLocalCount > 0 || words.onlyRemoteCount > 0
+  const hasEventDiff = events.local !== events.remote
+  const hasKvDiff = kv.length > 0
+  const anyDiff = hasListDiff || hasWordDiff || hasEventDiff || hasKvDiff
+
+  const renderSample = (
+    sample: { word: string; listName: string }[],
+    count: number,
+  ) => (
+    <div className="sync-diff__samples">
+      {sample.map((s, i) => (
+        <Tag key={s.listName + '/' + s.word + '/' + i} color="default">
+          {s.word}
+          {s.listName && <span className="sync-diff__sample-list">（{s.listName}）</span>}
+        </Tag>
+      ))}
+      {count > sample.length && <span className="sync-diff__more">等 {count} 个</span>}
+    </div>
+  )
+
+  if (!anyDiff) {
+    return <p className="hint sync-diff__same">本地和云端的学习数据完全一致，暂时无需同步。</p>
+  }
+
+  return (
+    <div className="sync-diff__body">
+      <div className="sync-diff__group">
+        <div className="sync-diff__group-title">学习列表</div>
+        {!hasListDiff ? (
+          <p className="hint">两边列表一致（共 {lists.both} 个）。</p>
+        ) : (
+          <>
+            {lists.onlyLocal.length > 0 && (
+              <p className="sync-diff__line">
+                <Tag color="gold">本地独有</Tag>
+                {lists.onlyLocal.map(l => l.name + '（' + l.wordCount + ' 词）').join('、')}
+              </p>
+            )}
+            {lists.onlyRemote.length > 0 && (
+              <p className="sync-diff__line">
+                <Tag color="blue">云端独有</Tag>
+                {lists.onlyRemote.map(l => l.name + '（' + l.wordCount + ' 词）').join('、')}
+              </p>
+            )}
+            {lists.renamed.map(r => (
+              <p className="sync-diff__line" key={r.id}>
+                <Tag color="default">改名</Tag>
+                本地「{r.localName}」↔ 云端「{r.remoteName}」
+              </p>
+            ))}
+            <p className="hint">两边共有 {lists.both} 个列表。</p>
+          </>
+        )}
+      </div>
+
+      <div className="sync-diff__group">
+        <div className="sync-diff__group-title">词条</div>
+        {!hasWordDiff ? (
+          <p className="hint">两边词条一致。</p>
+        ) : (
+          <>
+            {words.onlyLocalCount > 0 && (
+              <div className="sync-diff__line sync-diff__line--block">
+                <Tag color="gold">本地独有 {words.onlyLocalCount} 个词条</Tag>
+                {renderSample(words.onlyLocalSample, words.onlyLocalCount)}
+              </div>
+            )}
+            {words.onlyRemoteCount > 0 && (
+              <div className="sync-diff__line sync-diff__line--block">
+                <Tag color="blue">云端独有 {words.onlyRemoteCount} 个词条</Tag>
+                {renderSample(words.onlyRemoteSample, words.onlyRemoteCount)}
+              </div>
+            )}
+            <p className="hint">每侧最多列 {sampleLimit} 个样本，其余只给数量。</p>
+          </>
+        )}
+      </div>
+
+      <div className="sync-diff__group">
+        <div className="sync-diff__group-title">学习记录</div>
+        {!hasEventDiff ? (
+          <p className="hint">两边各有 {events.local} 条有效学习记录。</p>
+        ) : (
+          <p className="sync-diff__line">
+            本地 <strong>{events.local}</strong> 条 / 云端 <strong>{events.remote}</strong> 条有效学习记录。
+          </p>
+        )}
+      </div>
+
+      {hasKvDiff && (
+        <div className="sync-diff__group">
+          <div className="sync-diff__group-title">其他内容</div>
+          <p className="sync-diff__line">
+            以下内容两边不同：
+            {kv.map(k => <Tag key={k.key} color="default">{k.label}</Tag>)}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function SyncPanel({ sync, diffTick }: SyncPanelProps) {
+  const { config, status, busy, actionError, checking, saveConfig, push, pull, recheck, diff } = sync
   const [urlDraft, setUrlDraft] = useState('')
   const [tokenDraft, setTokenDraft] = useState('')
   const [deviceDraft, setDeviceDraft] = useState('')
   const [pullHint, setPullHint] = useState('')
+  const [diffData, setDiffData] = useState<SyncDiff | null>(null)
+  const [diffLoading, setDiffLoading] = useState(false)
+  const [diffError, setDiffError] = useState('')
+  const diffRef = useRef<HTMLDivElement | null>(null)
 
   const configured = Boolean(config?.configured)
   const remote = status?.remote ?? null
+
+  /** 拉一次具体差异；只读，不改任何数据 */
+  async function loadDiff() {
+    setDiffLoading(true)
+    setDiffError('')
+    const result = await diff()
+    setDiffLoading(false)
+    if (!result.ok || !result.diff) {
+      setDiffData(null)
+      setDiffError(result.error || '读不到云端差异')
+      return
+    }
+    setDiffData(result.diff)
+  }
+
+  // 顶部提示条点「详情」会让 diffTick 递增：自动拉一次差异并滚到差异区
+  useEffect(() => {
+    if (!diffTick || diffTick <= 0) return
+    void loadDiff()
+    diffRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diffTick])
 
   async function handleSave() {
     const patch: Partial<Record<ConfigField, string>> = {}
@@ -204,7 +338,20 @@ export function SyncPanel({ sync }: SyncPanelProps) {
             <Button size="small" loading={checking} onClick={() => { recheck() }}>
               重新检查
             </Button>
+            <Button size="small" loading={diffLoading} onClick={() => { void loadDiff() }}>
+              查看具体差异
+            </Button>
           </div>
+
+          {(diffError || diffData) && (
+            <div className="sync-diff" ref={diffRef}>
+              <div className="sync-diff__title">本地与云端的具体差异</div>
+              {diffError
+                ? <div className="callout callout--warn sync-diff__error">{diffError}</div>
+                : diffData && <DiffDetails diff={diffData} />}
+            </div>
+          )}
+
           {pullHint && (
             <Popconfirm
               title="云端是空数据，确定清空本地？"

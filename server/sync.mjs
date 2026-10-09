@@ -348,3 +348,134 @@ export function parseRemoteStatus(body) {
     empty: hash.length === 0 || body.empty === true,
   }
 }
+
+// ── 差异比对（给设置页「查看具体差异」用）──────────────────────────────────────
+//
+// 整库快照本身不含逐行 diff，这里把本地 / 云端两份快照摊开，算出「谁多了什么」：
+// 哪些列表 / 词条本地独有、哪些云端独有、哪些列表改了名，再给学习记录和小文档的差异。
+// 目的是让用户在「用哪边覆盖哪边」之前，能一眼看清覆盖掉的是什么。
+
+/** 一次最多列几个词条样本，避免整份词表塞进响应 */
+const DIFF_SAMPLE_LIMIT = 12
+
+/** 把快照里某张表包成「按列名取值」的视图，列顺序改了也不会错位 */
+function tableView(snapshot, name) {
+  const table = snapshot && snapshot.tables ? snapshot.tables[name] : null
+  if (!table || !Array.isArray(table.rows) || !Array.isArray(table.columns)) return null
+  const index = new Map(table.columns.map((col, i) => [col.name, i]))
+  return {
+    rows: table.rows,
+    cell: (row, col) => { const i = index.get(col); return i === undefined ? null : row[i] ?? null },
+  }
+}
+
+/** 按 list_id 数每个列表有多少词条 */
+function countWordsByList(view) {
+  const counts = new Map()
+  if (!view) return counts
+  for (const row of view.rows) {
+    const listId = String(view.cell(row, 'list_id') ?? '')
+    counts.set(listId, (counts.get(listId) || 0) + 1)
+  }
+  return counts
+}
+
+/** { 列表 id -> { id, name, wordCount } } */
+function listInfoMap(view, wordCounts) {
+  const map = new Map()
+  if (!view) return map
+  for (const row of view.rows) {
+    const id = String(view.cell(row, 'id') ?? '')
+    map.set(id, { id, name: String(view.cell(row, 'name') ?? id), wordCount: wordCounts.get(id) || 0 })
+  }
+  return map
+}
+
+/**
+ * 比对本地 / 云端两份快照，给出人类能看懂的差异：
+ *  - lists：本地独有 / 云端独有 / 改了名的列表（按 id 比）
+ *  - words：各自独有的词条数 + 取样（按 list_id + word 比，样本带所在列表名）
+ *  - events：有效学习记录条数（软删的不算）
+ *  - kv：标签 / 目标 / 打印批次这几份文档是否不同
+ */
+export function computeSyncDiff(localSnapshot, remoteSnapshot) {
+  const lLists = tableView(localSnapshot, 'lists')
+  const rLists = tableView(remoteSnapshot, 'lists')
+  const lWords = tableView(localSnapshot, 'list_words')
+  const rWords = tableView(remoteSnapshot, 'list_words')
+
+  const localMap = listInfoMap(lLists, countWordsByList(lWords))
+  const remoteMap = listInfoMap(rLists, countWordsByList(rWords))
+
+  const onlyLocal = [], onlyRemote = [], renamed = []
+  let both = 0
+  for (const [id, info] of localMap) {
+    const r = remoteMap.get(id)
+    if (!r) { onlyLocal.push(info); continue }
+    both++
+    if (info.name !== r.name) renamed.push({ id, localName: info.name, remoteName: r.name })
+  }
+  for (const [id, info] of remoteMap) {
+    if (!localMap.has(id)) onlyRemote.push(info)
+  }
+
+  // 词条差异：按 (list_id, word) 比，\u0000 当分隔符，词里不会出现
+  const wordKey = (view, row) =>
+    String(view.cell(row, 'list_id') ?? '') + '\u0000' + String(view.cell(row, 'word') ?? '')
+  const localWordKeys = new Set()
+  if (lWords) for (const row of lWords.rows) localWordKeys.add(wordKey(lWords, row))
+  const remoteWordKeys = new Set()
+  if (rWords) for (const row of rWords.rows) remoteWordKeys.add(wordKey(rWords, row))
+
+  const diffWords = (view, otherKeys, nameMap) => {
+    let count = 0
+    const sample = []
+    if (view) for (const row of view.rows) {
+      if (otherKeys.has(wordKey(view, row))) continue
+      count++
+      if (sample.length < DIFF_SAMPLE_LIMIT) {
+        const listId = String(view.cell(row, 'list_id') ?? '')
+        sample.push({ word: String(view.cell(row, 'word') ?? ''), listName: nameMap.get(listId)?.name || listId })
+      }
+    }
+    return { count, sample }
+  }
+  const localOnlyWords = diffWords(lWords, remoteWordKeys, localMap)
+  const remoteOnlyWords = diffWords(rWords, localWordKeys, remoteMap)
+
+  // 学习记录：软删的不算（deleted_at 有值 = 已撤销）
+  const activeEvents = (snapshot) => {
+    const view = tableView(snapshot, 'learning_events')
+    if (!view) return 0
+    let n = 0
+    for (const row of view.rows) { if (view.cell(row, 'deleted_at') == null) n++ }
+    return n
+  }
+
+  // 小文档：标签 / 目标 / 打印批次，整份 value_json 比对
+  const kvMap = (snapshot) => {
+    const view = tableView(snapshot, 'kv')
+    const map = new Map()
+    if (view) for (const row of view.rows) {
+      map.set(String(view.cell(row, 'key') ?? ''), String(view.cell(row, 'value_json') ?? ''))
+    }
+    return map
+  }
+  const lKv = kvMap(localSnapshot), rKv = kvMap(remoteSnapshot)
+  const KV_LABELS = { 'vocab-labels': '词库标签', 'study-goal': '学习目标', 'print-batches': '打印批次' }
+  const kv = []
+  for (const [key, label] of Object.entries(KV_LABELS)) {
+    if ((lKv.get(key) || '') !== (rKv.get(key) || '')) kv.push({ key, label })
+  }
+
+  return {
+    lists: { onlyLocal, onlyRemote, renamed, both },
+    words: {
+      onlyLocalCount: localOnlyWords.count, onlyLocalSample: localOnlyWords.sample,
+      onlyRemoteCount: remoteOnlyWords.count, onlyRemoteSample: remoteOnlyWords.sample,
+    },
+    events: { local: activeEvents(localSnapshot), remote: activeEvents(remoteSnapshot) },
+    kv,
+    sampleLimit: DIFF_SAMPLE_LIMIT,
+  }
+}

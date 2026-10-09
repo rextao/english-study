@@ -16,6 +16,13 @@ const FILE_NAME = 'sync-keys.json'
 /** 令牌 / 地址长度上限，拦一下误粘贴整段配置的情况 */
 const MAX_VALUE_LEN = 500
 
+/**
+ * 内置的默认同步地址：桌面端像手机端一样，默认就连到这台 Worker，用户通常只填令牌即可。
+ * 想换地址：直接改这行常量，或在设置页填新地址 / 在 .env.local 写 SYNC_WORKER_URL 覆盖它。
+ * 空的文件覆盖和空的环境变量都会回落到这个默认值，所以「清除地址」只是回到默认，不会把同步关掉。
+ */
+export const DEFAULT_SYNC_WORKER_URL = 'https://study.rextao666.xyz/'
+
 export function syncKeysFile(dataDir) {
   return path.join(dataDir, FILE_NAME)
 }
@@ -36,6 +43,15 @@ function pickFile(file, envValue, field) {
   return typeof envValue === 'string' ? envValue : ''
 }
 
+/** 同步地址：文件覆盖 > 环境变量 > 内置默认值。空串 / 缺省都回落到默认值。 */
+function resolveUrl(file) {
+  const fromFile = Object.hasOwn(file, 'url') && typeof file.url === 'string' ? file.url.trim() : ''
+  if (fromFile) return fromFile
+  const fromEnv = typeof process.env.SYNC_WORKER_URL === 'string' ? process.env.SYNC_WORKER_URL.trim() : ''
+  if (fromEnv) return fromEnv
+  return DEFAULT_SYNC_WORKER_URL
+}
+
 /**
  * 同步实际使用的配置：文件覆盖 > 环境变量。
  * deviceLabel 是「这台机器叫什么」，推送到云端后会显示，方便用户分辨是谁推的。
@@ -43,7 +59,7 @@ function pickFile(file, envValue, field) {
 export function syncKeys(dataDir) {
   const file = readRaw(dataDir)
   return {
-    url: pickFile(file, process.env.SYNC_WORKER_URL, 'url').trim(),
+    url: resolveUrl(file),
     token: pickFile(file, process.env.SYNC_WORKER_TOKEN, 'token').trim(),
     deviceLabel: pickFile(file, process.env.SYNC_DEVICE_LABEL, 'deviceLabel').trim(),
   }
@@ -57,7 +73,8 @@ export function syncKeyStatus(dataDir) {
     hasToken: token.length > 0,
     tokenHint: maskSecret(token),
     deviceLabel,
-    configured: url.length > 0,
+    // 地址已内置默认值，所以「是否可用」只看令牌有没有填——桌面端和手机端一样只需配令牌
+    configured: token.length > 0,
   }
 }
 
@@ -91,7 +108,7 @@ export function writeSyncKeys(dataDir, patch) {
       continue
     }
     const trimmed = value.trim()
-    if (field === 'token' && !trimmed) throw new Error('令牌不能为空；要停用同步请清空同步地址')
+    if (field === 'token' && !trimmed) throw new Error('令牌不能为空')
     if (trimmed.length > MAX_VALUE_LEN) throw new Error(field + ' 长度超过上限（' + MAX_VALUE_LEN + ' 字符）')
     next[field] = trimmed
   }

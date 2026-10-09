@@ -9,6 +9,9 @@ import { SyncPanel } from '../components/SyncPanel'
 import { Button, Input, Tag } from '../ui'
 import './SettingsPage.css'
 
+/** 设置页的子分区：词库配置 / 查询链路 / 数据同步 */
+export type SettingsSection = 'chain' | 'libraries' | 'sync'
+
 interface SettingsPageProps {
   libraries: VocabLibraryInfo[]
   getLabelById: (id: string) => string
@@ -21,16 +24,19 @@ interface SettingsPageProps {
   onResetPrintLabel: (id: string) => void
   offline: boolean
   sync: SyncApi
+  /** 当前子分区由 App 托管，方便顶部同步提示条一键切到「数据同步」 */
+  section: SettingsSection
+  onSectionChange: (section: SettingsSection) => void
+  /** 每变一次就让同步面板自动展开差异（顶部「详情」按钮触发） */
+  syncDiffTick?: number
 }
 
 export function SettingsPage(props: SettingsPageProps) {
   const { sources, chain, saving, error, saveKeys, clearKeys } = useDictSources()
-  // sync 单独摘出来给同步面板；剩下的字段才好整体摊给 LibrariesPage（它不认 sync）
-  const { sync, ...libraryProps } = props
+  // sync / 子分区控制单独摘出来；剩下的字段才好整体摊给 LibrariesPage（它不认这些）
+  const { sync, section, onSectionChange, syncDiffTick, ...libraryProps } = props
   const [apiKeyDraft, setApiKeyDraft] = useState('')
   const [appIdDraft, setAppIdDraft] = useState('')
-
-  const [section, setSection] = useState<'chain' | 'libraries' | 'sync'>('libraries')
 
   const baidu = chain.find(step => step.id === 'baidu')
 
@@ -62,7 +68,7 @@ export function SettingsPage(props: SettingsPageProps) {
           role="tab"
           aria-selected={section === 'libraries'}
           className={'settings-tabs__btn' + (section === 'libraries' ? ' settings-tabs__btn--active' : '')}
-          onClick={() => setSection('libraries')}
+          onClick={() => onSectionChange('libraries')}
         >
           词库配置
         </button>
@@ -71,7 +77,7 @@ export function SettingsPage(props: SettingsPageProps) {
           role="tab"
           aria-selected={section === 'chain'}
           className={'settings-tabs__btn' + (section === 'chain' ? ' settings-tabs__btn--active' : '')}
-          onClick={() => setSection('chain')}
+          onClick={() => onSectionChange('chain')}
         >
           查询链路
         </button>
@@ -80,7 +86,7 @@ export function SettingsPage(props: SettingsPageProps) {
           role="tab"
           aria-selected={section === 'sync'}
           className={'settings-tabs__btn' + (section === 'sync' ? ' settings-tabs__btn--active' : '')}
-          onClick={() => setSection('sync')}
+          onClick={() => onSectionChange('sync')}
         >
           数据同步
         </button>
@@ -191,7 +197,7 @@ export function SettingsPage(props: SettingsPageProps) {
       )}
 
       {section === 'sync' && (
-        <SyncPanel sync={sync} />
+        <SyncPanel sync={sync} diffTick={syncDiffTick} />
       )}
 
       {section === 'libraries' && (

@@ -86,6 +86,62 @@
 
 .sync-not-configured { margin-top: 16px; }
 
+/* 「查看具体差异」展开区 */
+.sync-diff {
+  margin-top: 16px;
+  padding: 14px 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-sunken);
+}
+
+.sync-diff__title { font-size: 14px; font-weight: 600; }
+
+.sync-diff__error { margin-top: 10px; font-size: 12px; }
+
+.sync-diff__same { margin-top: 10px; }
+
+.sync-diff__body {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sync-diff__group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sync-diff__group-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.sync-diff__line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.sync-diff__line--block { align-items: flex-start; flex-direction: column; gap: 6px; }
+
+.sync-diff__samples {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.sync-diff__sample-list { color: var(--color-text-subtle); }
+
+.sync-diff__more { font-size: 12px; color: var(--color-text-subtle); }
+
 @media (max-width: 640px) {
   .sync-form__row .ui-input { width: 100%; }
   .sync-cards { grid-template-columns: 1fr; }
