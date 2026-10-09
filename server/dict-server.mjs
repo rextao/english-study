@@ -46,6 +46,7 @@
 import http from 'node:http'
 import fs   from 'node:fs'
 import path from 'node:path'
+import os   from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { capitalizeSentence, normalizeText } from './text.mjs'
 import { ecdictEntry, ecdictInfo, ecdictDir } from './ecdict.mjs'
@@ -53,6 +54,11 @@ import { baiduKeys, baiduKeyStatus, writeDictKeys } from './dict-keys.mjs'
 import { createStudyHistoryStore } from './study-history.mjs'
 import { createStudyListsStore } from './study-lists.mjs'
 import { createKvStore, KV_KEYS } from './kv.mjs'
+import {
+  exportSnapshot, snapshotHash, summarizeSnapshot, localSummary, applySnapshot,
+  readSyncState, writeSyncState, workerRequest, parseRemoteStatus,
+} from './sync.mjs'
+import { syncKeys, syncKeyStatus, writeSyncKeys } from './sync-keys.mjs'
 
 const __dirname  = path.dirname(fileURLToPath(import.meta.url))
 // 数据目录：默认 ../cache，可用 DICT_DATA_DIR 覆盖（便于测试 / 后续迁移到云端）
@@ -2404,6 +2410,141 @@ const server = http.createServer(async (req, res) => {
       console.log('[label -]  ', libId)
       return sendJson(res, { ok: true, id: libId, existed })
     }
+  }
+
+  // ── 数据同步（Cloudflare D1，只存数据不部署页面）──────────────────────────
+  //
+  // 同步是手动的：所有接口只负责「查差异 / 搬数据」，绝不在用户没点按钮时自动同步。
+  // 本地服务直接访问 Cloudflare Worker，浏览器不直连云端（令牌不暴露给页面）。
+
+  // GET /api/sync/config — 同步配置（脱敏）：Worker 地址、令牌只留后 4 位、设备名
+  if (method === 'GET' && pathname === '/api/sync/config') {
+    return sendJson(res, syncKeyStatus(DATA_DIR))
+  }
+
+  // PUT /api/sync/config — { url?, token?, deviceLabel? }；字符串=覆盖，null=清除回落环境变量
+  if (method === 'PUT' && pathname === '/api/sync/config') {
+    let body
+    try { body = await readBody(req) } catch { return sendJson(res, { error: 'invalid JSON' }, 400) }
+    if (!body || typeof body !== 'object') return sendJson(res, { error: 'missing body' }, 400)
+    try {
+      const status = writeSyncKeys(DATA_DIR, body)
+      return sendJson(res, { ok: true, ...status })
+    } catch (error) {
+      return sendJson(res, { ok: false, error: error.message }, 400)
+    }
+  }
+
+  /**
+   * GET /api/sync/status — 进页面时查差异用的。
+   * 返回本地摘要、云端摘要、上次同步到哪个哈希，前端据此判断该提示「同步到本地」还是「同步到云端」。
+   * 云端连不上不报错，remote 给 null + remoteError，界面提示「无法连接云端」而不是崩。
+   */
+  if (method === 'GET' && pathname === '/api/sync/status') {
+    const keys = syncKeys(DATA_DIR)
+    const state = readSyncState(DATA_DIR)
+    const deviceLabel = state.deviceLabel || keys.deviceLabel || os.hostname()
+    const local = localSummary(DATA_DIR, deviceLabel, state.lastSyncedHash)
+    if (!keys.url) {
+      return sendJson(res, {
+        configured: false, local, remote: null, remoteError: '',
+        lastSyncedHash: state.lastSyncedHash, lastSyncAt: state.lastSyncAt,
+        lastDirection: state.lastDirection, deviceLabel,
+      })
+    }
+    try {
+      const body = await workerRequest(keys, '/sync/status')
+      const remote = parseRemoteStatus(body)
+      return sendJson(res, {
+        configured: true, local, remote, remoteError: '',
+        lastSyncedHash: state.lastSyncedHash, lastSyncAt: state.lastSyncAt,
+        lastDirection: state.lastDirection, deviceLabel,
+      })
+    } catch (error) {
+      return sendJson(res, {
+        configured: true, local, remote: null, remoteError: error.message,
+        lastSyncedHash: state.lastSyncedHash, lastSyncAt: state.lastSyncAt,
+        lastDirection: state.lastDirection, deviceLabel,
+      })
+    }
+  }
+
+  /**
+   * POST /api/sync/push — 把本地整库快照推到云端（覆盖云端，用户已在弹窗里确认方向）。
+   * 推完把「上次同步到的哈希」记成本地这份快照的哈希，本地立刻变「已同步」。
+   */
+  if (method === 'POST' && pathname === '/api/sync/push') {
+    const keys = syncKeys(DATA_DIR)
+    if (!keys.url) return sendJson(res, { ok: false, error: '还没配置云端同步地址' }, 400)
+    const state = readSyncState(DATA_DIR)
+    const deviceLabel = state.deviceLabel || keys.deviceLabel || os.hostname()
+    const snapshot = exportSnapshot(DATA_DIR, deviceLabel)
+    const hash = snapshotHash(snapshot)
+    try {
+      const result = await workerRequest(keys, '/sync/snapshot', {
+        method: 'POST',
+        body: { snapshot, snapshotHash: hash },
+      })
+      if (!result?.ok) throw new Error(result?.error || '云端拒绝这次推送')
+      writeSyncState(DATA_DIR, {
+        lastSyncedHash: hash, lastSyncAt: Date.now(), lastDirection: 'push', deviceLabel,
+      })
+      console.log('[sync push]', hash.slice(0, 12), summarizeSnapshot(snapshot).wordCount + ' 词')
+      return sendJson(res, {
+        ok: true,
+        summary: summarizeSnapshot(snapshot),
+        prevHash: typeof result.prevHash === 'string' ? result.prevHash : '',
+      })
+    } catch (error) {
+      console.warn('[sync push] 失败:', error.message)
+      return sendJson(res, { ok: false, error: error.message }, 502)
+    }
+  }
+
+  /**
+   * POST /api/sync/pull — 把云端快照拉下来整份覆盖本地（先 VACUUM INTO 备份）。
+   * 哈希由本地从拉到的快照现算，不信云端自报的哈希。
+   * 云端是空快照而本地有数据时拒绝执行（除非带 force:true）——那会清空本地，必须用户明确确认。
+   */
+  if (method === 'POST' && pathname === '/api/sync/pull') {
+    const keys = syncKeys(DATA_DIR)
+    if (!keys.url) return sendJson(res, { ok: false, error: '还没配置云端同步地址' }, 400)
+    let body = {}
+    try { body = await readBody(req) } catch { body = {} }
+    const force = body?.force === true
+    let snapshot
+    try {
+      snapshot = await workerRequest(keys, '/sync/snapshot')
+    } catch (error) {
+      console.warn('[sync pull] 拉取失败:', error.message)
+      return sendJson(res, { ok: false, error: error.message }, 502)
+    }
+    if (!snapshot || snapshot.version !== 1 || !snapshot.tables) {
+      return sendJson(res, { ok: false, error: '云端没有可同步的数据' }, 404)
+    }
+    const summary = summarizeSnapshot(snapshot)
+    if (summary.empty && !force) {
+      const state = readSyncState(DATA_DIR)
+      const local = localSummary(DATA_DIR, state.deviceLabel || keys.deviceLabel || os.hostname(), state.lastSyncedHash)
+      if (!local.empty) {
+        return sendJson(res, {
+          ok: false, error: '云端快照是空的，拉取会清空本地数据。若确认要用空数据覆盖本地，请再点一次确认。',
+          needsForce: true, remote: summary,
+        }, 409)
+      }
+    }
+    try {
+      applySnapshot(DATA_DIR, snapshot)
+    } catch (error) {
+      console.warn('[sync pull] 回写失败:', error.message)
+      return sendJson(res, { ok: false, error: '回写本地失败：' + error.message }, 500)
+    }
+    writeSyncState(DATA_DIR, {
+      lastSyncedHash: summary.hash, lastSyncAt: Date.now(), lastDirection: 'pull',
+      deviceLabel: readSyncState(DATA_DIR).deviceLabel,
+    })
+    console.log('[sync pull]', summary.hash.slice(0, 12), summary.wordCount + ' 词')
+    return sendJson(res, { ok: true, summary })
   }
 
   sendJson(res, { error: 'not found' }, 404)

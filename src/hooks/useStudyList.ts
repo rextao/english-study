@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useRef } from 'react'
+import { notifyLocalDataChanged } from '../syncBus'
 import type { StudyList, StudyWordItem } from '../types/vocab'
 
 const SERVER = 'http://127.0.0.1:3456'
@@ -54,11 +56,16 @@ export function useStudyList() {
   const [loading, setLoading] = useState(true)
   const [offline, setOffline] = useState(false)
 
+  // 挂载时那次拉取不算数据变动；之后每次 fetchLists 都是用户写操作触发的刷新
+  const notifiedRef = useRef(false)
+
   const fetchLists = useCallback(async () => {
     const reply = await request<StudyList[]>('/api/lists')
     setOffline(reply.offline)
     if (Array.isArray(reply.data)) setLists(reply.data)
     setLoading(false)
+    if (notifiedRef.current) notifyLocalDataChanged()
+    notifiedRef.current = true
   }, [])
 
   useEffect(() => { fetchLists() }, [fetchLists])
@@ -139,6 +146,7 @@ export function useStudyList() {
       listPath(listId) + '/batches', jsonInit('PATCH', { date, name })
     )
     if (reply.offline || !reply.data?.ok) return null
+    notifyLocalDataChanged()
     return reply.data.batchNames ?? {}
   }, [])
 
@@ -175,6 +183,7 @@ export function useStudyList() {
       jsonInit('PATCH', { senseIds })
     )
     if (!reply.data?.ok) return null
+    notifyLocalDataChanged()
     return reply.data.item ?? null
   }, [])
 
@@ -188,6 +197,7 @@ export function useStudyList() {
       jsonInit('PATCH', { translationIds, translation, customTranslations })
     )
     if (!reply.data?.ok) return null
+    notifyLocalDataChanged()
     return reply.data.item ?? null
   }, [])
 

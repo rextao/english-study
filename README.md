@@ -186,6 +186,47 @@ npm run ecdict:fetch
 
 ## 跨设备同步
 
+两种方式：日常用云端同步（自动提示方向），git 手动交接当备用。
+
+### 云端同步（Cloudflare Worker + D1）
+
+云端同步服务和手机端页面合并成同一个 Cloudflare Worker（`english-study-mobile`）：
+同一个 Worker 既发手机端静态页面，又处理 `/sync/*` 同步接口，共用一个 D1 库，页面和同步接口因此同源、不再跨域。
+桌面端把整库快照推上去，另一台设备（或手机端）再拉下来；桌面应用仍然跑在本机，
+由本地服务（127.0.0.1:3456）server-to-server 调用云端，不经过浏览器。
+
+部署（在能连外网的机器上，仓库根目录执行）：
+
+```
+npm run deploy:mobile
+```
+
+首次部署后还要给这个 Worker 建表、设同步令牌（各跑一次即可，D1 库名仍是 english-study-sync）：
+
+```
+npx wrangler d1 execute english-study-sync --remote --file=worker/schema.sql
+npx wrangler secret put SYNC_TOKEN
+```
+
+桌面端在「设置 → 数据同步」里填这几个：
+
+- **云端地址**：`https://english-study-mobile.rextao666.workers.dev`
+- **设备名**（可选）：给这台机器起个名字，推送后能分辨是谁传的
+- **同步令牌**：上面 `npx wrangler secret put SYNC_TOKEN` 设的那串
+
+手机端打开网页后只填令牌：它和同步接口同源，自动用当前站点地址，不用再填云端地址。
+
+令牌不放本文件里——README 会提交到 git，跟着进 GitHub 就泄露了。它存在本机 `cache/sync-keys.json`（已被 `.gitignore` 忽略），或写在 `.env.local` 的 `SYNC_WORKER_TOKEN` 里；新机器要填时从那里复制。
+
+日常用法：
+
+- 顶部提示条自动提示方向：本地有新改动 → 点「上传到云端」；云端有更新的数据 → 点「同步到本地」；两边都改了 → 弹窗选一个方向
+- 传的是整库快照（学习列表 / 学习记录 / 标签 / 目标 / 打印批次），不做逐行合并，最后同步的一份数据为准；查词缓存不参与同步（随时能重新生成）
+- 从云端拉取覆盖本地前会自动备份当前数据库到 `cache/backups/`
+- 同步只在你点按钮时才执行，不会自动跑
+
+### git 手动交接（备用）
+
 数据都在 `cache/study-history.sqlite` 一个文件里，git 提交它就能换设备接着用：
 
 1. A 机正常学习，数据自动写库；想同步时把 `cache/study-history.sqlite` 提交到 git

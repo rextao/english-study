@@ -2,7 +2,9 @@ import { useVocabLibraries } from './hooks/useVocabLibraries'
 import { useStudyList } from './hooks/useStudyList'
 import { useStudyPlan } from './hooks/useStudyPlan'
 import { useTabRoute } from './hooks/useTabRoute'
+import { useSync } from './hooks/useSync'
 import { Nav } from './components/Nav'
+import { SyncNotice } from './components/SyncNotice'
 import { SearchPage } from './pages/SearchPage'
 import { ListsPage } from './pages/ListsPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -24,6 +26,7 @@ export default function App() {
     hasCustomPrintLabel,
     updatePrintLabel,
     resetPrintLabel,
+    reloadLabels,
   } = useVocabLibraries()
   // 学习列表状态提到最外层，三个页面共用一份，避免切换 tab 后数据不同步
   const study = useStudyList()
@@ -31,6 +34,15 @@ export default function App() {
   const plan = useStudyPlan()
   // 当前页面记在地址栏 hash 上，刷新后不会跳回首页
   const [tab, setTab] = useTabRoute()
+  // 数据同步：全局唯一一份，顶部提示条和设置页共用，避免切 tab 后状态不同步
+  const sync = useSync()
+
+  /** 从云端拉取覆盖本地成功后，页面上的列表 / 计划 / 标签都还是旧数据，刷新一遍 */
+  const handleSyncApplied = () => {
+    void study.fetchLists()
+    void plan.refresh()
+    void reloadLabels()
+  }
 
   if (loading) {
     return (
@@ -60,6 +72,8 @@ export default function App() {
         </div>
       )}
 
+      <SyncNotice sync={sync} onApplied={handleSyncApplied} />
+
       <main>
         {tab === 'search' && (
           <SearchPage
@@ -86,6 +100,7 @@ export default function App() {
             onRenamePrintLabel={updatePrintLabel}
             onResetPrintLabel={resetPrintLabel}
             offline={labelsOffline}
+            sync={sync}
           />
         )}
         {tab === 'study' && (

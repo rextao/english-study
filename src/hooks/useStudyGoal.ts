@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { notifyLocalDataChanged } from '../syncBus'
 
 const SERVER = 'http://127.0.0.1:3456'
 const GOAL_URL = SERVER + '/api/study/goal'
@@ -42,6 +43,7 @@ export function useStudyGoal() {
         body: JSON.stringify({ libraryId: next }),
       })
       setOffline(false)
+      notifyLocalDataChanged()
     } catch {
       setOffline(true)
     }

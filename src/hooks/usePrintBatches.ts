@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useRef } from 'react'
+import { notifyLocalDataChanged } from '../syncBus'
 import type { PrintBatch, StudyMarkScope, StudyReviewAction } from '../types/vocab'
 
 const SERVER = 'http://127.0.0.1:3456'
@@ -52,6 +54,9 @@ export function usePrintBatches() {
   const [loading, setLoading] = useState(true)
   const [offline, setOffline] = useState(false)
 
+  // 挂载时那次拉取不算数据变动；之后每次 refresh 都是留档 / 打卡 / 删记录触发的
+  const notifiedRef = useRef(false)
+
   const refresh = useCallback(async () => {
     try {
       const res  = await fetch(BASE)
@@ -62,6 +67,8 @@ export function usePrintBatches() {
       setOffline(true)
     }
     setLoading(false)
+    if (notifiedRef.current) notifyLocalDataChanged()
+    notifiedRef.current = true
   }, [])
 
   useEffect(() => { refresh() }, [refresh])

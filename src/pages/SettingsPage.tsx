@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import type { UpdateLabelResult } from '../hooks/useVocabLibraries'
+import type { SyncApi } from '../hooks/useSync'
 import type { VocabLibraryInfo } from '../types/vocab'
 import { useDictSources } from '../hooks/useDictSources'
 import { LibrariesPage } from './LibrariesPage'
 import { PageHeader } from '../components/PageHeader'
+import { SyncPanel } from '../components/SyncPanel'
 import { Button, Input, Tag } from '../ui'
 import './SettingsPage.css'
 
@@ -18,14 +20,17 @@ interface SettingsPageProps {
   onRenamePrintLabel: (id: string, label: string) => Promise<UpdateLabelResult>
   onResetPrintLabel: (id: string) => void
   offline: boolean
+  sync: SyncApi
 }
 
 export function SettingsPage(props: SettingsPageProps) {
   const { sources, chain, saving, error, saveKeys, clearKeys } = useDictSources()
+  // sync 单独摘出来给同步面板；剩下的字段才好整体摊给 LibrariesPage（它不认 sync）
+  const { sync, ...libraryProps } = props
   const [apiKeyDraft, setApiKeyDraft] = useState('')
   const [appIdDraft, setAppIdDraft] = useState('')
 
-  const [section, setSection] = useState<'chain' | 'libraries'>('libraries')
+  const [section, setSection] = useState<'chain' | 'libraries' | 'sync'>('libraries')
 
   const baidu = chain.find(step => step.id === 'baidu')
 
@@ -70,9 +75,18 @@ export function SettingsPage(props: SettingsPageProps) {
         >
           查询链路
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={section === 'sync'}
+          className={'settings-tabs__btn' + (section === 'sync' ? ' settings-tabs__btn--active' : '')}
+          onClick={() => setSection('sync')}
+        >
+          数据同步
+        </button>
       </div>
 
-      {section === 'chain' ? (
+      {section === 'chain' && (
       <section className="settings-section">
         <div className="settings-section__head">
           <p className="hint">查词时按下面的顺序依次尝试：①② 命中就直接返回，一个网络请求都不发；③④ 是同一轮外部请求里互补的两步——dictionaryapi 取音标和英文释义，百度翻译取中文，前者成功也不会跳过后者。灰色的步骤查词时会被跳过。</p>
@@ -174,12 +188,18 @@ export function SettingsPage(props: SettingsPageProps) {
           </ol>
         )}
       </section>
-      ) : (
+      )}
+
+      {section === 'sync' && (
+        <SyncPanel sync={sync} />
+      )}
+
+      {section === 'libraries' && (
         <section className="settings-section">
           <div className="settings-section__head">
             <p className="hint">显示标签用于页面展示；打印标签用于卡片右上角，未设置时沿用显示标签。</p>
           </div>
-          <LibrariesPage embedded {...props} />
+          <LibrariesPage embedded {...libraryProps} />
         </section>
       )}
     </div>

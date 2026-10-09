@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { notifyLocalDataChanged } from '../syncBus'
 import type { VocabLibrary, VocabLibraryInfo } from '../types/vocab'
 
 const SERVER = 'http://127.0.0.1:3456'
@@ -53,50 +54,57 @@ export function useVocabLibraries() {
   const [loading, setLoading]     = useState(true)
   const [offline, setOffline]     = useState(false)
 
+  const aliveRef = useRef(true)
+  useEffect(() => {
+    aliveRef.current = true
+    return () => { aliveRef.current = false }
+  }, [])
+
+  /**
+   * 从服务端重读标签。挂载时调一次；从云端拉取数据覆盖本地后也由 App 调一次，
+   * 不然界面上还是覆盖前的旧标签。
+   */
+  const reloadLabels = useCallback(async () => {
+    const mirror = readMirror(MIRROR_KEY)
+    const printMirror = readMirror(PRINT_MIRROR_KEY)
+    try {
+      const res  = await fetch(LABELS_URL)
+      const data = (await res.json()) as { labels?: LabelMap; printLabels?: LabelMap }
+      let next = data.labels ?? {}
+      let nextPrint = data.printLabels ?? {}
+      // 迁移：浏览器里有、服务端没有的标签推上去；两边都有时以服务端为准
+      const missing = Object.fromEntries(
+        Object.entries(mirror).filter(([id]) => next[id] == null),
+      )
+      if (Object.keys(missing).length > 0) {
+        await fetch(LABELS_URL, jsonInit('POST', { labels: missing }))
+        next = { ...next, ...missing }
+      }
+      const missingPrint = Object.fromEntries(
+        Object.entries(printMirror).filter(([id]) => nextPrint[id] == null),
+      )
+      if (Object.keys(missingPrint).length > 0) {
+        await fetch(PRINT_LABELS_URL, jsonInit('POST', { printLabels: missingPrint }))
+        nextPrint = { ...nextPrint, ...missingPrint }
+      }
+      if (!aliveRef.current) return
+      setLabels(next)
+      setPrintLabels(nextPrint)
+      writeMirror(MIRROR_KEY, next)
+      writeMirror(PRINT_MIRROR_KEY, nextPrint)
+    } catch {
+      if (!aliveRef.current) return
+      setOffline(true)
+      setLabels(mirror)
+      setPrintLabels(printMirror)
+    }
+    if (aliveRef.current) setLoading(false)
+  }, [])
+
   useEffect(() => {
     setLibraries(loadBundledLibraries())
-    let alive = true
-
-    async function load() {
-      const mirror = readMirror(MIRROR_KEY)
-      const printMirror = readMirror(PRINT_MIRROR_KEY)
-      try {
-        const res  = await fetch(LABELS_URL)
-        const data = (await res.json()) as { labels?: LabelMap; printLabels?: LabelMap }
-        let next = data.labels ?? {}
-        let nextPrint = data.printLabels ?? {}
-        // 迁移：浏览器里有、服务端没有的标签推上去；两边都有时以服务端为准
-        const missing = Object.fromEntries(
-          Object.entries(mirror).filter(([id]) => next[id] == null),
-        )
-        if (Object.keys(missing).length > 0) {
-          await fetch(LABELS_URL, jsonInit('POST', { labels: missing }))
-          next = { ...next, ...missing }
-        }
-        const missingPrint = Object.fromEntries(
-          Object.entries(printMirror).filter(([id]) => nextPrint[id] == null),
-        )
-        if (Object.keys(missingPrint).length > 0) {
-          await fetch(PRINT_LABELS_URL, jsonInit('POST', { printLabels: missingPrint }))
-          nextPrint = { ...nextPrint, ...missingPrint }
-        }
-        if (!alive) return
-        setLabels(next)
-        setPrintLabels(nextPrint)
-        writeMirror(MIRROR_KEY, next)
-        writeMirror(PRINT_MIRROR_KEY, nextPrint)
-      } catch {
-        if (!alive) return
-        setOffline(true)
-        setLabels(mirror)
-        setPrintLabels(printMirror)
-      }
-      if (alive) setLoading(false)
-    }
-
-    load()
-    return () => { alive = false }
-  }, [])
+    void reloadLabels()
+  }, [reloadLabels])
 
   /** 没改过标签就回落到词库 id */
   const getLabelById   = useCallback((id: string) => labels[id] ?? id, [labels])
@@ -115,6 +123,8 @@ export function useVocabLibraries() {
       writeMirror(MIRROR_KEY, next)
       return next
     })
+    // 标签进了共享库（在线时）或本地镜像，都算一次可同步的改动
+    notifyLocalDataChanged()
   }, [])
 
   /** 改标签；服务端会拦空标签和重名，错误信息交给页面显示 */
@@ -153,6 +163,7 @@ export function useVocabLibraries() {
       writeMirror(PRINT_MIRROR_KEY, next)
       return next
     })
+    notifyLocalDataChanged()
   }, [])
 
   const updatePrintLabel = useCallback(async (id: string, label: string): Promise<UpdateLabelResult> => {
@@ -182,6 +193,7 @@ export function useVocabLibraries() {
 
   return {
     libraries, labels, printLabels, loading, offline,
+    reloadLabels,
     getLabelById, hasCustomLabel, updateLabel, resetLabel,
     getPrintLabelById, hasCustomPrintLabel, updatePrintLabel, resetPrintLabel,
   }

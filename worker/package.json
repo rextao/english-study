@@ -1,0 +1,7 @@
+{
+  "name": "english-study-sync-worker",
+  "private": true,
+  "version": "0.1.0",
+  "description": "英语学习合并 Worker 的同步 API 代码（Cloudflare Worker + D1）；和手机端静态站合并部署，部署入口在仓库根 wrangler.toml",
+  "main": "src/index.js"
+}

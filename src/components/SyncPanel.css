@@ -1,0 +1,92 @@
+/* 设置页「数据同步」分区：配置表单 + 本机/云端摘要卡 + 手动同步按钮 */
+
+.sync-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.sync-form__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sync-form__label { width: 56px; flex-shrink: 0; }
+
+.sync-form__row .ui-input { width: 320px; max-width: 100%; }
+
+.sync-form__actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.sync-form__hint { line-height: 1.7; }
+
+.sync-form__error { font-size: 12px; }
+
+/* 本机 / 云端两张并排的摘要卡 */
+.sync-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.sync-card {
+  padding: 14px 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.sync-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sync-card__title { font-size: 14px; font-weight: 600; }
+
+.sync-card__stats {
+  margin-top: 8px;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.sync-card__meta {
+  margin-top: 6px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--color-text-subtle);
+  font-family: var(--font-mono);
+}
+
+.sync-remote-error { margin-top: 12px; font-size: 12px; }
+
+.sync-actions {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sync-how { margin-top: 16px; line-height: 1.8; }
+
+.sync-not-configured { margin-top: 16px; }
+
+@media (max-width: 640px) {
+  .sync-form__row .ui-input { width: 100%; }
+  .sync-cards { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,27 @@
+# Cloudflare 合并部署配置（手机端静态站 + 云端同步 API，同一个 Worker、同一个域名）
+#
+# 一个 Worker 同时承担两件事，从根上消除手机端与同步接口之间的跨域：
+#   1. 静态资源：[assets] 指向 mobile/dist，命中文件直接发（index.html / js / css）；
+#   2. 同步 API：main 指向 worker/src/index.js，只处理 /sync/*，其余请求回落到静态资源。
+# 浏览器访问的页面和它请求的 /sync/* 现在是同源，不再触发 CORS 预检。
+#
+# 部署（仓库根目录，需能连外网）：
+#     npm run deploy:mobile      # 先 build:mobile 产出 mobile/dist，再 npx wrangler deploy
+#   或 npx wrangler deploy        # 只部署（要求 mobile/dist 已构建好）
+# 首次还要建表 + 设令牌（见 README「云端同步」）：
+#     npx wrangler d1 execute english-study-sync --remote --file=worker/schema.sql
+#     npx wrangler secret put SYNC_TOKEN
+name = "english-study-mobile"
+main = "./worker/src/index.js"
+compatibility_date = "2026-10-08"
+
+[assets]
+directory = "./mobile/dist"
+# 暴露给 Worker 的静态资源 fetcher：worker/src/index.js 用 env.ASSETS 兜底非 /sync/* 请求
+binding = "ASSETS"
+
+[[d1_databases]]
+# 绑定名对齐 worker/src/index.js 里的 env.DB（纯 Worker 内部用，和两端 HTTP 调用无关）
+binding = "DB"
+database_name = "english-study-sync"
+database_id = "57a7a82c-7303-43b2-92c9-707cb9d61ea6"
