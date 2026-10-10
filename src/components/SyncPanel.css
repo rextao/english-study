@@ -28,6 +28,21 @@
 
 .sync-form__error { font-size: 12px; }
 
+/* 云端地址配置：配置一次后很少改，收进可折叠块挪到分区最下面 */
+.sync-config {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--color-border);
+}
+
+.sync-config__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.sync-config .sync-form { margin-top: 12px; }
+
 /* 本机 / 云端两张并排的摘要卡 */
 .sync-cards {
   display: grid;
@@ -141,6 +156,41 @@
 .sync-diff__sample-list { color: var(--color-text-subtle); }
 
 .sync-diff__more { font-size: 12px; color: var(--color-text-subtle); }
+
+/* 熟悉度逐词差异表格：单词 / 本地 / 云端 */
+.sync-diff__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.sync-diff__table th,
+.sync-diff__table td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sync-diff__table th {
+  font-weight: 600;
+  color: var(--color-text-subtle);
+  font-size: 12px;
+}
+
+.sync-diff__table-word { font-weight: 500; }
+
+/* 类型 / 本地 / 云端三列定宽，避免被单词列挤变形 */
+.sync-diff__table td:not(:first-child),
+.sync-diff__table th:not(:first-child) {
+  width: 72px;
+  white-space: nowrap;
+}
+
+/* 两边不一致的次数标红，一眼看出哪一项变了 */
+.sync-diff__table-diff {
+  color: #b42318;
+  font-weight: 600;
+}
 
 @media (max-width: 640px) {
   .sync-form__row .ui-input { width: 100%; }

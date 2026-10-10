@@ -29,12 +29,14 @@ interface SettingsPageProps {
   onSectionChange: (section: SettingsSection) => void
   /** 每变一次就让同步面板自动展开差异（顶部「详情」按钮触发） */
   syncDiffTick?: number
+  /** 从云端拉取覆盖本地成功后，通知 App 刷新列表 / 计划 / 标签 */
+  onSyncApplied?: () => void
 }
 
 export function SettingsPage(props: SettingsPageProps) {
   const { sources, chain, saving, error, saveKeys, clearKeys } = useDictSources()
   // sync / 子分区控制单独摘出来；剩下的字段才好整体摊给 LibrariesPage（它不认这些）
-  const { sync, section, onSectionChange, syncDiffTick, ...libraryProps } = props
+  const { sync, section, onSectionChange, syncDiffTick, onSyncApplied, ...libraryProps } = props
   const [apiKeyDraft, setApiKeyDraft] = useState('')
   const [appIdDraft, setAppIdDraft] = useState('')
 
@@ -197,7 +199,7 @@ export function SettingsPage(props: SettingsPageProps) {
       )}
 
       {section === 'sync' && (
-        <SyncPanel sync={sync} diffTick={syncDiffTick} />
+        <SyncPanel sync={sync} diffTick={syncDiffTick} onApplied={onSyncApplied} />
       )}
 
       {section === 'libraries' && (

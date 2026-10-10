@@ -358,6 +358,12 @@ export function parseRemoteStatus(body) {
 /** 一次最多列几个词条样本，避免整份词表塞进响应 */
 const DIFF_SAMPLE_LIMIT = 12
 
+/** 熟悉度计数的三种动作 + 中文标签（会拼 / 会读 / 知意），差异里逐词逐项列出 */
+const TALLY_ACTIONS = ['spelling', 'reading', 'meaning']
+const TALLY_LABELS = { spelling: '会拼', reading: '会读', meaning: '知意' }
+/** 熟悉度差异一次最多列几个词，剩下的只给数量 */
+const TALLY_WORD_LIMIT = 50
+
 /** 把快照里某张表包成「按列名取值」的视图，列顺序改了也不会错位 */
 function tableView(snapshot, name) {
   const table = snapshot && snapshot.tables ? snapshot.tables[name] : null
@@ -452,6 +458,48 @@ export function computeSyncDiff(localSnapshot, remoteSnapshot) {
     return n
   }
 
+  // 熟悉度计数：按词 + 动作（会拼 / 会读 / 知意）数两边各自的有效次数（软删的不算）。
+  // key 用归一化词（word_key），显示用 word_snapshot，跨设备大小写不同也能对上。
+  const tallyByWord = (snapshot) => {
+    const view = tableView(snapshot, 'learning_events')
+    const map = new Map()
+    if (!view) return map
+    for (const row of view.rows) {
+      if (view.cell(row, 'deleted_at') != null) continue
+      const action = String(view.cell(row, 'action') ?? '')
+      if (!TALLY_ACTIONS.includes(action)) continue
+      const key = String(view.cell(row, 'word_key') ?? '')
+      if (!key) continue
+      let entry = map.get(key)
+      if (!entry) {
+        const display = String(view.cell(row, 'word_snapshot') ?? '').trim() || key
+        entry = { word: display, spelling: 0, reading: 0, meaning: 0 }
+        map.set(key, entry)
+      }
+      entry[action]++
+    }
+    return map
+  }
+  const localTally = tallyByWord(localSnapshot)
+  const remoteTally = tallyByWord(remoteSnapshot)
+  const tallyKeys = [...new Set([...localTally.keys(), ...remoteTally.keys()])]
+  const EMPTY_TALLY = { spelling: 0, reading: 0, meaning: 0 }
+  const tallyDiffs = []
+  for (const key of tallyKeys) {
+    const l = localTally.get(key) || EMPTY_TALLY
+    const r = remoteTally.get(key) || EMPTY_TALLY
+    const kinds = []
+    for (const action of TALLY_ACTIONS) {
+      if (l[action] !== r[action]) {
+        kinds.push({ kind: action, label: TALLY_LABELS[action], local: l[action], remote: r[action] })
+      }
+    }
+    if (kinds.length === 0) continue
+    const word = localTally.get(key)?.word || remoteTally.get(key)?.word || key
+    tallyDiffs.push({ word, kinds })
+  }
+  tallyDiffs.sort((a, b) => a.word.localeCompare(b.word, 'en'))
+
   // 小文档：标签 / 目标 / 打印批次，整份 value_json 比对
   const kvMap = (snapshot) => {
     const view = tableView(snapshot, 'kv')
@@ -475,6 +523,7 @@ export function computeSyncDiff(localSnapshot, remoteSnapshot) {
       onlyRemoteCount: remoteOnlyWords.count, onlyRemoteSample: remoteOnlyWords.sample,
     },
     events: { local: activeEvents(localSnapshot), remote: activeEvents(remoteSnapshot) },
+    tally: { items: tallyDiffs.slice(0, TALLY_WORD_LIMIT), count: tallyDiffs.length },
     kv,
     sampleLimit: DIFF_SAMPLE_LIMIT,
   }

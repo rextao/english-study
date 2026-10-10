@@ -19,20 +19,18 @@
   touch-action: none;
 }
 
-/* ── HUD ─────────────────────────────────────── */
+/* ── HUD：纯定位容器，子元素各自绝对定位，不互相挤 ───── */
 .bh__hud {
   position: absolute;
-  top: calc(env(safe-area-inset-top) + 10px);
-  left: 12px;
-  right: 12px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
+  inset: 0;
   pointer-events: none;
 }
 
+/* 退出键：绝对定位左上角，唯一可点的 HUD 元素 */
 .bh__back {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 10px);
+  left: 12px;
   pointer-events: auto;
   padding: 7px 14px;
   border: 1px solid rgba(148, 163, 184, 0.28);
@@ -45,36 +43,111 @@
   cursor: pointer;
 }
 
-.bh__stats {
-  display: flex;
-  gap: 8px;
+/* 顶部居中：倒计时，大号等宽数字，最后 15 秒变红 */
+.bh__timer {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  color: #f1f5f9;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
 }
 
-.bh__stat {
+.bh__timer--warn {
+  color: #f87171;
+}
+
+/* 右侧：实时排行榜前 5（名次 + 人名 + 分数）——无背景 / 无边框，纯文字叠在画面上，靠描边保证可读 */
+.bh__board {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 10px);
+  right: 12px;
+  width: 208px;
+  max-width: 52vw;
+  pointer-events: none;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  min-width: 54px;
-  padding: 5px 10px;
-  border-radius: 12px;
-  background: rgba(15, 23, 42, 0.55);
+  gap: 4px;
+}
+
+.bh__board-row {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 14px;
+  color: #e2e8f0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 2px rgba(0, 0, 0, 0.7);
+}
+
+/* 玩家所在行：不加底色，用亮蓝加粗区分 */
+.bh__board-row--me {
+  color: #7dd3fc;
+  font-weight: 800;
+}
+
+.bh__board-rank {
+  flex: none;
+  width: 15px;
+  text-align: right;
+  color: #cbd5e1;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bh__board-row--me .bh__board-rank {
+  color: #7dd3fc;
+}
+
+.bh__board-name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bh__board-score {
+  flex: none;
+  color: #f1f5f9;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.bh__board-row--me .bh__board-score {
+  color: #7dd3fc;
+}
+
+/* ── 被咬闪动：居中醒目红色，淡入淡出约 0.9s ──── */
+.bh__bite {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  transform: translate(-50%, -50%);
+  padding: 12px 26px;
+  border-radius: 16px;
+  border: 1px solid rgba(248, 113, 113, 0.6);
+  background: rgba(127, 29, 29, 0.5);
+  color: #fecaca;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  pointer-events: none;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 0 28px rgba(248, 113, 113, 0.5);
+  animation: bh-bite 0.9s ease-out forwards;
 }
 
-.bh__stat-val {
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.1;
-}
-
-.bh__stat-key {
-  color: #94a3b8;
-  font-size: 11px;
-}
-
-.bh__stat--warn .bh__stat-val {
-  color: #f87171;
+@keyframes bh-bite {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+  18% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+  70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
 }
 
 /* ── 浮动摇杆 ─────────────────────────────────── */

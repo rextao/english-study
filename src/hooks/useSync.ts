@@ -102,6 +102,20 @@ export interface SyncWordSample {
   listName: string
 }
 
+/** 某个词在某种熟悉度（会拼 / 会读 / 知意）上两边的次数差异 */
+export interface SyncTallyKindDiff {
+  kind: 'spelling' | 'reading' | 'meaning'
+  label: string
+  local: number
+  remote: number
+}
+
+/** 一个词的熟悉度差异：只带两边不一致的那几项 */
+export interface SyncTallyWordDiff {
+  word: string
+  kinds: SyncTallyKindDiff[]
+}
+
 /** 本地 / 云端快照的「具体差异」，给设置页「查看差异」展示 */
 export interface SyncDiff {
   lists: {
@@ -117,6 +131,8 @@ export interface SyncDiff {
     onlyRemoteSample: SyncWordSample[]
   }
   events: { local: number; remote: number }
+  /** 会拼 / 会读 / 知意的逐词差异；count 为有差异的词总数，items 可能被截断 */
+  tally: { items: SyncTallyWordDiff[]; count: number }
   kv: { key: string; label: string }[]
   sampleLimit: number
 }
@@ -198,11 +214,25 @@ function toWordSample(value: unknown): SyncWordSample {
   return { word: str(o.word), listName: str(o.listName) }
 }
 
+const TALLY_KINDS = new Set(['spelling', 'reading', 'meaning'])
+
+function toTallyWord(value: unknown): SyncTallyWordDiff {
+  const o = (value ?? {}) as JsonBody
+  const kinds = arr(o.kinds)
+    .map(k => {
+      const kv = (k ?? {}) as JsonBody
+      return { kind: str(kv.kind), label: str(kv.label), local: num(kv.local), remote: num(kv.remote) }
+    })
+    .filter(k => TALLY_KINDS.has(k.kind)) as SyncTallyKindDiff[]
+  return { word: str(o.word), kinds }
+}
+
 /** 把服务端 /api/sync/diff 的返回收成界面用的结构，字段缺失时给安全默认值 */
 function parseDiff(body: JsonBody): SyncDiff {
   const lists = (body.lists ?? {}) as JsonBody
   const words = (body.words ?? {}) as JsonBody
   const events = (body.events ?? {}) as JsonBody
+  const tally = (body.tally ?? {}) as JsonBody
   return {
     lists: {
       onlyLocal: arr(lists.onlyLocal).map(toListInfo),
@@ -220,6 +250,10 @@ function parseDiff(body: JsonBody): SyncDiff {
       onlyRemoteSample: arr(words.onlyRemoteSample).map(toWordSample),
     },
     events: { local: num(events.local), remote: num(events.remote) },
+    tally: {
+      items: arr(tally.items).map(toTallyWord).filter(w => w.word && w.kinds.length > 0),
+      count: num(tally.count),
+    },
     kv: arr(body.kv).map(v => {
       const o = (v ?? {}) as JsonBody
       return { key: str(o.key), label: str(o.label) }

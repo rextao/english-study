@@ -5,6 +5,60 @@
 
 .study-alert { margin-bottom: 16px; }
 
+/* 操作结果浮层：固定在右下角，点一次弹一次、自动消失；pointer-events:none 不挡下面的按钮 */
+.study-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2000;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  box-shadow: var(--shadow-lg);
+  line-height: 1.5;
+  pointer-events: none;
+  animation: study-toast-in .2s ease-out, study-toast-out .35s ease-in forwards;
+}
+/* 桌面（web 端）只显示成功 / 失败符号，文案隐藏 */
+.study-toast__icon { font-size: 24px; font-weight: 700; line-height: 1; }
+.study-toast__text { display: none; }
+.study-toast--ok  { border-color: #b7ebd2; background: #f4fdf8; color: #067a4d; animation-delay: 0s, 2.25s; }
+.study-toast--err { border-color: #fbd5d5; background: #fff7f7; color: #b42318; animation-delay: 0s, 4.6s; }
+
+@keyframes study-toast-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes study-toast-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(12px); }
+}
+
+@media (max-width: 640px) {
+  /* 手机端恢复成底部横条，符号 + 文案一起显示 */
+  .study-toast {
+    right: 12px;
+    left: 12px;
+    bottom: 12px;
+    width: auto;
+    height: auto;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 11px 16px;
+    border-radius: var(--radius-lg);
+  }
+  .study-toast__icon { font-size: 16px; }
+  .study-toast__text { display: inline; font-size: 14px; font-weight: 500; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .study-toast { animation: none; }
+}
+
 /* 标题固定在卡片左上角，学习列表与卡片版式两个下拉在右 */
 .study-start__head {
   display: flex;

@@ -198,6 +198,52 @@
   box-shadow: 0 0 0 3px var(--color-primary-soft);
 }
 
+/* 设置齿轮 + 右侧云端提示的定位容器：提示绝对定位挂在齿轮右边，不占据排版空间 */
+.nav__settings {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+/* 云端有更新：绝对定位在齿轮右侧的小提示胶囊，一个会呼吸的小圆点 + 文字，点一下跳设置页同步 */
+.nav__sync-tip {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 8px);
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, box-shadow .15s;
+}
+
+.nav__sync-tip:hover { color: var(--color-text); border-color: var(--color-border-strong); }
+.nav__sync-tip:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+
+.nav__sync-tip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  box-shadow: 0 0 0 0 rgba(37, 99, 235, .5);
+  animation: nav-sync-tip-pulse 2.4s ease-out infinite;
+}
+
+@keyframes nav-sync-tip-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, .5); }
+  70%, 100% { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0); }
+}
+
 /* 单独一层负责裁剪高光，这样按钮本体不用 overflow:hidden，光晕才能溢出 */
 .nav__cta-shine {
   position: absolute;
@@ -278,6 +324,14 @@
   .nav__cta { padding: 7px 12px; font-size: 12px; }
   .nav__cta::before { inset: -3px -4px; filter: blur(7px); opacity: .42; }
   .nav__cta-icon { font-size: 11px; }
+  /* 窄屏只留小圆点，省横向空间（完整文案仍在 title / aria-label 里）；
+     挪到齿轮左侧，避免绝对定位时顶出屏幕右缘 */
+  .nav__sync-tip {
+    left: auto;
+    right: calc(100% + 6px);
+    padding: 5px;
+  }
+  .nav__sync-tip-label { display: none; }
 }
 
 /* 系统开了减少动效就只留静态渐变，不闪不扫 */
@@ -289,4 +343,8 @@
   .nav__cta { background-position: 50% 50%; }
   .nav__cta-shine { display: none; }
   .nav__cta:hover { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav__sync-tip-dot { animation: none; }
 }

@@ -15,7 +15,7 @@
     "ecdict:build": "node scripts/ecdict-build.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "dev:mobile": "vite --config mobile/vite.config.ts",
+    "dev:mobile": "VITE_SYNC_BASE=https://english-study-mobile.rextao666.workers.dev vite --config mobile/vite.config.ts",
     "build:mobile": "tsc --noEmit -p mobile/tsconfig.json && vite build --config mobile/vite.config.ts",
     "preview:mobile": "vite preview --config mobile/vite.config.ts",
     "deploy:mobile": "bash scripts/deploy-mobile.sh"

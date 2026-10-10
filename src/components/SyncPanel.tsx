@@ -8,6 +8,8 @@ interface SyncPanelProps {
   sync: SyncApi
   /** 每变一次（且 >0）就自动展开并拉一次差异；顶部提示条点「详情」时递增 */
   diffTick?: number
+  /** 从云端拉取覆盖本地成功后，通知上层刷新列表 / 计划 / 标签 */
+  onApplied?: () => void
 }
 
 type ConfigField = 'url' | 'token' | 'deviceLabel'
@@ -56,28 +58,23 @@ function SummaryCard({ title, summary, extra }: {
   )
 }
 
-/** 列表 / 词条样本等差异明细：没有任何差异时给一句「两边一致」 */
+/** 熟悉度（会拼 / 会读 / 知意）等差异明细：没有任何差异时给一句「两边一致」 */
 function DiffDetails({ diff }: { diff: SyncDiff }) {
-  const { lists, words, events, kv, sampleLimit } = diff
-  const hasListDiff = lists.onlyLocal.length > 0 || lists.onlyRemote.length > 0 || lists.renamed.length > 0
-  const hasWordDiff = words.onlyLocalCount > 0 || words.onlyRemoteCount > 0
+  const { events, kv, tally } = diff
   const hasEventDiff = events.local !== events.remote
+  const hasTallyDiff = tally.count > 0 || tally.items.length > 0
   const hasKvDiff = kv.length > 0
-  const anyDiff = hasListDiff || hasWordDiff || hasEventDiff || hasKvDiff
+  const anyDiff = hasEventDiff || hasTallyDiff || hasKvDiff
 
-  const renderSample = (
-    sample: { word: string; listName: string }[],
-    count: number,
-  ) => (
-    <div className="sync-diff__samples">
-      {sample.map((s, i) => (
-        <Tag key={s.listName + '/' + s.word + '/' + i} color="default">
-          {s.word}
-          {s.listName && <span className="sync-diff__sample-list">（{s.listName}）</span>}
-        </Tag>
-      ))}
-      {count > sample.length && <span className="sync-diff__more">等 {count} 个</span>}
-    </div>
+  // 熟悉度差异拍平成一行一项：同一个词的会拼 / 会读 / 知意各占一行，
+  // firstOfWord 只在该词第一行为 true，用于合并显示单词列、避免重复
+  const tallyRows = tally.items.flatMap(item =>
+    item.kinds.map((k, i) => ({
+      ...k,
+      word: item.word,
+      rowKey: item.word + '/' + k.kind,
+      firstOfWord: i === 0,
+    })),
   )
 
   if (!anyDiff) {
@@ -87,53 +84,34 @@ function DiffDetails({ diff }: { diff: SyncDiff }) {
   return (
     <div className="sync-diff__body">
       <div className="sync-diff__group">
-        <div className="sync-diff__group-title">学习列表</div>
-        {!hasListDiff ? (
-          <p className="hint">两边列表一致（共 {lists.both} 个）。</p>
+        <div className="sync-diff__group-title">熟悉度（会拼 / 会读 / 知意）</div>
+        {!hasTallyDiff ? (
+          <p className="hint">两边会拼 / 会读 / 知意次数一致。</p>
         ) : (
           <>
-            {lists.onlyLocal.length > 0 && (
-              <p className="sync-diff__line">
-                <Tag color="gold">本地独有</Tag>
-                {lists.onlyLocal.map(l => l.name + '（' + l.wordCount + ' 词）').join('、')}
-              </p>
+            <table className="sync-diff__table">
+              <thead>
+                <tr>
+                  <th>单词</th>
+                  <th>类型</th>
+                  <th>本地</th>
+                  <th>云端</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tallyRows.map(row => (
+                  <tr key={row.rowKey}>
+                    <td className="sync-diff__table-word">{row.firstOfWord ? row.word : ''}</td>
+                    <td>{row.label}</td>
+                    <td className={row.local !== row.remote ? 'sync-diff__table-diff' : undefined}>{row.local}</td>
+                    <td className={row.local !== row.remote ? 'sync-diff__table-diff' : undefined}>{row.remote}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {tally.count > tally.items.length && (
+              <p className="hint">共 {tally.count} 个词有差异，上面只列了 {tally.items.length} 个。</p>
             )}
-            {lists.onlyRemote.length > 0 && (
-              <p className="sync-diff__line">
-                <Tag color="blue">云端独有</Tag>
-                {lists.onlyRemote.map(l => l.name + '（' + l.wordCount + ' 词）').join('、')}
-              </p>
-            )}
-            {lists.renamed.map(r => (
-              <p className="sync-diff__line" key={r.id}>
-                <Tag color="default">改名</Tag>
-                本地「{r.localName}」↔ 云端「{r.remoteName}」
-              </p>
-            ))}
-            <p className="hint">两边共有 {lists.both} 个列表。</p>
-          </>
-        )}
-      </div>
-
-      <div className="sync-diff__group">
-        <div className="sync-diff__group-title">词条</div>
-        {!hasWordDiff ? (
-          <p className="hint">两边词条一致。</p>
-        ) : (
-          <>
-            {words.onlyLocalCount > 0 && (
-              <div className="sync-diff__line sync-diff__line--block">
-                <Tag color="gold">本地独有 {words.onlyLocalCount} 个词条</Tag>
-                {renderSample(words.onlyLocalSample, words.onlyLocalCount)}
-              </div>
-            )}
-            {words.onlyRemoteCount > 0 && (
-              <div className="sync-diff__line sync-diff__line--block">
-                <Tag color="blue">云端独有 {words.onlyRemoteCount} 个词条</Tag>
-                {renderSample(words.onlyRemoteSample, words.onlyRemoteCount)}
-              </div>
-            )}
-            <p className="hint">每侧最多列 {sampleLimit} 个样本，其余只给数量。</p>
           </>
         )}
       </div>
@@ -162,7 +140,7 @@ function DiffDetails({ diff }: { diff: SyncDiff }) {
   )
 }
 
-export function SyncPanel({ sync, diffTick }: SyncPanelProps) {
+export function SyncPanel({ sync, diffTick, onApplied }: SyncPanelProps) {
   const { config, status, busy, actionError, checking, saveConfig, push, pull, recheck, diff } = sync
   const [urlDraft, setUrlDraft] = useState('')
   const [tokenDraft, setTokenDraft] = useState('')
@@ -188,6 +166,12 @@ export function SyncPanel({ sync, diffTick }: SyncPanelProps) {
       return
     }
     setDiffData(result.diff)
+  }
+
+  /** 「重新检查」= 刷新本地/云端摘要 + 立刻拉一次具体差异，有差异就直接列出来 */
+  async function handleRecheck() {
+    recheck()
+    await loadDiff()
   }
 
   // 顶部提示条点「详情」会让 diffTick 递增：自动拉一次差异并滚到差异区
@@ -216,11 +200,13 @@ export function SyncPanel({ sync, diffTick }: SyncPanelProps) {
     setPullHint(result.needsForce
       ? '云端快照是空的，拉取会清空本地数据。请点击下面的按钮确认。'
       : '')
+    if (result.ok) onApplied?.()
   }
 
   async function handlePullForce() {
-    await pull(true)
+    const result = await pull(true)
     setPullHint('')
+    if (result.ok) onApplied?.()
   }
 
   return (
@@ -229,70 +215,6 @@ export function SyncPanel({ sync, diffTick }: SyncPanelProps) {
         <p className="hint">
           把学习数据存到云端（Cloudflare D1），手机端以后就能读到桌面端的学习记录。页面不部署到云端，数据只存在云端数据库里。
         </p>
-      </div>
-
-      <div className="sync-form">
-        <div className="sync-form__row">
-          <label className="field-label sync-form__label" htmlFor="sync-url">云端地址</label>
-          <Input
-            id="sync-url"
-            size="small"
-            value={urlDraft}
-            placeholder={config && config.url ? '已配置 ' + config.url + '，输入新的覆盖' : '部署 Worker 后拿到的 https://... 地址'}
-            onChange={e => setUrlDraft(e.target.value)}
-            onPressEnter={handleSave}
-            spellCheck={false}
-          />
-        </div>
-        <div className="sync-form__row">
-          <label className="field-label sync-form__label" htmlFor="sync-token">同步令牌</label>
-          <Input
-            id="sync-token"
-            size="small"
-            value={tokenDraft}
-            placeholder={
-              config && config.hasToken
-                ? '已配置 ' + config.tokenHint + '，输入新的覆盖'
-                : 'wrangler secret put SYNC_TOKEN 设置的令牌'
-            }
-            onChange={e => setTokenDraft(e.target.value)}
-            onPressEnter={handleSave}
-            spellCheck={false}
-          />
-        </div>
-        <div className="sync-form__row">
-          <label className="field-label sync-form__label" htmlFor="sync-device">设备名</label>
-          <Input
-            id="sync-device"
-            size="small"
-            value={deviceDraft}
-            placeholder={config && config.deviceLabel ? '已配置「' + config.deviceLabel + '」' : '给这台机器起个名字，推送后能分辨是谁传的'}
-            onChange={e => setDeviceDraft(e.target.value)}
-            onPressEnter={handleSave}
-            spellCheck={false}
-          />
-        </div>
-        <div className="sync-form__actions">
-          <Button
-            type="primary"
-            size="small"
-            disabled={!urlDraft.trim() && !tokenDraft.trim() && !deviceDraft.trim()}
-            onClick={() => { void handleSave() }}
-          >
-            保存
-          </Button>
-          {configured && (
-            <Button size="small" onClick={() => { void saveConfig({ url: null }) }}>
-              清除云端地址
-            </Button>
-          )}
-        </div>
-        <p className="hint sync-form__hint">
-          令牌存在本机 cache/sync-keys.json（不进 git），也可以写在 .env.local 的
-          SYNC_WORKER_URL / SYNC_WORKER_TOKEN / SYNC_DEVICE_LABEL 里，页面配置优先。
-          同步由本地服务发起，浏览器不直连云端，令牌不会暴露给页面。
-        </p>
-        {actionError && <div className="callout callout--error sync-form__error">{actionError}</div>}
       </div>
 
       {configured ? (
@@ -335,11 +257,8 @@ export function SyncPanel({ sync, diffTick }: SyncPanelProps) {
             >
               <Button size="small" loading={busy === 'pull'} disabled={busy !== null}>从云端拉取</Button>
             </Popconfirm>
-            <Button size="small" loading={checking} onClick={() => { recheck() }}>
+            <Button size="small" loading={checking || diffLoading} onClick={() => { void handleRecheck() }}>
               重新检查
-            </Button>
-            <Button size="small" loading={diffLoading} onClick={() => { void loadDiff() }}>
-              查看具体差异
             </Button>
           </div>
 
@@ -376,9 +295,77 @@ export function SyncPanel({ sync, diffTick }: SyncPanelProps) {
         </>
       ) : (
         <div className="callout callout--warn sync-not-configured">
-          还没配置云端同步地址。填上面的「云端地址」和「同步令牌」并保存后，就能在多台设备之间同步学习数据了。
+          还没配置云端同步地址。填下面的「云端地址」和「同步令牌」并保存后，就能在多台设备之间同步学习数据了。
         </div>
       )}
+
+      {/* 云端地址 / 令牌 / 设备名：配置一次后基本不再改，放在最下面不挡日常同步操作 */}
+      <div className="sync-config">
+        <div className="sync-config__title">云端地址配置</div>
+        <div className="sync-form">
+          <div className="sync-form__row">
+            <label className="field-label sync-form__label" htmlFor="sync-url">云端地址</label>
+            <Input
+              id="sync-url"
+              size="small"
+              value={urlDraft}
+              placeholder={config && config.url ? '已配置 ' + config.url + '，输入新的覆盖' : '部署 Worker 后拿到的 https://... 地址'}
+              onChange={e => setUrlDraft(e.target.value)}
+              onPressEnter={handleSave}
+              spellCheck={false}
+            />
+          </div>
+          <div className="sync-form__row">
+            <label className="field-label sync-form__label" htmlFor="sync-token">同步令牌</label>
+            <Input
+              id="sync-token"
+              size="small"
+              value={tokenDraft}
+              placeholder={
+                config && config.hasToken
+                  ? '已配置 ' + config.tokenHint + '，输入新的覆盖'
+                  : 'wrangler secret put SYNC_TOKEN 设置的令牌'
+              }
+              onChange={e => setTokenDraft(e.target.value)}
+              onPressEnter={handleSave}
+              spellCheck={false}
+            />
+          </div>
+          <div className="sync-form__row">
+            <label className="field-label sync-form__label" htmlFor="sync-device">设备名</label>
+            <Input
+              id="sync-device"
+              size="small"
+              value={deviceDraft}
+              placeholder={config && config.deviceLabel ? '已配置「' + config.deviceLabel + '」' : '给这台机器起个名字，推送后能分辨是谁传的'}
+              onChange={e => setDeviceDraft(e.target.value)}
+              onPressEnter={handleSave}
+              spellCheck={false}
+            />
+          </div>
+          <div className="sync-form__actions">
+            <Button
+              type="primary"
+              size="small"
+              disabled={!urlDraft.trim() && !tokenDraft.trim() && !deviceDraft.trim()}
+              onClick={() => { void handleSave() }}
+            >
+              保存
+            </Button>
+            {configured && (
+              <Button size="small" onClick={() => { void saveConfig({ url: null }) }}>
+                清除云端地址
+              </Button>
+            )}
+          </div>
+          <p className="hint sync-form__hint">
+            令牌存在本机 cache/sync-keys.json（不进 git），也可以写在 .env.local 的
+            SYNC_WORKER_URL / SYNC_WORKER_TOKEN / SYNC_DEVICE_LABEL 里，页面配置优先。
+            同步由本地服务发起，浏览器不直连云端，令牌不会暴露给页面。
+          </p>
+          {actionError && <div className="callout callout--error sync-form__error">{actionError}</div>}
+        </div>
+      </div>
     </section>
   )
 }

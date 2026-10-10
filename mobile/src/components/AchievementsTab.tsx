@@ -73,6 +73,8 @@ export default function AchievementsTab({ achievements, labels, onTally }: Props
         <input
           className="field__input"
           type="text"
+          // 默认弹英文输入法：lang="en" 覆盖页面级 zh-CN，让手机键盘优先切到英文（仍可手动切回中文筛释义）
+          lang="en"
           inputMode="search"
           autoCapitalize="off"
           autoCorrect="off"

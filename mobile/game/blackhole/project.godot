@@ -1,0 +1,26 @@
+; Engine configuration file.
+; Godot 4 工程 —— 黑洞吞噬 Black Hole（从 React/Canvas 版移植）。
+; 升级到更新的 Godot 打开时会自动迁移；核心兼容 Godot 4.x（config_version=5）。
+
+config_version=5
+
+[application]
+
+config/name="黑洞2"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=1080
+window/size/viewport_height=1920
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=1
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+

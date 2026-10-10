@@ -21,6 +21,15 @@ import GamesTab from './games/GamesTab'
 type LoadState = 'loading' | 'ready' | 'error'
 type Tab = 'study' | 'games'
 
+/**
+ * kiosk 路由判定：hash 命中 '#/play'（兼容 '#play'）时进入「游戏中心」整屏模式。
+ * 抽成纯函数，初始化 state 和 hashchange 回调复用同一套判定。
+ */
+function isKioskHash(): boolean {
+  const hash = window.location.hash
+  return hash === '#/play' || hash === '#play'
+}
+
 export default function App() {
   const [config, setConfig] = useState<SyncConfig | null>(() => readConfig())
   const [editing, setEditing] = useState(false)
@@ -30,6 +39,8 @@ export default function App() {
   const [saveError, setSaveError] = useState('')
   // 底部 tab：学习成果 / 游戏。游戏不依赖云端数据，独立于同步状态
   const [tab, setTab] = useState<Tab>('study')
+  // kiosk 整屏模式：命中 '#/play' 路由时只放游戏中心，无头部、无底部 tab、无回首页入口
+  const [kiosk, setKiosk] = useState<boolean>(() => isKioskHash())
   // 当前内存里的整库快照：加减直接改它，是写回云端的唯一真相
   const snapshotRef = useRef<Snapshot | null>(null)
   // 推送协调：busy 时只更新 pending，推完再把最新的一份推上去，避免并发覆盖
@@ -88,6 +99,15 @@ export default function App() {
     if (config && !editing) void load(config)
   }, [config, editing, load])
 
+  // 监听 hash 变化实时切换 kiosk 模式；StrictMode 下 effect 会跑两次，必须成对清理监听
+  useEffect(() => {
+    const onHashChange = () => setKiosk(isKioskHash())
+    window.addEventListener('hashchange', onHashChange)
+    // 挂载时再对齐一次，防止 state 初始化后到绑定监听之间 hash 已经变过
+    setKiosk(isKioskHash())
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
+
   function handleSaved(next: SyncConfig) {
     writeConfig(next)
     setConfig(next)
@@ -97,6 +117,17 @@ export default function App() {
   // 游戏 tab 完全独立于云端同步：没配过同步也能直接从底部栏进来玩。
   // 只有「学习成果」tab 需要先配置同步，此时把配置页内嵌进主区域，底部栏始终在。
   const needsSetup = !config || editing
+
+  // kiosk 模式：顶层提前 return，只渲染游戏中心，不出现头部 / 底部 tab / 任何回首页入口。
+  // GamesTab 内部「选游戏 → 玩 → onExit 回列表」照常，用户出不去到学习首页即可。
+  if (kiosk) {
+    return (
+      <div className="app app--kiosk">
+        <div className="app--kiosk__title">游戏中心</div>
+        <GamesTab />
+      </div>
+    )
+  }
 
   return (
     <div className="app">

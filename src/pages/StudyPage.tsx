@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { PageHeader } from '../components/PageHeader'
 import { StudyGoal } from '../components/StudyGoal'
 import { Button, Checkbox, Input, Modal, Popconfirm, Select } from '../ui'
@@ -204,8 +204,24 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
   const [layout, setLayout]             = useState(LAYOUTS[0].value)
   const [busy, setBusy]                 = useState<BusyKind>('')
   const [progress, setProgress]         = useState<{ done: number; total: number } | null>(null)
-  const [notice, setNotice]             = useState('')
-  const [error, setError]               = useState('')
+  /** 右下角操作结果浮层：每次操作都弹一次（文案相同也靠自增 id 重新播放动画），成功 2.6s / 失败 5s 后自动消失 */
+  const [toast, setToast]               = useState<{ kind: 'ok' | 'err'; text: string; id: number } | null>(null)
+  const toastSeq   = useRef(0)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  function showToast(kind: 'ok' | 'err', text: string) {
+    if (!text) return
+    const id = ++toastSeq.current
+    setToast({ kind, text, id })
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => {
+      setToast(cur => (cur && cur.id === id ? null : cur))
+    }, kind === 'err' ? 5000 : 2600)
+  }
+  // 清理：卸载时把挂着的定时器取消，避免对已卸载组件 setState
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current) }, [])
+  /** 沿用 setNotice / setError 两个老名字当语义糖：成功走绿、失败走红、空串当「不弹」 */
+  const setNotice = (text: string) => showToast('ok', text)
+  const setError  = (text: string) => showToast('err', text)
   const [reloadToken, setReloadToken]   = useState(0)
   /** 批次显示名：与学习列表共用同一份（按 addedAt 自然日分组），学习列表改名这里同步 */
   const [batchNames, setBatchNames]     = useState<Record<string, string>>({})
@@ -670,7 +686,7 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
         requestId: newRequestId(item, action),
       })
       if (!result.ok) {
-        setError(displayText + ' 操作失败：' + result.error)
+        setError(displayText + ' 保存失败：' + result.error)
         return
       }
       if (action === 'spelling') setNotice(displayText + ' 已记一次会拼（不影响复习轮次）。')
@@ -717,8 +733,17 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
     <div className="page page--wide study-page">
       <PageHeader title="英语学习" />
 
-      {error && <div className="callout callout--error study-alert">{error}</div>}
-      {notice && <div className="callout callout--success study-alert">{notice}</div>}
+      {toast && (
+        <div
+          key={toast.id}
+          className={'study-toast study-toast--' + (toast.kind === 'err' ? 'err' : 'ok')}
+          role="status"
+          aria-live="polite"
+        >
+          <span className="study-toast__icon" aria-hidden="true">{toast.kind === 'err' ? '\u2715' : '\u2713'}</span>
+          <span className="study-toast__text">{toast.text}</span>
+        </div>
+      )}
 
       <StudyGoal
         libraries={libraries}

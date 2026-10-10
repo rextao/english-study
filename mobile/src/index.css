@@ -54,6 +54,34 @@ body {
   padding-bottom: calc(24px + env(safe-area-inset-bottom));
 }
 
+/* ── kiosk 整屏：游戏中心独占页，无底部 tab 预留、无头部 ─────────── */
+.app--kiosk {
+  /* 覆盖 .app 给底部 tab 栏预留的空白：kiosk 下没有 tab 栏 */
+  min-height: 100%;
+  padding: 16px 16px 0;
+  /* 避让刘海与底部安全区，但不为 tab 栏多留 76px */
+  padding-top: calc(16px + env(safe-area-inset-top));
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  gap: 14px;
+}
+
+.app--kiosk__title {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* 游戏列表限宽居中，和主界面主区域对齐 */
+.app--kiosk .games {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
 .app__card {
   width: 100%;
   max-width: 420px;

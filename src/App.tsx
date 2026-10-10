@@ -76,6 +76,11 @@ export default function App() {
         onChange={setTab}
         totalItems={totalItems}
         dueToday={plan.dueCount}
+        syncTip={sync.state === 'remote-ahead' ? {
+          title: '云端有更新的学习数据（' + (sync.status?.remote?.wordCount ?? 0) + ' 个词条'
+            + (sync.status?.remote?.deviceLabel ? '，来自「' + sync.status.remote.deviceLabel + '」' : '') + '）',
+          onClick: () => goToSync(true),
+        } : null}
       />
 
       {(study.offline || labelsOffline) && (
@@ -86,7 +91,7 @@ export default function App() {
         </div>
       )}
 
-      <SyncNotice sync={sync} onApplied={handleSyncApplied} onNavigateToSync={goToSync} />
+      <SyncNotice sync={sync} onNavigateToSync={goToSync} />
 
       <main>
         {tab === 'search' && (
@@ -118,6 +123,7 @@ export default function App() {
             section={settingsSection}
             onSectionChange={setSettingsSection}
             syncDiffTick={syncDiffTick}
+            onSyncApplied={handleSyncApplied}
           />
         )}
         {tab === 'study' && (

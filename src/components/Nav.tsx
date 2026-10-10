@@ -29,9 +29,11 @@ interface NavProps {
   totalItems: number
   /** 今天要复习的词数，显示在「英语学习」入口的角标上 */
   dueToday: number
+  /** 云端有更新时在标题栏显示的小提示；点一下跳到设置页数据同步。null = 不显示 */
+  syncTip?: { title: string; onClick: () => void } | null
 }
 
-export function Nav({ active, onChange, totalItems, dueToday }: NavProps) {
+export function Nav({ active, onChange, totalItems, dueToday, syncTip }: NavProps) {
   const visibleActive = active === 'records' ? 'achievements' : active
 
   return (
@@ -71,20 +73,36 @@ export function Nav({ active, onChange, totalItems, dueToday }: NavProps) {
           <span className="nav__cta-shine" aria-hidden="true" />
           <span className="nav__cta-icon" aria-hidden="true">⚡</span>
           <span className="nav__cta-label">英语学习</span>
-          {dueToday > 0 && <span className="nav__cta-badge">{dueToday}</span>}
+        {dueToday > 0 && <span className="nav__cta-badge">{dueToday}</span>}
         </button>
 
-        {/* 设置：齿轮图标按钮，待在英语学习右侧，不进分段控件 */}
-        <button
-          type="button"
-          className={'nav__icon-btn' + (active === 'settings' ? ' nav__icon-btn--active' : '')}
-          aria-current={active === 'settings' ? 'page' : undefined}
-          aria-label="设置"
-          title="设置"
-          onClick={() => onChange('settings')}
-        >
-          {gearIcon}
-        </button>
+        {/* 设置：齿轮图标按钮，待在英语学习右侧，不进分段控件；
+            「云端有更新」小提示绝对定位挂在齿轮右边，显示与否都不挤动布局 */}
+        <div className="nav__settings">
+          <button
+            type="button"
+            className={'nav__icon-btn' + (active === 'settings' ? ' nav__icon-btn--active' : '')}
+            aria-current={active === 'settings' ? 'page' : undefined}
+            aria-label="设置"
+            title="设置"
+            onClick={() => onChange('settings')}
+          >
+            {gearIcon}
+          </button>
+
+          {syncTip && (
+            <button
+              type="button"
+              className="nav__sync-tip"
+              title={syncTip.title}
+              aria-label={syncTip.title}
+              onClick={syncTip.onClick}
+            >
+              <span className="nav__sync-tip-dot" aria-hidden="true" />
+              <span className="nav__sync-tip-label">云端有更新</span>
+            </button>
+          )}
+        </div>
       </div>
     </nav>
   )
