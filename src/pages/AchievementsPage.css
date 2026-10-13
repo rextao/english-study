@@ -85,17 +85,13 @@
 .achievements-table__word {
   display: block;
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .achievements-table__tags {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-}
-
-.achievements-table__none {
-  color: var(--color-text-subtle);
-  font-size: 12px;
 }
 
 .achievements-table .achievements-table__number {
@@ -110,10 +106,102 @@
 
 .achievements-page .page-header__actions { align-self: center; }
 
+/* 手机端排序按钮组：桌面端排序都在表头，这排按钮平时不占地方 */
+.achievements-sort { display: none; }
+.achievements-sort__arrow {
+  font-size: 11px;
+  line-height: 1;
+  opacity: 0.55;
+}
+
 @media (max-width: 720px) {
-  .achievements-filter { align-items: stretch; flex-wrap: wrap; }
-  .achievements-filter .field-label { flex-basis: 100%; }
-  .achievements-filter__select { flex: 1; width: auto; min-width: 180px; }
- .achievements-table-wrap { overflow-x: auto; }
+  /* 筛选模块去边框，变成纯工具条：不显示「按词库筛选」文案，下拉框和结果数同一行 */
+  .achievements-filter {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 12px;
+    margin-bottom: 12px;
+    padding: 0;
+    border: none;
+    background: none;
+    box-shadow: none;
+  }
+  .achievements-filter .field-label { display: none; }
+  .achievements-filter__select { flex: 1; width: auto; min-width: 160px; }
+  .achievements-table-wrap { overflow-x: auto; }
   .achievements-table { min-width: 760px; }
+  .achievements-sort {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 4px;
+    flex-basis: 100%;
+  }
+  /* 五个排序按钮均分整行宽度，窄屏也不换行 */
+  .achievements-sort .ui-btn {
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
+    padding: 4px 4px;
+    gap: 2px;
+    white-space: nowrap;
+  }
+  .achievements-sort__arrow { font-size: 10px; }
+  .achievements-filter__result { margin-left: auto; }
+
+  /* 表格转紧凑列表：一行一词，词库标签独占一行，四个次数横排；去边框，模块之间只用分割线 */
+  .achievements-table-wrap { overflow: visible; padding: 4px; }
+  .achievements-table { min-width: 0; }
+  .achievements-table thead { display: none; }
+  .achievements-table,
+  .achievements-table tbody { display: block; }
+  .achievements-table__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    padding: 12px 14px;
+    box-shadow: inset 0 -1px 0 var(--color-border);
+  }
+  .achievements-table__row:last-child { box-shadow: none; }
+  .achievements-table__row:hover { background: var(--color-surface-sunken); }
+  .achievements-table__row td {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: none;
+  }
+  .achievements-table__row td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    color: var(--color-text-subtle);
+    font-size: 11px;
+    font-weight: 500;
+  }
+  /* 第一行：单词在左，词库标签贴在右上，长单词换行不省略 */
+  .achievements-table__cell-word { flex: 1 1 calc(60% - 5px); min-width: 0; }
+  .achievements-table__cell-word .achievements-table__word {
+    font-size: 15px;
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+  /* 词库标签固定在右上角，标签多时在右半区换行，不挤压单词 */
+  .achievements-table__libs {
+    flex: 0 0 calc(40% - 5px);
+    min-width: 0;
+    align-self: flex-start;
+    padding-top: 1px;
+  }
+  .achievements-table__libs .achievements-table__tags { justify-content: flex-end; }
+  /* 第二行：四个次数均分整行，不再和单词挤在一起 */
+  .achievements-table .achievements-table__number {
+    flex: 1 1 calc(25% - 8px);
+    min-width: 0;
+    width: auto;
+    justify-content: center;
+  }
 }

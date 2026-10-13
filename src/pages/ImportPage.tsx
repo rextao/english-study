@@ -24,7 +24,7 @@ const MAX_PICKED_TRANSLATIONS = 12
 /** 与服务端 MAX_CUSTOM_TRANSLATIONS 一致：一个词最多 6 条自定义词义 */
 const MAX_CUSTOM_TRANSLATIONS = 6
 
-const SERVER = 'http://127.0.0.1:3456'
+import { apiFetch } from '../utils/apiBase'
 
 type RowState = 'keep' | 'filtered' | 'dup-text' | 'dup-list'
 
@@ -64,6 +64,45 @@ function capitalizeSentence(input: string): string {
   return input.trim().replace(/\s+/g, ' ').replace(/[A-Za-z]/, letter => letter.toUpperCase())
 }
 
+/** 从自定义分组键 b:时间戳-随机 里取出时间戳，用于把分组按新建时间倒序排 */
+const batchKeyTs = (key: string): number => {
+  const m = /^b:(\d+)-/.exec(key)
+  return m ? Number(m[1]) : 0
+}
+
+/** 词条加入时间 → 自然日分组键，形如 2026-10-12（本地时区），与学习列表分组键一致 */
+const dayBatchKey = (ts: number): string => {
+  const d = new Date(ts)
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return d.getFullYear() + '-' + mm + '-' + dd
+}
+
+/** 分组键是不是自然日（否则就是自定义分组 b:...） */
+const isDateKey = (key: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(key)
+
+/** 自然日分组键 → 当天 0 点时间戳，用于按时间排序 */
+const dateKeyTs = (key: string): number => {
+  const [y, m, d] = key.split('-').map(Number)
+  return new Date(y, m - 1, d).getTime()
+}
+
+/** 分组下拉里一个键显示成什么：自定义名 > 自然日（今天/昨天标注）> 自定义分组 */
+function batchKeyLabel(key: string, names: Record<string, string>): string {
+  if (names[key]) return names[key]
+  if (!isDateKey(key)) return '自定义分组'
+  const [y, m, d] = key.split('-').map(Number)
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  const that = new Date(y, m - 1, d).getTime()
+  const diff = Math.round((now.getTime() - that) / 86400000)
+  const sameYear = y === now.getFullYear()
+  const base = sameYear ? (m + ' 月 ' + d + ' 日') : (y + ' 年 ' + m + ' 月 ' + d + ' 日')
+  if (diff === 0) return base + '（今天）'
+  if (diff === 1) return base + '（昨天）'
+  return base
+}
+
 /** 把句子拆成单词，用来判断句子里有没有某个词库的词 */
 function tokenize(key: string): string[] {
   return key
@@ -98,21 +137,20 @@ interface ImportPageProps {
   libraries: VocabLibrary[]
   getLabelById: (id: string) => string
   study: StudyListApi
+  /** 点「+ 新建列表」跳到设置页的学习列表分区统一管理 */
+  onManageLists: () => void
   /** 嵌入查词页时不画自己的 .page 容器和标题，由查词页提供版式 */
   embedded?: boolean
 }
 
-export function ImportPage({ libraries, getLabelById, study, embedded }: ImportPageProps) {
-  const { lists, createList, importItems, fetchListWords } = study
+export function ImportPage({ libraries, getLabelById, study, onManageLists, embedded }: ImportPageProps) {
+  const { lists, importItems, fetchListWords, fetchBatches } = study
   const { getSourceIds } = useVocabMatch(libraries)
 
   const [text, setText]                 = useState('')
   const [filterLibId, setFilterLibId]   = useState<string>(NO_FILTER)
   const [keepSentences, setKeepSentences] = useState(false)
   const [targetList, setTargetList]     = useState('default')
-  const [adding, setAdding]             = useState(false)
-  const [newListName, setNewListName]   = useState('')
-  const [creating, setCreating]         = useState(false)
   const [importing, setImporting]       = useState(false)
   const [result, setResult]             = useState<{ added: number; skipped: number; queued: number; suspect: number } | null>(null)
   const [error, setError]               = useState('')
@@ -122,7 +160,13 @@ export function ImportPage({ libraries, getLabelById, study, embedded }: ImportP
   const [pickerEntries, setPickerEntries] = useState<Map<string, DictionaryEntry>>(new Map())
   const [pickerErrors, setPickerErrors]   = useState<Map<string, string>>(new Map())
   const [pickerSelected, setPickerSelected] = useState<Map<string, string[]>>(new Map())
-  const [pickerTargetList, setPickerTargetList] = useState('default')
+  // 分组选择：默认今天的自然日分组键；也可选任意已有分组（自然日或自定义 b:...）
+  const [batchChoice, setBatchChoice] = useState(() => dayBatchKey(Date.now()))
+  const [batchNames, setBatchNames] = useState<Record<string, string>>({})
+  const [listBatchKeys, setListBatchKeys] = useState<Set<string>>(new Set())
+  const [addingBatch, setAddingBatch] = useState(false)
+  const [newBatchName, setNewBatchName] = useState('')
+  const [pendingBatch, setPendingBatch] = useState<{ key: string; name: string } | null>(null)
   const [pickerOpen, setPickerOpen]     = useState(false)
   const [pickerSaving, setPickerSaving] = useState(false)
   const [pickerCustoms, setPickerCustoms] = useState<Map<string, string[]>>(new Map())
@@ -135,15 +179,28 @@ export function ImportPage({ libraries, getLabelById, study, embedded }: ImportP
   useEffect(() => {
     let alive = true
     fetchListWords(targetList).then(items => {
-      if (alive) setExisting(new Set(items.map(i => i.word)))
+      if (!alive) return
+      setExisting(new Set(items.map(i => i.word)))
+      const keys = new Set<string>()
+      for (const it of items) keys.add(it.batchKey || dayBatchKey(it.addedAt))
+      setListBatchKeys(keys)
     })
+    fetchBatches(targetList).then(names => { if (alive) setBatchNames(names) })
     return () => { alive = false }
-  }, [targetList, fetchListWords, reloadToken])
+  }, [targetList, fetchListWords, fetchBatches, reloadToken])
 
   // 目标列表被删掉时回退到默认列表
   useEffect(() => {
     if (lists.length > 0 && !lists.some(l => l.id === targetList)) setTargetList('default')
   }, [lists, targetList])
+
+  // 切换目标列表时把分组选择重置回今天
+  useEffect(() => {
+    setBatchChoice(dayBatchKey(Date.now()))
+    setPendingBatch(null)
+    setAddingBatch(false)
+    setNewBatchName('')
+  }, [targetList])
 
   /** 句子里出现过的词库 id（去重）：句子的筛选按「含该词库的词」判断 */
   function tokenSourceIds(key: string): string[] {
@@ -197,29 +254,13 @@ export function ImportPage({ libraries, getLabelById, study, embedded }: ImportP
     return { total: rows.length, keep, filtered, dup, sentences }
   }, [rows])
 
-  function closeCreate() {
-    setAdding(false)
-    setNewListName('')
-  }
-
-  async function handleCreateList() {
-    const name = newListName.trim()
-    if (!name) return
-    setCreating(true)
-    setError('')
-    const res = await createList(name)
-    if (res.ok) { setTargetList(res.id); closeCreate() }
-    else setError(res.error)
-    setCreating(false)
-  }
-
   /** 批量执行与首页一致的完整查词链路；单项失败不会阻塞其他项目。 */
   async function loadTranslationEntries(targetRows: Row[]) {
     const words = targetRows.map(row => row.type === 'sentence' ? row.raw : row.key)
     const next = new Map<string, DictionaryEntry>()
     const errors = new Map<string, string>()
     for (let start = 0; start < words.length; start += SEARCH_BATCH_SIZE) {
-      const response = await fetch(SERVER + '/api/dict/search-batch', {
+      const response = await apiFetch('/api/dict/search-batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ words: words.slice(start, start + SEARCH_BATCH_SIZE) }),
@@ -249,7 +290,6 @@ export function ImportPage({ libraries, getLabelById, study, embedded }: ImportP
     setPickerSelected(selected)
     setPickerCustoms(new Map())
     setPickerCustomDraft(new Map())
-    setPickerTargetList(targetList)
     setPickerOpen(true)
   }
 
@@ -328,7 +368,7 @@ export function ImportPage({ libraries, getLabelById, study, embedded }: ImportP
       const { entries, errors } = await loadTranslationEntries(targetRows)
       openTranslationPicker(targetRows, entries, errors)
     } catch {
-      setError('词义查询失败，请确认本地服务已启动（npm run dev:all）')
+      setError('词义查询失败，请确认云端服务可用')
     }
     setImporting(false)
   }
@@ -366,12 +406,12 @@ export function ImportPage({ libraries, getLabelById, study, embedded }: ImportP
     }
 
     // 弹窗打开后列表可能已在别处发生变化；提交前再确认一次，已有项不提交并继续留在输入框。
-    const latestItems = await fetchListWords(pickerTargetList)
+    const latestItems = await fetchListWords(targetList)
     const latestKeys = new Set(latestItems.map(item => normalize(item.word)))
     const pendingCandidates = candidates.filter(({ row }) => !latestKeys.has(row.key))
     const alreadyExistingCount = candidates.length - pendingCandidates.length
     const res = pendingCandidates.length > 0
-      ? await importItems(pickerTargetList, pendingCandidates.map(({ item }) => item))
+      ? await importItems(targetList, pendingCandidates.map(({ item }) => item), batchChoice || undefined, pendingBatch && pendingBatch.key === batchChoice ? pendingBatch.name : undefined)
       : { added: 0, skipped: 0, queued: 0 }
     if (res) {
       const suspect = pickerRows.filter(row => isSpellingSuspect(row, pickerEntries.get(row.key))).length
@@ -387,10 +427,12 @@ export function ImportPage({ libraries, getLabelById, study, embedded }: ImportP
         .map(row => row.raw)
         .join('\n'))
       setReloadToken(t => t + 1)
+      // 分组名已随这次导入落盘；清掉未保存标记（reloadToken 变化会重新拉分组列表）
+      if (batchChoice) setPendingBatch(null)
       if (res.queued > 0) prefetch.watch()
       setPickerOpen(false)
     } else {
-      setError('导入失败，请确认本地服务已启动（npm run dev:all）')
+      setError('导入失败，请确认云端服务可用')
     }
     setPickerSaving(false)
   }
@@ -423,6 +465,37 @@ export function ImportPage({ libraries, getLabelById, study, embedded }: ImportP
     ? lists.map(l => ({ value: l.id, label: l.name, extra: l.wordCount + ' 条' }))
     : [{ value: 'default', label: '默认列表' }]
 
+  // 下拉可选分组 = 当前列表下的全部分组：分组名表 ∪ 词条上出现过的键 ∪ 今天，按时间倒序；
+  // 未保存的新分组置顶，其余（含自然日分组）都能选来导入
+  const batchOptions: SelectOption[] = (() => {
+    const keys = new Set<string>()
+    for (const k of Object.keys(batchNames)) keys.add(k)
+    listBatchKeys.forEach(k => keys.add(k))
+    keys.add(dayBatchKey(Date.now()))
+    if (pendingBatch) keys.delete(pendingBatch.key)
+    const sortTs = (k: string) => k.startsWith('b:') ? batchKeyTs(k) : isDateKey(k) ? dateKeyTs(k) : 0
+    const sorted = Array.from(keys).sort((a, b) => sortTs(b) - sortTs(a))
+    return [
+      ...(pendingBatch ? [{ value: pendingBatch.key, label: pendingBatch.name + '（未保存）' }] : []),
+      ...sorted.map(k => ({ value: k, label: batchKeyLabel(k, batchNames) })),
+    ]
+  })()
+
+  /** 确认新建分组：先在本地生成键，等第一次导入时把名字落盘 */
+  function confirmNewBatch() {
+    const name = newBatchName.trim()
+    if (!name) return
+    const key = 'b:' + Date.now() + '-' + Math.random().toString(36).slice(2, 8)
+    setPendingBatch({ key, name })
+    setBatchChoice(key)
+    setAddingBatch(false)
+    setNewBatchName('')
+  }
+  function closeNewBatch() {
+    setAddingBatch(false)
+    setNewBatchName('')
+  }
+
 const targetControls = (
   <>
     <div className="import-target">
@@ -438,33 +511,39 @@ const targetControls = (
                 onChange={value => { setTargetList(value); setResult(null) }}
               />
             </div>
-            {adding ? (
+            <Button size="small" onClick={onManageLists}>+ 新建列表</Button>
+
+            <div className="import-target">
+              <span className="field-label">分组</span>
+              <Select
+                aria-label="选择分组"
+                size="small"
+                block={false}
+                className="import-target__select"
+                value={batchChoice}
+                options={batchOptions}
+                onChange={setBatchChoice}
+              />
+            </div>
+            {addingBatch ? (
               <div className="import-new">
                 <Input
                   className="import-new__input"
                   size="small"
-                  placeholder="列表名称..."
-                  value={newListName}
+                  placeholder="分组名称..."
+                  value={newBatchName}
                   autoFocus
-                  aria-label="新建列表名称"
-                  onChange={e => setNewListName(e.target.value)}
-                  onPressEnter={handleCreateList}
-                  onKeyDown={e => { if (e.key === 'Escape') closeCreate() }}
+                  aria-label="新建分组名称"
+                  onChange={e => setNewBatchName(e.target.value)}
+                  onPressEnter={confirmNewBatch}
+                  onKeyDown={e => { if (e.key === 'Escape') closeNewBatch() }}
                 />
-                <Button
-                  type="primary"
-                  size="small"
-                  disabled={!newListName.trim()}
-                  loading={creating}
-                  onClick={handleCreateList}
-                >
-                  确定
-                </Button>
-                <Button type="text" size="small" onClick={closeCreate}>取消</Button>
+                <Button type="primary" size="small" disabled={!newBatchName.trim()} onClick={confirmNewBatch}>确定</Button>
+                <Button type="text" size="small" onClick={closeNewBatch}>取消</Button>
               </div>
             ) : (
-              <Button size="small" onClick={() => setAdding(true)}>+ 新建列表</Button>
-          )}
+              <Button size="small" onClick={() => setAddingBatch(true)}>+ 新建分组</Button>
+            )}
 
           </>
   )
@@ -472,7 +551,6 @@ const targetControls = (
   // 嵌入搜索页时没有 PageHeader，导入到 / 新建列表单独占一行
   const body = (
     <>
-      {embedded && <div className="import-target-row">{targetControls}</div>}
       <div className="import-page__body">
         <div className="import-col">
           <div className="import-section">
@@ -591,8 +669,7 @@ const targetControls = (
           open
           width="wide"
           title="选择要背的中文词义"
-          description={'导入到「' + (lists.find(list => list.id === pickerTargetList)?.name ?? pickerTargetList)
-            + '」；查询成功 ' + pickerImportableCount + ' 条'
+          description={'查询成功 ' + pickerImportableCount + ' 条'
             + (pickerSuspectCount > 0 ? '，疑似错误 ' + pickerSuspectCount + ' 条默认不导入' : '')
             + (pickerFailedCount > 0 ? '，查询失败 ' + pickerFailedCount + ' 条将保留以便重试' : '')}
           onClose={() => setPickerOpen(false)}
@@ -608,6 +685,7 @@ const targetControls = (
             </div>
           }
         >
+          <div className="import-picker-target">{targetControls}</div>
           <div className="import-translation-picker">
             {pickerRows.map(row => {
               const entry = pickerEntries.get(row.key)
@@ -719,7 +797,6 @@ const targetControls = (
       <PageHeader
         title="批量导入"
         subtitle="每行一个单词或句子，导入前会标出所属词库、重复项和被筛掉的行"
-        actions={targetControls}
       />
       {body}
     </div>

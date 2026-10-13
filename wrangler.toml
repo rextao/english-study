@@ -1,27 +1,39 @@
-# Cloudflare 合并部署配置（手机端静态站 + 云端同步 API，同一个 Worker、同一个域名）
+# Cloudflare 全栈部署配置（Web 前端 + 应用 API，同一个 Worker、同一个域名）
 #
-# 一个 Worker 同时承担两件事，从根上消除手机端与同步接口之间的跨域：
-#   1. 静态资源：[assets] 指向 mobile/dist，命中文件直接发（index.html / js / css）；
-#   2. 同步 API：main 指向 worker/src/index.js，只处理 /sync/*，其余请求回落到静态资源。
-# 浏览器访问的页面和它请求的 /sync/* 现在是同源，不再触发 CORS 预检。
+# 一个 Worker 同时承担两件事：
+#   1. 静态资源：[assets] 指向 dist，命中文件直接发（index.html / js / css）；
+#   2. 应用 API：main 指向 worker/src/index.js，处理 /api/*（需 Bearer 令牌），
+#      其余请求回落到静态资源。页面和 /api 同源，没有 CORS。
+# 数据全部落在绑定的 D1 数据库里（本地 Node 服务与快照同步机制已退役）。
 #
 # 部署（仓库根目录，需能连外网）：
-#     npm run deploy:mobile      # 先 build:mobile 产出 mobile/dist，再 npx wrangler deploy
-#   或 npx wrangler deploy        # 只部署（要求 mobile/dist 已构建好）
-# 首次还要建表 + 设令牌（见 README「云端同步」）：
+#     npm run deploy              # 先 build 产出 dist，再 npx wrangler deploy
+#   或 npx wrangler deploy        # 只部署（要求 dist 已构建好）
+# 首次还要建表、迁数据、设密钥（见 README「云端部署」）：
 #     npx wrangler d1 execute english-study-sync --remote --file=worker/schema.sql
-#     npx wrangler secret put SYNC_TOKEN
-name = "english-study-mobile"
+#     npx wrangler d1 execute english-study-sync --remote --file=migration.sql  # scripts/migrate-to-d1.mjs 产物
+#     npx wrangler secret put API_TOKEN
+#     npx wrangler secret put BAIDU_TRANSLATE_API_KEY
+#     npx wrangler secret put BAIDU_TRANSLATE_APP_ID
+name = "english-study"
 main = "./worker/src/index.js"
 compatibility_date = "2026-10-08"
 
 [assets]
-directory = "./mobile/dist"
-# 暴露给 Worker 的静态资源 fetcher：worker/src/index.js 用 env.ASSETS 兜底非 /sync/* 请求
+directory = "./dist"
+# 暴露给 Worker 的静态资源 fetcher：worker/src/index.js 用 env.ASSETS 兜底非 /api/* 请求
 binding = "ASSETS"
+# 单页应用：静态资源没命中的路径回落到 index.html（Worker 会把 /api/* 截走，不受影响）
+not_found_handling = "single-page-application"
+
+[vars]
+# 时区偏移（小时）：复习排期按「当地 0 点」翻转；Workers 进程时区是 UTC，
+# 默认 +8（北京时间）。DICT_TZ_OFFSET_HOURS 可覆盖。
+DICT_TZ_OFFSET_HOURS = "8"
 
 [[d1_databases]]
-# 绑定名对齐 worker/src/index.js 里的 env.DB（纯 Worker 内部用，和两端 HTTP 调用无关）
+# 绑定名对齐 worker/src/index.js 里的 env.DB；沿用同步时代建好的那个 D1 库，
+# worker/schema.sql 会清掉废弃的 sync_snapshot 表、建应用表
 binding = "DB"
 database_name = "english-study-sync"
 database_id = "57a7a82c-7303-43b2-92c9-707cb9d61ea6"

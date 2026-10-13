@@ -1,0 +1,34 @@
+.token-gate {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--color-bg, #f5f6f8);
+}
+
+.token-gate__card {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 32px 28px;
+  border-radius: 12px;
+  background: var(--color-surface, #fff);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
+.token-gate__title {
+  margin: 0;
+  font-size: 22px;
+  text-align: center;
+}
+
+.token-gate__desc {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-text-secondary, #666);
+  text-align: center;
+}

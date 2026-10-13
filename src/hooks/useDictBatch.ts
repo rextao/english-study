@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { DictionaryEntry } from '../types/vocab'
 
-const SERVER = 'http://127.0.0.1:3456'
+import { apiFetch } from '../utils/apiBase'
 
 /** 和服务端一致的归一化：去首尾空格、压缩空白、转小写 */
 function keyOf(word: string) {
@@ -40,7 +40,7 @@ export function useDictBatch(words: string[]) {
     }
     setLoading(true)
     try {
-      const res = await fetch(SERVER + '/api/dict/batch', {
+      const res = await apiFetch('/api/dict/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ words: list }),
@@ -52,7 +52,7 @@ export function useDictBatch(words: string[]) {
       setMissing(data.missing ?? [])
       setIncomplete(data.incomplete ?? [])
     } catch {
-      // 本地服务没起来，页面照旧显示，只是没有音标
+      // 云端不可达时页面照旧显示，只是没有音标
     }
     setLoading(false)
   }, [signature])

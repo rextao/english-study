@@ -23,8 +23,9 @@ const batchKeyOf = (ts: number) => {
   return d.getFullYear() + '-' + mm + '-' + dd
 }
 
-/** 批次默认标题：同年显示月日，跨年补年份 */
+/** 分组默认标题：同年显示月日，跨年补年份 */
 function batchTitle(key: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return '自定义分组'
   const [y, m, d] = key.split('-').map(Number)
   const sameYear = y === new Date().getFullYear()
   return sameYear ? m + ' 月 ' + d + ' 日' : y + ' 年 ' + m + ' 月 ' + d + ' 日'
@@ -33,11 +34,13 @@ function batchTitle(key: string): string {
 interface ListsPageProps {
   getLabelById: (id: string) => string
   study: StudyListApi
+  /** 点「新增 / 重命名列表」跳到设置页的「学习列表」分区统一管理 */
+  onManageLists: () => void
 }
 
-export function ListsPage({ getLabelById, study }: ListsPageProps) {
+export function ListsPage({ getLabelById, study, onManageLists }: ListsPageProps) {
   const {
-    lists, loading, createList, renameList, deleteList,
+    lists, loading, deleteList,
     fetchListWords, removeItem, removeItems, fetchBatches, renameBatch,
   } = study
 
@@ -45,11 +48,6 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
   const [words, setWords]               = useState<StudyWordItem[]>([])
   const [wordsLoading, setWordsLoading] = useState(false)
   const [keyword, setKeyword]           = useState('')
-  const [renaming, setRenaming]         = useState(false)
-  const [draftName, setDraftName]       = useState('')
-  const [adding, setAdding]             = useState(false)
-  const [newListName, setNewListName]   = useState('')
-  const [creating, setCreating]         = useState(false)
   const [error, setError]               = useState('')
   const [notice, setNotice]             = useState('')
   // 多选删除：平时关着，开了才在每行前面显示勾选框
@@ -57,12 +55,12 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
   const [selected, setSelected]         = useState<Set<string>>(new Set())
   const [removing, setRemoving]         = useState(false)
 
-  // 批次展示：默认关闭保持平铺；batchNames 是各日期的显示名（可重命名）
+  // 分组展示：默认关闭保持平铺；batchNames 是各日期的显示名（可重命名）
   const [showBatches, setShowBatches]   = useState(false)
   const [batchNames, setBatchNames]     = useState<Record<string, string>>({})
   const [editingBatch, setEditingBatch] = useState<string | null>(null)
   const [batchDraft, setBatchDraft]     = useState('')
-  // 已折叠的批次（日期串集合），点批次标题切换
+  // 已折叠的分组（日期串集合），点分组标题切换
   const [collapsed, setCollapsed]       = useState<Set<string>>(new Set())
 
   // 选中的列表被删掉后回退到默认列表
@@ -75,7 +73,6 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
     let alive = true
     setKeyword('')
     setNotice('')
-    setRenaming(false)
     setSelectMode(false)
     setSelected(new Set())
     setWordsLoading(true)
@@ -84,7 +81,7 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
       setWords(items)
       setWordsLoading(false)
     })
-    // 词条一起拉批次显示名
+    // 词条一起拉分组显示名
     fetchBatches(selectedId).then(names => {
       if (!alive) return
       setBatchNames(names)
@@ -113,11 +110,11 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
     )) : sorted
   }, [words, keyword])
 
-  // 按导入日期分成批次：新日期在上，组内保持原来排序
+  // 按导入日期分成分组：新日期在上，组内保持原来排序
   const visibleBatches = useMemo(() => {
     const groups = new Map<string, StudyWordItem[]>()
     for (const item of visibleWords) {
-      const key = batchKeyOf(item.addedAt)
+      const key = item.batchKey || batchKeyOf(item.addedAt)
       const bucket = groups.get(key)
       if (bucket) bucket.push(item)
       else groups.set(key, [item])
@@ -146,33 +143,6 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
     return entry?.translation
   }
 
-  function closeCreate() {
-    setAdding(false)
-    setNewListName('')
-  }
-
-  async function handleCreate() {
-    const name = newListName.trim()
-    if (!name) return
-    setCreating(true)
-    setError('')
-    const res = await createList(name)
-    setCreating(false)
-    if (!res.ok) { setError(res.error); return }
-    closeCreate()
-    setSelectedId(res.id)
-  }
-
-  async function handleRename() {
-    if (!current) return
-    const name = draftName.trim()
-    setRenaming(false)
-    if (!name || name === current.name) return
-    setError('')
-    const res = await renameList(current.id, name)
-    if (!res.ok) setError(res.error)
-  }
-
   async function handleDelete() {
     if (!current || isDefault) return
     setError('')
@@ -192,13 +162,13 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
     setSelectMode(prev => !prev)
   }
 
-  /** 进入批次重命名编辑态：草稿默认填当前显示名（自定义名或日期本身） */
+  /** 进入分组重命名编辑态：草稿默认填当前显示名（自定义名或日期本身） */
   function startBatchEdit(key: string) {
     setEditingBatch(key)
     setBatchDraft(batchNames[key] ?? batchTitle(key))
   }
 
-  /** 提交批次重命名：没变就静默退出；清空 = 还原为最初的日期名称 */
+  /** 提交分组重命名：没变就静默退出；清空 = 还原为最初的日期名称 */
   async function handleBatchEdit() {
     const key = editingBatch
     setEditingBatch(null)
@@ -209,11 +179,11 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
     setError('')
     // 空名由服务端还原为日期；传原名外的新名才是自定义名
     const updated = await renameBatch(selectedId, key, name)
-    if (updated == null) { setError('批次重命名失败，请确认本地服务已启动'); return }
+    if (updated == null) { setError('分组重命名失败，请确认云端服务可用'); return }
     setBatchNames(updated)
   }
 
-  /** 点批次标题切换折叠；编辑重命名时不响应 */
+  /** 点分组标题切换折叠；编辑重命名时不响应 */
   function toggleCollapsed(key: string) {
     if (editingBatch === key) return
     setCollapsed(prev => {
@@ -314,7 +284,7 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
     setRemoving(true)
     const res = await removeItems(selectedId, selectedWords)
     setRemoving(false)
-    if (!res) { setError('批量删除失败，请确认本地服务已启动'); return }
+    if (!res) { setError('批量删除失败，请确认云端服务可用'); return }
     const gone = new Set(selectedWords)
     const rest = words.filter(w => !gone.has(w.word))
     setWords(rest)
@@ -327,10 +297,8 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
 
   return (
     <div className="page lists-page">
-      <PageHeader
-        title="学习列表"
-        subtitle="选择一个列表查看它的全部词条，默认列表始终存在且不可删除"
-      />
+      <PageHeader title="学习列表"
+        actions={<Button size="small" onClick={onManageLists}>+ 新增列表</Button>} />
 
       <div className="lists-bar">
         <div className="lists-tabs" role="group" aria-label="选择要查看的列表">
@@ -347,34 +315,6 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
             </button>
           ))}
         </div>
-
-        {adding ? (
-          <div className="lists-new">
-            <Input
-              className="lists-new__input"
-              size="small"
-              placeholder="列表名称..."
-              value={newListName}
-              autoFocus
-              aria-label="新建列表名称"
-              onChange={e => setNewListName(e.target.value)}
-              onPressEnter={handleCreate}
-              onKeyDown={e => { if (e.key === 'Escape') closeCreate() }}
-            />
-            <Button
-              type="primary"
-              size="small"
-              disabled={!newListName.trim()}
-              loading={creating}
-              onClick={handleCreate}
-            >
-              确定
-            </Button>
-            <Button type="text" size="small" onClick={closeCreate}>取消</Button>
-          </div>
-        ) : (
-          <Button size="small" onClick={() => setAdding(true)}>+ 新增列表</Button>
-        )}
       </div>
 
       {error && <div className="callout callout--error lists-alert">{error}</div>}
@@ -390,27 +330,13 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
 
       {current && (
         <div className="lists-toolbar">
-          {renaming ? (
-            <Input
-              className="lists-toolbar__rename"
-              value={draftName}
-              autoFocus
-              aria-label="重命名列表"
-              onFocus={e => e.currentTarget.select()}
-              onChange={e => setDraftName(e.target.value)}
-              onBlur={handleRename}
-              onPressEnter={handleRename}
-              onKeyDown={e => { if (e.key === 'Escape') setRenaming(false) }}
-            />
-          ) : (
-            <h2 className="lists-toolbar__title">
-              {current.name}
-              {isDefault && <Tag color="blue">默认</Tag>}
-              <span className="lists-toolbar__count">
-                {keyword.trim() ? visibleWords.length + ' / ' + words.length + ' 条' : words.length + ' 条'}
-              </span>
-            </h2>
-          )}
+          <h2 className="lists-toolbar__title">
+            {current.name}
+            {isDefault && <Tag color="blue">默认</Tag>}
+            <span className="lists-toolbar__count">
+              {keyword.trim() ? visibleWords.length + ' / ' + words.length + ' 条' : words.length + ' 条'}
+            </span>
+          </h2>
 
           <div className="lists-toolbar__actions">
             {/* Checkbox 组件不支持 title，用外层 span 提示 */}
@@ -419,7 +345,7 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
                 checked={showBatches}
                 onChange={e => setShowBatches(e.target.checked)}
               >
-                批次
+                分组
               </Checkbox>
             </span>
             <Input
@@ -443,7 +369,7 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
             </Button>
             <Button
               size="small"
-              onClick={() => { setDraftName(current.name); setRenaming(true) }}
+              onClick={onManageLists}
             >
               重命名
             </Button>
@@ -520,7 +446,7 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
                   role="button"
                   tabIndex={0}
                   aria-expanded={!isCollapsed}
-                  title={isCollapsed ? '展开批次' : '折叠批次'}
+                  title={isCollapsed ? '展开分组' : '折叠分组'}
                   onClick={() => toggleCollapsed(key)}
                   onKeyDown={e => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -536,7 +462,7 @@ export function ListsPage({ getLabelById, study }: ListsPageProps) {
                       value={batchDraft}
                       autoFocus
                       onFocus={e => e.currentTarget.select()}
-                      aria-label="重命名批次"
+                      aria-label="重命名分组"
                       onChange={e => setBatchDraft(e.target.value)}
                       onBlur={handleBatchEdit}
                       onPressEnter={handleBatchEdit}

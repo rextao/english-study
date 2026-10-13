@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useRef } from 'react'
-import { notifyLocalDataChanged } from '../syncBus'
 import type { StudyList, StudyWordItem } from '../types/vocab'
 
-const SERVER = 'http://127.0.0.1:3456'
+import { apiFetch } from '../utils/apiBase'
+import { invalidateListMembership, invalidateMembership } from './useStudy'
+import { readBatches, readWords, invalidateBatches, invalidateList, invalidateWords, writeBatches, writeWords } from '../utils/studyListCache'
 
 /** 批量导入的一条记录：单词或句子 + 命中的词库 id */
 export interface ImportItem {
@@ -24,13 +24,13 @@ export interface ImportItem {
 interface Reply<T> {
   status: number
   data: T | null
-  /** fetch 直接失败，说明本地服务没起 */
+  /** fetch 直接失败，说明云端不可达 */
   offline: boolean
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<Reply<T>> {
   try {
-    const res = await fetch(SERVER + url, init)
+    const res = await apiFetch(url, init)
     let data: T | null = null
     try { data = await res.json() as T } catch { /* 非 JSON 响应 */ }
     return { status: res.status, data, offline: false }
@@ -49,6 +49,7 @@ function jsonInit(method: string, body: unknown): RequestInit {
 
 const listPath = (listId: string) => '/api/lists/' + encodeURIComponent(listId)
 
+
 export type StudyListApi = ReturnType<typeof useStudyList>
 
 export function useStudyList() {
@@ -57,15 +58,12 @@ export function useStudyList() {
   const [offline, setOffline] = useState(false)
 
   // 挂载时那次拉取不算数据变动；之后每次 fetchLists 都是用户写操作触发的刷新
-  const notifiedRef = useRef(false)
 
   const fetchLists = useCallback(async () => {
     const reply = await request<StudyList[]>('/api/lists')
     setOffline(reply.offline)
     if (Array.isArray(reply.data)) setLists(reply.data)
     setLoading(false)
-    if (notifiedRef.current) notifyLocalDataChanged()
-    notifiedRef.current = true
   }, [])
 
   useEffect(() => { fetchLists() }, [fetchLists])
@@ -75,7 +73,7 @@ export function useStudyList() {
     const reply = await request<{ ok: boolean; id: string; error?: string }>(
       '/api/lists', jsonInit('POST', { name })
     )
-    if (reply.offline) return { ok: false as const, error: '本地服务未启动' }
+    if (reply.offline) return { ok: false as const, error: '云端服务不可用' }
     if (!reply.data?.ok) return { ok: false as const, error: reply.data?.error ?? '新建失败' }
     await fetchLists()
     return { ok: true as const, id: reply.data.id }
@@ -86,7 +84,7 @@ export function useStudyList() {
     const reply = await request<{ ok: boolean; error?: string }>(
       listPath(listId), jsonInit('PATCH', { name })
     )
-    if (reply.offline) return { ok: false as const, error: '本地服务未启动' }
+    if (reply.offline) return { ok: false as const, error: '云端服务不可用' }
     if (!reply.data?.ok) return { ok: false as const, error: reply.data?.error ?? '重命名失败' }
     await fetchLists()
     return { ok: true as const }
@@ -97,8 +95,10 @@ export function useStudyList() {
     const reply = await request<{ ok: boolean; error?: string }>(
       listPath(listId), { method: 'DELETE' }
     )
-    if (reply.offline) return { ok: false as const, error: '本地服务未启动' }
+    if (reply.offline) return { ok: false as const, error: '云端服务不可用' }
     if (!reply.data?.ok) return { ok: false as const, error: reply.data?.error ?? '删除失败' }
+    invalidateList(listId)
+    invalidateListMembership(listId)
     await fetchLists()
     return { ok: true as const }
   }, [fetchLists])
@@ -107,46 +107,58 @@ export function useStudyList() {
   const addItem = useCallback(async (
     listId: string, text: string, sourceIds: string[], senseIds?: string[], translationIds?: string[],
     translation?: string, phonetic?: string, customTranslations?: string[],
+    batchKey?: string, batchName?: string,
   ) => {
     const reply = await request<{ ok: boolean; reason?: string; item?: StudyWordItem }>(
       listPath(listId) + '/words',
-      jsonInit('POST', { text, sourceIds, senseIds, translationIds, translation, phonetic, customTranslations }),
+      jsonInit('POST', { text, sourceIds, senseIds, translationIds, translation, phonetic, customTranslations, batchKey, batchName }),
     )
-    if (reply.offline) return { ok: false as const, reason: '本地服务未启动' }
+    if (reply.offline) return { ok: false as const, reason: '云端服务不可用' }
     if (!reply.data?.ok) return { ok: false as const, reason: reply.data?.reason ?? '添加失败' }
+    invalidateWords(listId)
     await fetchLists()
     return { ok: true as const, item: reply.data.item }
   }, [fetchLists])
 
   /** 批量导入；queued = 服务端后台排队补音标的词数 */
-  const importItems = useCallback(async (listId: string, items: ImportItem[]) => {
+  const importItems = useCallback(async (listId: string, items: ImportItem[], batchKey?: string, batchName?: string) => {
     const reply = await request<{ ok: boolean; added: number; skipped: number; queued?: number }>(
-      listPath(listId) + '/import', jsonInit('POST', { items })
+      listPath(listId) + '/import', jsonInit('POST', { items, batchKey, batchName })
     )
     if (reply.offline || !reply.data?.ok) return null
+    invalidateWords(listId)
     await fetchLists()
     return { added: reply.data.added, skipped: reply.data.skipped, queued: reply.data.queued ?? 0 }
   }, [fetchLists])
 
   /** 读取某个列表下的全部词条 */
   const fetchListWords = useCallback(async (listId: string): Promise<StudyWordItem[]> => {
+    const hit = readWords(listId)
+    if (hit !== null) return hit
     const reply = await request<StudyWordItem[]>(listPath(listId) + '/words')
-    return Array.isArray(reply.data) ? reply.data : []
+    const words = Array.isArray(reply.data) ? reply.data : []
+    // 云端不可达时拿到的是空表，不写缓存，免得网络恢复后还显示空列表
+    if (!reply.offline) writeWords(listId, words)
+    return words
   }, [])
 
-  /** 读取列表的批次显示名（按导入自然日分组） */
+  /** 读取列表的分组显示名（按导入自然日分组） */
   const fetchBatches = useCallback(async (listId: string): Promise<Record<string, string>> => {
+    const hit = readBatches(listId)
+    if (hit !== null) return hit
     const reply = await request<{ batchNames: Record<string, string> }>(listPath(listId) + '/batches')
-    return reply.data?.batchNames ?? {}
+    const names = reply.data?.batchNames ?? {}
+    if (!reply.offline) writeBatches(listId, names)
+    return names
   }, [])
 
-  /** 重命名某个批次；name 空串=重置为日期；服务不可用/失败返回 null */
+  /** 重命名某个分组；name 空串=重置为日期；服务不可用/失败返回 null */
   const renameBatch = useCallback(async (listId: string, date: string, name: string): Promise<Record<string, string> | null> => {
     const reply = await request<{ ok: boolean; batchNames?: Record<string, string> }>(
       listPath(listId) + '/batches', jsonInit('PATCH', { date, name })
     )
     if (reply.offline || !reply.data?.ok) return null
-    notifyLocalDataChanged()
+    invalidateBatches(listId)
     return reply.data.batchNames ?? {}
   }, [])
 
@@ -156,6 +168,8 @@ export function useStudyList() {
       listPath(listId) + '/words/' + encodeURIComponent(text), { method: 'DELETE' }
     )
     if (!reply.data?.ok) return false
+    invalidateWords(listId)
+    invalidateMembership(text)
     await fetchLists()
     return true
   }, [fetchLists])
@@ -170,6 +184,8 @@ export function useStudyList() {
       listPath(listId) + '/remove', jsonInit('POST', { words })
     )
     if (reply.offline || !reply.data?.ok) return null
+    invalidateWords(listId)
+    for (const word of words) invalidateMembership(word)
     await fetchLists()
     return { removed: reply.data.removed, missing: reply.data.missing ?? 0 }
   }, [fetchLists])
@@ -182,8 +198,8 @@ export function useStudyList() {
       listPath(listId) + '/words/' + encodeURIComponent(text),
       jsonInit('PATCH', { senseIds })
     )
+    invalidateWords(listId)
     if (!reply.data?.ok) return null
-    notifyLocalDataChanged()
     return reply.data.item ?? null
   }, [])
 
@@ -196,8 +212,8 @@ export function useStudyList() {
       listPath(listId) + '/words/' + encodeURIComponent(text),
       jsonInit('PATCH', { translationIds, translation, customTranslations })
     )
+    invalidateWords(listId)
     if (!reply.data?.ok) return null
-    notifyLocalDataChanged()
     return reply.data.item ?? null
   }, [])
 

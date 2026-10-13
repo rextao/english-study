@@ -150,6 +150,8 @@ export interface StudyWordItem {
   displayText?: string
   sourceIds: string[]
   addedAt: number
+  /** 加入时归属的分组键；缺省按 addedAt 自然日分组。自定义分组形如 b:时间戳-随机串 */
+  batchKey?: string
   /** 加入学习列表时保存的音标快照；旧词条可能没有这个字段 */
   phonetic?: string
   /** 加入学习列表时保存的中文翻译；旧词条可能没有这个字段 */

@@ -1,12 +1,22 @@
 import './Nav.css'
+import { Dropdown } from '../ui'
+import type { MenuItemType } from '../ui'
 
 export type TabKey = 'search' | 'lists' | 'settings' | 'achievements' | 'records' | 'study'
 
-const TABS: { key: TabKey; label: string }[] = [
+// extra = 手机端收进折叠菜单的 tab（查词始终留在导航栏上）
+const TABS: { key: TabKey; label: string; extra?: boolean }[] = [
   { key: 'search', label: '查词' },
-  { key: 'lists',  label: '学习列表' },
-  { key: 'achievements', label: '学习成果' },
+  { key: 'lists',  label: '学习列表', extra: true },
+  { key: 'achievements', label: '学习成果', extra: true },
 ]
+
+/** 手机端折叠菜单的「更多」图标：三道短横线，和齿轮同尺寸的圆形按钮 */
+const moreIcon = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+)
 
 /** 设置入口的齿轮图标，放英语学习右边，不占分段控件的位置 */
 const gearIcon = (
@@ -29,12 +39,21 @@ interface NavProps {
   totalItems: number
   /** 今天要复习的词数，显示在「英语学习」入口的角标上 */
   dueToday: number
-  /** 云端有更新时在标题栏显示的小提示；点一下跳到设置页数据同步。null = 不显示 */
-  syncTip?: { title: string; onClick: () => void } | null
 }
 
-export function Nav({ active, onChange, totalItems, dueToday, syncTip }: NavProps) {
+export function Nav({ active, onChange, totalItems, dueToday }: NavProps) {
   const visibleActive = active === 'records' ? 'achievements' : active
+
+  // 手机端折叠菜单里装着学习列表 / 学习成果 / 设置，落在这三个页面上时「更多」按钮要高亮
+  const moreActive = active === 'lists' || active === 'achievements' || active === 'settings' || active === 'records'
+  const moreItems: MenuItemType[] = [
+    {
+      key: 'lists', label: '学习列表',
+      extra: totalItems > 0 ? <span className="nav__menu-badge">{totalItems}</span> : undefined,
+    },
+    { key: 'achievements', label: '学习成果' },
+    { key: 'settings', label: '设置', icon: gearIcon },
+  ]
 
   return (
     <nav className="nav" aria-label="主导航">
@@ -51,7 +70,8 @@ export function Nav({ active, onChange, totalItems, dueToday, syncTip }: NavProp
               <button
                 key={tab.key}
                 type="button"
-                className={'nav__tab' + (visibleActive === tab.key ? ' nav__tab--active' : '')}
+                className={'nav__tab' + (tab.extra ? ' nav__tab--extra' : '')
+                  + (visibleActive === tab.key ? ' nav__tab--active' : '')}
                 aria-current={active === tab.key ? 'page' : undefined}
                 onClick={() => onChange(tab.key)}
               >
@@ -77,11 +97,12 @@ export function Nav({ active, onChange, totalItems, dueToday, syncTip }: NavProp
         </button>
 
         {/* 设置：齿轮图标按钮，待在英语学习右侧，不进分段控件；
-            「云端有更新」小提示绝对定位挂在齿轮右边，显示与否都不挤动布局 */}
+            「云端有更新」小提示绝对定位挂在齿轮右边，显示与否都不挤动布局。
+            手机端齿轮收进下面的折叠菜单，桌面端才单独露出来 */}
         <div className="nav__settings">
           <button
             type="button"
-            className={'nav__icon-btn' + (active === 'settings' ? ' nav__icon-btn--active' : '')}
+            className={'nav__icon-btn nav__settings-desktop' + (active === 'settings' ? ' nav__icon-btn--active' : '')}
             aria-current={active === 'settings' ? 'page' : undefined}
             aria-label="设置"
             title="设置"
@@ -90,18 +111,23 @@ export function Nav({ active, onChange, totalItems, dueToday, syncTip }: NavProp
             {gearIcon}
           </button>
 
-          {syncTip && (
-            <button
-              type="button"
-              className="nav__sync-tip"
-              title={syncTip.title}
-              aria-label={syncTip.title}
-              onClick={syncTip.onClick}
+          {/* 手机端折叠菜单：学习列表 / 学习成果 / 设置 都收这里；桌面端隐藏 */}
+          <div className="nav__more">
+            <Dropdown
+              menu={{ items: moreItems, onClick: info => onChange(info.key as TabKey) }}
+              placement="bottomRight"
             >
-              <span className="nav__sync-tip-dot" aria-hidden="true" />
-              <span className="nav__sync-tip-label">云端有更新</span>
-            </button>
-          )}
+              <button
+                type="button"
+                className={'nav__icon-btn' + (moreActive ? ' nav__icon-btn--active' : '')}
+                aria-current={moreActive ? 'page' : undefined}
+                aria-label="更多"
+                title="更多"
+              >
+                {moreIcon}
+              </button>
+            </Dropdown>
+          </div>
         </div>
       </div>
     </nav>

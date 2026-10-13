@@ -94,7 +94,7 @@ function groupDayLabel(day: number, today: number): string {
   return base
 }
 
-/** 词条加入时间 → 自然日串，形如 2026-09-15（本地时区），与学习列表的批次键一致 */
+/** 词条加入时间 → 自然日串，形如 2026-09-15（本地时区），与学习列表的分组键一致 */
 const batchKeyOf = (ts: number) => {
   const d = new Date(ts)
   const mm = String(d.getMonth() + 1).padStart(2, '0')
@@ -102,7 +102,7 @@ const batchKeyOf = (ts: number) => {
   return d.getFullYear() + '-' + mm + '-' + dd
 }
 
-/** 批次键反回当天 0 点时间戳，供今天/昨天标注对照 */
+/** 分组键反回当天 0 点时间戳，供今天/昨天标注对照 */
 const batchKeyTsOf = (key: string) => {
   const [y, m, d] = key.split('-').map(Number)
   return new Date(y, m - 1, d).getTime()
@@ -223,7 +223,7 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
   const setNotice = (text: string) => showToast('ok', text)
   const setError  = (text: string) => showToast('err', text)
   const [reloadToken, setReloadToken]   = useState(0)
-  /** 批次显示名：与学习列表共用同一份（按 addedAt 自然日分组），学习列表改名这里同步 */
+  /** 分组显示名：与学习列表共用同一份（按 addedAt 自然日分组），学习列表改名这里同步 */
   const [batchNames, setBatchNames]     = useState<Record<string, string>>({})
   /** 挑词弹窗：draft 是草稿，点取消就丢掉 */
   const [pickOpen, setPickOpen]         = useState(false)
@@ -240,6 +240,9 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
   const [mode, setMode]                 = useState<StudyMarkScope>('week')
   /** 每个词独立记录操作状态，不阻塞其他词的打卡 */
   const [wordBusy, setWordBusy]         = useState<Record<string, WordAction | undefined>>({})
+
+  /** 复习面板里的单词搜索：模糊匹配本周期（当前天 / 当前周）要复习的词 */
+  const [reviewSearch, setReviewSearch] = useState('')
 
   // 选中的列表被删掉后回退到默认列表
   useEffect(() => {
@@ -260,7 +263,7 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
       setWords(items)
       setWordsLoading(false)
     })
-    // 批次显示名与学习列表共用，学习列表改名后这里同步
+    // 分组显示名与学习列表共用，学习列表改名后这里同步
     fetchBatches(listId).then(names => {
       if (!alive) return
       setBatchNames(names)
@@ -293,22 +296,24 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
     [words]
   )
 
-  /** 还没开始学的词才能选进新批次 */
+  /** 还没开始学的词才能选进新分组 */
   const newWords = useMemo(
     () => words.filter(w => !w.startedAt).sort((a, b) => a.word.localeCompare(b.word)),
     [words]
   )
-  /** 挑新词弹窗按加入日期分成批次：与学习列表同键（2026-09-15），显示名直接读同一份 batchNames */
+  /** 挑新词弹窗按加入日期分成分组：与学习列表同键（2026-09-15），显示名直接读同一份 batchNames */
   const newWordGroups = useMemo(() => {
     const groups = new Map<string, StudyWordItem[]>()
     for (const item of newWords) {
-      const key = batchKeyOf(item.addedAt)
+      const key = item.batchKey || batchKeyOf(item.addedAt)
       const bucket = groups.get(key)
       if (bucket) bucket.push(item)
       else groups.set(key, [item])
     }
-    // 自然日串按字典序就是时间序，新日期在上
-    return Array.from(groups.entries()).sort((a, b) => b[0].localeCompare(a[0]))
+    // 按组内最新加入时间倒序：自定义分组与自然日分组统一按时间排，新分组在上
+    return Array.from(groups.entries()).sort(
+      (a, b) => Math.max(...b[1].map(w => w.addedAt)) - Math.max(...a[1].map(w => w.addedAt)),
+    )
   }, [newWords])
   const printableWords = useMemo(
     () => words.slice().sort((a, b) => displayTextOf(a).localeCompare(displayTextOf(b))),
@@ -320,7 +325,6 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
     return printableWords.filter(item => keyOf(displayTextOf(item)).includes(query))
   }, [printableWords, cardSearch])
 
-  const learningCount = words.length - newWords.length
   const layoutInfo    = LAYOUTS.find(l => l.value === layout) ?? LAYOUTS[0]
   const perPage       = layoutInfo.cols * layoutInfo.rows
   const listName      = lists.find(l => l.id === listId)?.name ?? '学习列表'
@@ -409,6 +413,18 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
   /** 面板里列出的词：按天取那一天，按周取那一整周 */
   const activeItems = (isWeek ? dueByWeek.get(activeWeek) : dueByDay.get(activeDay)) ?? []
   const dict = useDictBatch(activeItems.map(item => item.word))
+
+  // 换了一天 / 一周或切换按天按周时清空搜索，避免旧关键词把新批次的词藏起来
+  useEffect(() => { setReviewSearch('') }, [activeDay, mode])
+
+  /** 本周期单词模糊搜索：匹配单词、音标或中文词义，大小写与空白不敏感 */
+  const visibleItems = useMemo(() => {
+    const query = keyOf(reviewSearch)
+    if (!query) return activeItems
+    return activeItems.filter(item => (
+      keyOf(displayTextOf(item)) + ' ' + keyOf(item.phonetic ?? '') + ' ' + keyOf(item.translation ?? '')
+    ).includes(query))
+  }, [activeItems, reviewSearch])
   /** 只有当前这一天 / 当前这一周能打卡，未来的批次只能看 */
   const canReview   = isWeek ? isThisWeek : isToday
   const panelTitle  = isWeek
@@ -423,7 +439,7 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
   function openPick() {
     setDraft(picked)
     setPickOpen(true)
-    // 每次打开都刷新一次批次显示名，保证学习列表刚改过的名称立即生效
+    // 每次打开都刷新一次分组显示名，保证学习列表刚改过的名称立即生效
     fetchBatches(listId).then(names => setBatchNames(names))
   }
 
@@ -507,7 +523,7 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
       })
       return true
     } catch {
-      win.fail('卡片生成失败，请确认本地服务已启动（npm run dev:all）')
+      win.fail('卡片生成失败，请确认云端服务可用')
       return false
     } finally {
       setProgress(null)
@@ -555,7 +571,7 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
       if (printed !== 'ok') {
         setBusy('')
         setError(printed === 'blocked'
-          ? '浏览器拦截了新标签页，请允许本站弹窗后重试，或用「仅标记开始学习」。'
+          ? '浏览器拦截了新标签页，请允许本站弹窗后重试。'
           : '卡片生成失败，尚未标记开始学习。')
         return
       }
@@ -605,7 +621,7 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
     if (printed !== 'ok') {
       setError(printed === 'blocked'
         ? '浏览器拦截了新标签页，请允许本站弹窗后重试。'
-        : '卡片生成失败，请确认本地服务已启动。')
+        : '卡片生成失败，请确认云端服务可用。')
       return
     }
     if (recordError) setError(recordError)
@@ -627,7 +643,7 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
       setBusy('')
       setError(printed === 'blocked'
         ? '浏览器拦截了新标签页，请允许本站弹窗后重试。'
-        : '卡片生成失败，请确认本地服务已启动。')
+        : '卡片生成失败，请确认云端服务可用。')
       return
     }
     const saved = await prints.record({
@@ -724,7 +740,7 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
       })
       if (!result.ok) failed++
     }
-    if (failed > 0) setError('部分词打卡失败，请确认本地服务已启动')
+    if (failed > 0) setError('部分词打卡失败，请确认云端服务可用')
     else setNotice(count + ' 个词已进入下一轮复习。')
     setReloadToken(t => t + 1)
   }
@@ -793,14 +809,6 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
           >
             打印卡片并开始学习
           </Button>
-          <Button
-            type="text"
-            loading={busy === 'start'}
-            disabled={picked.length === 0 || busy !== ''}
-            onClick={() => handleStart(false)}
-          >
-            仅标记开始学习
-          </Button>
         </div>
 
         <div className="study-start__secondary">
@@ -831,10 +839,6 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
           </p>
         )}
 
-        {!wordsLoading && newWords.length > 0 && learningCount > 0 && (
-          <p className="hint study-start__foot">该列表已有 {learningCount} 个词在学习中</p>
-        )}
-
         <Modal
           open={pickOpen}
           width="wide"
@@ -856,8 +860,9 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
             <Button type="link" size="small" disabled={draft.length === 0} onClick={() => setDraft([])}>清空</Button>
           </div>
           {newWordGroups.map(([key, items]) => {
-            const dayTs = batchKeyTsOf(key)
-            const customLabel = batchNames[key]
+            const isDate = /^\d{4}-\d{2}-\d{2}$/.test(key)
+            const customLabel = batchNames[key] || (isDate ? '' : '自定义分组')
+            const dayTs = isDate ? batchKeyTsOf(key) : Math.max(...items.map(w => w.addedAt))
             return (
               <div key={key} className="pick-modal__group">
                 <div className="pick-modal__group-title">
@@ -1012,7 +1017,9 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
         <div className="study-day">
           <div className="study-day__head">
             <h3 className="study-day__title">{panelTitle}</h3>
-            <span className="study-day__count">{activeItems.length} 词</span>
+            <span className="study-day__count">
+              {reviewSearch.trim() ? visibleItems.length + ' / ' + activeItems.length + ' 词' : activeItems.length + ' 词'}
+            </span>
             {panelRel && <span className="study-day__rel">{panelRel}</span>}
             {activeItems.length > 0 && (
               <div className="study-day__ops">
@@ -1033,6 +1040,20 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
             )}
           </div>
 
+          {activeItems.length > 0 && (
+            <div className="study-day__search">
+              <Input
+                block
+                allowClear
+                value={reviewSearch}
+                placeholder="搜索单词、音标或中文词义"
+                aria-label="搜索本周期要复习的单词"
+                onChange={event => setReviewSearch(event.target.value)}
+                onClear={() => setReviewSearch('')}
+              />
+            </div>
+          )}
+
           {activeItems.length === 0 ? (
             <p className="empty empty--inline">
               {planData.items.length === 0
@@ -1041,9 +1062,13 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
                   ? (isThisWeek ? '本周没有要复习的词。' : '这周没有要复习的词。')
                   : (isToday ? '今天没有要复习的词。' : '这天没有要复习的词。')}
             </p>
+          ) : visibleItems.length === 0 ? (
+            <p className="empty empty--inline">
+              没有匹配「{reviewSearch.trim()}」的单词，清空关键词可查看全部 {activeItems.length} 个词。
+            </p>
           ) : (
               <ul className="review-rows">
-              {activeItems.map(item => {
+              {visibleItems.map(item => {
                 const action = wordBusy[item.listId + '/' + item.word]
                 const entry = dict.getEntry(item.word)
                 const selected = item.translationIds && entry?.translations
@@ -1051,7 +1076,10 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
                   : ''
                 const translation = item.translation || selected || entry?.translation || '暂无中文词义'
                 return (
-                  <li key={item.listId + '/' + item.word} className="review-row">
+                  <li
+                    key={item.listId + '/' + item.word}
+                    className={'review-row' + (item.type === 'sentence' ? ' review-row--sentence' : '')}
+                  >
                     <div className="review-row__content">
                       <span className="review-row__word">{displayTextOf(item)}</span>
                       <span className="review-row__phonetic">{item.phonetic || entry?.phonetic || '—'}</span>
@@ -1089,7 +1117,7 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
                       })}
                       {/* 日期没到的批次只能计数（会拼 / 会读 / 知意），不出现「没记住」和「进入下一轮」 */}
                       {canReview && (
-                        <>
+                        <span className="review-row__main">
                           <Button
                             type="primary"
                             size="small"
@@ -1114,6 +1142,7 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
                                 strokeLinejoin="round"
                               />
                             </svg>
+                            <span className="review-row__done-label">进入下一轮</span>
                           </Button>
                           <Button
                             size="small"
@@ -1123,7 +1152,7 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
                           >
                             没记住
                           </Button>
-                        </>
+                        </span>
                       )}
                     </span>
                   </li>

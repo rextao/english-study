@@ -33,6 +33,17 @@
 @media (max-width: 640px) {
   .page { padding: 28px 16px 72px; }
   .app__notice { padding: 0 16px; }
+
+  /* iOS Safari 聚焦字号小于 16px 的输入框会自动放大页面，把表单控件顶到 16px，
+     配合 index.html 里的 maximum-scale=1.0，双保险防止误触缩放 */
+  .ui-input--small .ui-input__inner,
+  .ui-input--middle .ui-input__inner,
+  .ui-select--small .ui-select__control,
+  .ui-select--middle .ui-select__control,
+  .ui-select--large .ui-select__control,
+  .ui-textarea {
+    font-size: 16px;
+  }
 }
 
 /* ---------------- 页面标题 ---------------- */

@@ -1,38 +1,73 @@
-.settings-page { padding-bottom: 96px; }
+.settings-page { padding-bottom: 96px; max-width: 1040px; }
 
-/* 两个子菜单切换，复用分段控件的 pill 质感 */
-.settings-tabs {
+/* 左侧竖向菜单 + 右侧内容区 */
+.settings-layout {
   display: flex;
-  gap: 2px;
-  margin-bottom: 28px;
-  padding: 3px;
-  border-radius: var(--radius);
-  background: var(--color-surface-hover);
-  width: fit-content;
+  align-items: flex-start;
+  gap: 32px;
 }
 
-.settings-tabs__btn {
-  padding: 6px 18px;
+.settings-nav {
+  flex: 0 0 168px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: sticky;
+  top: 24px;
+}
+
+.settings-nav__btn {
+  padding: 9px 14px;
   border: none;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: transparent;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 14px;
+  text-align: left;
   color: var(--color-text-muted);
   white-space: nowrap;
   cursor: pointer;
-  transition: background .15s, color .15s, box-shadow .15s;
+  transition: background .15s, color .15s;
 }
 
-.settings-tabs__btn:hover:not(.settings-tabs__btn--active) { color: var(--color-text); }
-
-.settings-tabs__btn:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
-
-.settings-tabs__btn--active {
-  background: var(--color-surface);
-  box-shadow: var(--shadow-xs);
+.settings-nav__btn:hover:not(.settings-nav__btn--active) {
+  background: var(--color-surface-hover);
   color: var(--color-text);
+}
+
+.settings-nav__btn:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+
+.settings-nav__btn--active {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-dark);
   font-weight: 600;
+}
+
+.settings-content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 窄屏回落成横向可滚的分段控件，内容堆到下面 */
+@media (max-width: 720px) {
+  .settings-layout { flex-direction: column; gap: 20px; }
+  .settings-nav {
+    position: static;
+    flex: none;
+    flex-direction: row;
+    padding: 3px;
+    border-radius: var(--radius);
+    background: var(--color-surface-hover);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .settings-nav::-webkit-scrollbar { display: none; }
+  .settings-nav__btn { flex-shrink: 0; }
+  .settings-nav__btn--active {
+    background: var(--color-surface);
+    box-shadow: var(--shadow-xs);
+    color: var(--color-text);
+  }
 }
 
 .settings-section { margin-bottom: 44px; }
@@ -126,6 +161,30 @@
   font-size: 12px;
   color: var(--ui-gold-text);
   line-height: 1.6;
+}
+
+/* ---------------- 密钥表单 ---------------- */
+/* ---------------- 学习记录 ---------------- */
+
+.settings-records {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.settings-records__title { font-size: 14px; font-weight: 600; }
+
+.settings-records__desc {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+@media (max-width: 640px) {
+  .settings-records__button { width: 100%; }
 }
 
 /* ---------------- 密钥表单 ---------------- */

@@ -43,7 +43,7 @@
 
 @keyframes word-card-spin { to { transform: rotate(360deg); } }
 
-/* 本地服务没起来时的提示，跟 .callout--warn 保持一致的配色 */
+/* 云端不可达时的提示，跟 .callout--warn 保持一致的配色 */
 .word-card--warn {
   display: flex;
   align-items: flex-start;
@@ -117,6 +117,23 @@
   gap: 6px;
   margin-top: 10px;
 }
+
+/* 加入分组：查词页把分组选择塞进词卡，点「+ 学习」前先挑 */
+.word-card__batch {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.word-card__batch .field-label { white-space: nowrap; }
+
+.word-card__batch .ui-select { min-width: 160px; }
+
+.word-card__batch-new { display: flex; align-items: center; gap: 6px; }
+
+.word-card__batch-input { width: 150px; }
 
 /* 中文释义：直接在卡片中点选，不再打开弹窗 */
 .word-card__translations {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-const SERVER = 'http://127.0.0.1:3456'
+import { apiFetch } from '../utils/apiBase'
 
 /** 服务端补词队列的进度 */
 export interface PrefetchState {
@@ -19,8 +19,8 @@ export type RepairResult =
   | { ok: true; scanned: number; queued: number }
   | { ok: false; error: string }
 
-const MSG_OFFLINE = '本地服务没有响应，请确认已启动（npm run dev:all）'
-const MSG_STALE = '本地服务是旧版本，还没有补齐接口，请重启本地服务（npm run dev:all）后再试'
+const MSG_OFFLINE = '云端服务没有响应，请检查网络或稍后再试'
+const MSG_STALE = '云端服务版本较旧，还没有补齐接口，请重新部署 Worker 后再试'
 
 type JsonBody = Record<string, unknown>
 
@@ -51,7 +51,7 @@ function toState(body: JsonBody): PrefetchState | null {
 async function callServer(path: string, init?: RequestInit): Promise<JsonBody | 'offline' | 'stale'> {
   let res: Response
   try {
-    res = await fetch(SERVER + path, init)
+    res = await apiFetch(path, init)
   } catch {
     return 'offline'
   }

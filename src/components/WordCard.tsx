@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Button, Checkbox, Input, Tag } from '../ui'
 import type { DictionaryEntry, StudyList } from '../types/vocab'
 import type { DictionaryStatus } from '../hooks/useDictionary'
@@ -23,6 +24,8 @@ interface WordCardProps {
   onCheckStudy: (word: string) => void
   /** 直接加入首页当前选择的列表，并保存选中的中文词义与自定义词义 */
   onAddToList: (translationIds: string[], customTranslations: string[]) => void | Promise<void>
+  /** 分组选择器：查词页传入，加入前先挑分组（词已在列表时不显示） */
+  batchPicker?: ReactNode
 }
 
 const MAX_PICKED_TRANSLATIONS = 12
@@ -50,7 +53,7 @@ export function WordCard({
   entry, status, sourceIds, getLabelById,
   studyStatus, targetListId, lists,
   targetItemExists, existingTranslationIds, existingAllTranslations, existingCustomTranslations,
-  onCheckStudy, onAddToList,
+  onCheckStudy, onAddToList, batchPicker,
 }: WordCardProps) {
 
   const [adding, setAdding] = useState(false)
@@ -110,7 +113,7 @@ export function WordCard({
   if (status === 'no-server') {
     return (
       <div className="word-card word-card--warn">
-        本地服务未启动，请在项目目录运行 <code>npm run dev:all</code>
+        云端服务不可用，请检查网络与访问令牌
       </div>
     )
   }
@@ -225,6 +228,9 @@ export function WordCard({
           ))}
         </div>
       )}
+
+      {/* 加入分组：词还没进当前列表时才需要挑，挑完点右上角「+ 学习」 */}
+      {!targetItemExists && !spellingSuspect && batchPicker}
 
       {entry.translations && entry.translations.length > 0 ? (
         <div className="word-card__translations" aria-label="选择要背的中文词义">

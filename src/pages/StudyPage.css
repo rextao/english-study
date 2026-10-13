@@ -184,7 +184,7 @@
 /* 分组标题最右侧的全选框 */
 .pick-modal__group-all { margin-left: auto; font-weight: normal; }
 
-/* 存在自定义批次名时，旁边对照显示的只读加入日期 */
+/* 存在自定义分组名时，旁边对照显示的只读加入日期 */
 .pick-modal__group-day { font-weight: normal; color: #999; }
 
 /* 复习计划：标题与月份切换一行，下面是月历 */
@@ -329,6 +329,9 @@
   margin-left: auto;
 }
 
+/* 本周期单词的模糊搜索框，宽度收窄免得占满整行 */
+.study-day__search { margin-top: 10px; max-width: 340px; }
+
 .study-day__note { margin-top: 10px; }
 
 .study-day .empty { margin-top: 10px; }
@@ -353,9 +356,7 @@
 
 .review-row__word {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   font-weight: 600;
 }
 
@@ -420,7 +421,15 @@
 }
 
 .review-row__done svg { display: block; width: 15px; height: 15px; }
+
+/* 「进入下一轮」的文字标签默认不显示（桌面端只留圆形徽标），窄屏卡片式展开 */
+.review-row__done-label { display: none; }
+
+/* 「下一轮 / 没记住」一组：桌面端 display:contents 不影响现有行内布局，窄屏整行铺满 */
+.review-row__main { display: contents; }
 @media (max-width: 640px) {
+  /* 移动端不需要打印卡片，整个「学习与打印卡片」模块隐藏，两个挑词弹窗也随之不可触发 */
+  .study-start { display: none; }
   .study-start__head { flex-direction: column; align-items: stretch; }
   .study-start__fields { width: 100%; }
   .study-start__field { flex: 1; width: auto; }
@@ -428,13 +437,50 @@
   .study-cal__week, .study-cal__grid { gap: 4px; }
   .study-cal__day, .study-cal__pad { min-height: 44px; }
   .study-day__ops { width: 100%; margin-left: 0; }
-  .review-row { align-items: stretch; flex-wrap: wrap; }
-  .review-row__content {
-    flex-basis: 100%;
-    grid-template-columns: 1fr;
-    gap: 3px;
+  /* 移动端不打印卡片、也不批量进入下一轮，只留逐词打卡和搜索 */
+  .study-day__ops { display: none; }
+  .study-day__search { max-width: none; margin-top: 12px; }
+  /* 窄屏不用卡片边框：每个单词模块之间只留一条分割线 */
+  .review-rows { border-top: none; }
+  .review-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px 2px;
+    box-shadow: inset 0 -1px 0 var(--color-border);
   }
-  .review-row__phonetic,
-  .review-row__translation { white-space: normal; }
-  .review-row__ops { width: 100%; }
+  .review-row:last-child { box-shadow: none; }
+  .review-row__content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+    gap: 3px 10px;
+  }
+  .review-row__word { grid-column: 1; }
+  .review-row__phonetic { grid-column: 2; text-align: right; }
+  .review-row__translation { grid-column: 1 / -1; white-space: normal; }
+
+  /* 句子占整行，音标另起一行放句子下面，都不截断 */
+  .review-row--sentence .review-row__word { grid-column: 1 / -1; }
+  .review-row--sentence .review-row__phonetic {
+    grid-column: 1;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .review-row__ops {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .review-row__tally { flex: 1; min-width: 0; }
+  .review-row__tally .ui-btn:first-child { flex: 1; min-width: 0; }
+  .review-row__main {
+    display: flex;
+    width: 100%;
+    gap: 8px;
+  }
+  .review-row__main .ui-btn { flex: 1; min-height: 40px; }
+  .review-row__done { width: auto; height: auto; padding: 8px 11px; border-radius: var(--ui-radius); }
+  .review-row__done svg { width: 14px; height: 14px; }
+  .review-row__done-label { display: inline; }
 }

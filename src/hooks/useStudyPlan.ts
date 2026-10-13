@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useRef } from 'react'
-import { notifyLocalDataChanged } from '../syncBus'
 import type { StudyMarkScope, StudyPlan, StudyReviewAction } from '../types/vocab'
 
-const SERVER = 'http://127.0.0.1:3456'
+import { apiFetch } from '../utils/apiBase'
+import { invalidateWords } from '../utils/studyListCache'
 
 /** done 进入下一轮 / again 没记住 / stop 退出学习 / tally 熟悉度计数 */
 export type ReviewAction = StudyReviewAction
@@ -28,7 +27,7 @@ function startOfDay(ts: number): number {
   return d.getTime()
 }
 
-/** 本地服务没起时的占位，节奏与服务端 REVIEW_INTERVALS 保持一致 */
+/** 云端不可达时的占位，节奏与服务端 REVIEW_INTERVALS 保持一致 */
 const EMPTY_PLAN: StudyPlan = {
   intervals: [1, 2, 4, 7, 15, 30, 60],
   today: startOfDay(Date.now()),
@@ -38,13 +37,13 @@ const EMPTY_PLAN: StudyPlan = {
 interface Reply<T> {
   ok: boolean
   data: T | null
-  /** fetch 直接失败，说明本地服务没起 */
+  /** fetch 直接失败，说明云端不可达 */
   offline: boolean
 }
 
 async function postJson<T>(url: string, body: unknown): Promise<Reply<T>> {
   try {
-    const res = await fetch(SERVER + url, {
+    const res = await apiFetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -68,11 +67,10 @@ export function useStudyPlan() {
   const [offline, setOffline] = useState(false)
 
   // 挂载时那次拉取不算数据变动；之后每次 refresh 都是打卡 / 开始学习等写操作触发的
-  const notifiedRef = useRef(false)
 
   const refresh = useCallback(async () => {
     try {
-      const res  = await fetch(SERVER + '/api/study/plan')
+      const res  = await apiFetch('/api/study/plan')
       const data = await res.json() as StudyPlan
       if (data && Array.isArray(data.items)) setPlan(data)
       setOffline(false)
@@ -80,8 +78,6 @@ export function useStudyPlan() {
       setOffline(true)
     }
     setLoading(false)
-    if (notifiedRef.current) notifyLocalDataChanged()
-    notifiedRef.current = true
   }, [])
 
   useEffect(() => { refresh() }, [refresh])
@@ -96,8 +92,10 @@ export function useStudyPlan() {
     const reply = await postJson<{ ok: boolean; started: number; skipped: number; error?: string }>(
       listPath(listId) + '/start', { words, startedAt, scope }
     )
-    if (reply.offline) return { ok: false as const, error: '本地服务未启动' }
+    if (reply.offline) return { ok: false as const, error: '云端服务不可用' }
     if (!reply.data?.ok) return { ok: false as const, error: reply.data?.error ?? '标记失败' }
+    // startedAt / stage 变了，学习页要看到新排期，作废词条缓存
+    invalidateWords(listId)
     await refresh()
     return { ok: true as const, started: reply.data.started, skipped: reply.data.skipped }
   }, [refresh])
@@ -118,8 +116,10 @@ export function useStudyPlan() {
         requestIds: options?.requestIds ?? (options?.requestId ? { [words[0]]: options.requestId } : undefined),
       }
     )
-    if (reply.offline) return { ok: false as const, error: '本地服务未启动' }
+    if (reply.offline) return { ok: false as const, error: '云端服务不可用' }
     if (!reply.data?.ok) return { ok: false as const, error: reply.data?.error ?? '打卡失败' }
+    // done / again 会改 stage 与排期，作废词条缓存，学习页 setReloadToken 才能拿到新数据
+    invalidateWords(listId)
     await refresh()
     return { ok: true as const }
   }, [refresh])
@@ -134,8 +134,9 @@ export function useStudyPlan() {
     const reply = await postJson<{ ok: boolean; undone?: number; error?: string }>(
       listPath(listId) + '/tally-undo', { words, successKind, scope }
     )
-    if (reply.offline) return { ok: false as const, error: '本地服务未启动' }
+    if (reply.offline) return { ok: false as const, error: '云端服务不可用' }
     if (!reply.data?.ok) return { ok: false as const, error: reply.data?.error ?? '撤销失败' }
+    invalidateWords(listId)
     await refresh()
     return { ok: true as const, undone: reply.data.undone ?? 0 }
   }, [refresh])
@@ -150,7 +151,7 @@ export function useStudyPlan() {
     const reply = await postJson<{ ok: boolean; error?: string }>(
       listPath(listId) + '/mark', { words, action, scope }
     )
-    if (reply.offline) return { ok: false as const, error: '本地服务未启动' }
+    if (reply.offline) return { ok: false as const, error: '云端服务不可用' }
     if (!reply.data?.ok) return { ok: false as const, error: reply.data?.error ?? '标记失败' }
     await refresh()
     return { ok: true as const }

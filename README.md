@@ -1,7 +1,8 @@
 # 背单词（English-skill）
 
-一个完全跑在本机的英语背单词工具：查词 → 选择目标学习列表并加入 → 按艾宾浩斯节奏复习 → 打印正反面卡片。
-词库来自剑桥官方词汇表 PDF，解析成统一格式的 JSON；数据都在项目目录里，不依赖任何云服务。
+一个部署在 Cloudflare 上的英语背单词工具：查词 → 选择目标学习列表并加入 → 按艾宾浩斯节奏复习 → 打印正反面卡片。
+词库来自剑桥官方词汇表 PDF，解析成统一格式的 JSON；前端和后端是同一个 Cloudflare Worker，数据在 D1 里，
+桌面和手机浏览器打开同一个网址、用同一个访问令牌，看到并操作的就是同一份数据。
 
 > 要让 AI 接手这个项目，让它先读根目录的 `AGENTS.md`，那是给 AI 的项目地图（目录职责、类型契约、接口表、改动落点），能省掉一整轮全量读代码。
 
@@ -17,40 +18,54 @@
 
 ## 技术栈
 
-- 前端：React 19 + TypeScript + Vite 6（`src/`）
-- 后端：Node 24 原生 `node:http` 写的本地小服务（`server/dict-server.mjs`），零依赖、零框架
-- 存储：一个 SQLite 单文件 `cache/study-history.sqlite`（学习列表 / 进度 / 标签 / 目标 / 打印记录 / 词典缓存全在里头），提交它即可跨设备共享
-- 词典：本机 ECDICT（英汉简明字典，开源，约 77 万词条，产物在 `data/`），查不到才走外部接口
+- 前端：React 19 + TypeScript + Vite 6（`src/`），构建产物由同一个 Worker 的 assets 直接发
+- 后端：Cloudflare Worker（`worker/src/`），零运行时依赖，只用平台全局（`fetch` / D1 / `waitUntil`）
+- 存储：Cloudflare D1 数据库 `english-study-sync`（学习列表 / 进度 / 标签 / 目标 / 打印记录 / 词典缓存全在里头），唯一数据源
+- 词典：查词链路只有云端缓存 → dictionaryapi.dev → 百度大模型翻译（本地 ECDICT 已随上云退役）
 - UI 组件全部手写在 `src/ui/`，API 刻意对齐 antd，将来想换成真 antd 基本只改 import
+- 鉴权：所有 `/api/*` 需要 Bearer 访问令牌（Worker secret `API_TOKEN`），首次打开页面填一次，存在浏览器 localStorage
 
 ## 快速开始
 
-需要 Node >= 24。
+本机开发需要 Node >= 24（测试用了 `node:sqlite`）。
 
 ```bash
 git clone https://github.com/rextao/english-study.git   # 已经克隆过就 cd 进去 git pull 拉到最新
 cd english-study
-npm install             # 装依赖（仅前端，服务端零依赖）
-npm run dev:all         # 起本地服务(3456) + 前端(5173)
+npm install
+npm run dev             # wrangler dev(8787) + vite(5173) 一起起，vite 的 /api 代理到 wrangler
 ```
 
-打开 http://localhost:5173 就能用了。学习数据都在 `cache/study-history.sqlite` 里，跟着仓库一起走（见「跨设备同步」）；以前版本留下的 `cache/*.json` 会在服务第一次启动时自动迁进 SQLite 并备份到 `cache/backups/`，不用手动处理。
-
-本地词典的查询产物 `data/ecdict/`（77 万词条）已经一起提交进仓库，`git pull` 就有，开箱即用。只有想升级词典版本时才需要跑 `npm run ecdict:fetch`（要连 GitHub，见「释义从哪来」），装完重启一次服务才生效。
+打开 http://localhost:5173，首次会弹出令牌门，填访问令牌（`API_TOKEN` secret 的值）即可。
 
 | 命令 | 作用 |
 | --- | --- |
-| `npm run dev` | 只起前端 |
-| `npm run server` | 只起本地服务（`--watch`，改完自动重启） |
-| `npm run dev:all` | 两个一起起，日常用这个 |
+| `npm run dev` | 本地开发：wrangler dev + vite 一起起 |
 | `npm run build` | 类型检查 + 打包到 `dist/` |
-| `npm run test:server` | 服务端测试，329 项，跑在临时目录且不联网，不会动你的数据 |
-| `npm run ecdict:fetch` | 升级本地英汉词典版本：下载 ECDICT + 解压 + 建索引（仓库里已带一份，一般不用跑） |
-| `npm run ecdict:build` | 已经有 `data/ecdict.csv` 时只重建索引 |
+| `npm run test:server` | 服务端测试，282 项，跑在临时目录的 node:sqlite shim 上、不联网，不会动你的数据 |
+| `npm run migrate:to-d1` | 把本地历史 sqlite 生成 migration.sql（已迁移过就不用再跑） |
+| `npm run deploy` | 构建 + `wrangler deploy`（Worker + 静态资源一起发） |
 
-查词和学习列表都要本地服务在跑；服务没起时页面顶部会给提示，此时词库浏览仍然可用（词库 JSON 是打包进前端的）。
+## 部署（一次性配置）
 
-本地词典已经随仓库一起到了（`data/ecdict/`），查词基本不用等外部接口。想换更新的词典版本才跑 `npm run ecdict:fetch`（详见「释义从哪来」），装完要重启本地服务才生效。
+```bash
+npm run build
+npx wrangler deploy
+
+# 首次 / schema 变更：建表
+npx wrangler d1 execute english-study-sync --remote --file=worker/schema.sql
+
+# 从本地历史 sqlite 迁数据（幂等：先 DELETE 再 INSERT）
+npm run migrate:to-d1
+npx wrangler d1 execute english-study-sync --remote --file=migration.sql
+
+# 密钥（Worker secret，不进 git）
+npx wrangler secret put API_TOKEN
+npx wrangler secret put BAIDU_TRANSLATE_API_KEY
+npx wrangler secret put BAIDU_TRANSLATE_APP_ID
+```
+
+部署完成后，桌面和手机浏览器打开 `https://english-study-mobile.rextao666.workers.dev`（Worker 名见 `wrangler.toml`），填同一个访问令牌即可。本地 `cache/study-history.sqlite` 迁移后保留作回滚兜底，应用不再读写它。
 
 ## 五个页面
 
@@ -59,7 +74,6 @@ npm run dev:all         # 起本地服务(3456) + 前端(5173)
 输入单词，停手 400ms 自动查询，显示音标和中文词义（页面上不显示例句）。点击「+ 学习」后可选择这一阶段要背的中文词义，再加入搜索区域选定的学习列表。
 词下面显示它属于哪些词库的标签，**不属于任何词库就不显示标签**。
 词的右上角有个小按钮，点它把词加进学习列表。
-音标旁边的小标签标释义来源：绿色「本地词典」= 本机 ECDICT，蓝色「在线词典」= 外部接口。搜索框下面那行会告诉你本地词典装没装、收了多少词。
 
 ### 批量导入（查词页里的第二个模式）
 
@@ -67,7 +81,7 @@ npm run dev:all         # 起本地服务(3456) + 前端(5173)
 粘贴多行文本，每行一个单词或句子；确认导入前可以逐条选择要背的中文词义。
 输入框上方是词库筛选标签，点一下就只留下属于该词库的行；句子按「句中出现过该词库的词」判断，能容忍 apples → apple 这类常见变形。
 左上角选导入到哪个学习列表，也可以现场新建列表。
-导入完成后，服务端会在后台排队把音标和释义补上，页面上能看到进度。
+导入完成后，服务端会在后台队列把音标补上（不重翻中文），页面上能看到进度。
 
 ### 学习列表
 
@@ -80,11 +94,8 @@ npm run dev:all         # 起本地服务(3456) + 前端(5173)
 **词库**：只显示词库名称、来源文件，以及标签的改名和重置默认值。
 标签就是这个词库在别处（查词页、导入页）显示成什么名字，默认是词库 id；另有单独的打印标签，印在卡片右上角，没设过就沿用显示标签。
 
-**查词链路**：按顺序列出查词时会依次尝试的来源——本地缓存 → 本机词典 → Free Dictionary API → 百度翻译，某一步拿到完整释义就不再往后走。
-灰色的步骤表示查词时会被跳过：词典没装、以离线模式启动（DICT_NO_NETWORK=1），或需要密钥的接口没配密钥。
-百度翻译要 API Key 和 App ID，可以直接在页面上填，密钥存在本机 cache/dict-keys.json（不进 git，只留后 4 位预览）；
-也可以写在 .env.local 的 BAIDU_TRANSLATE_API_KEY / BAIDU_TRANSLATE_APP_ID 里，页面配置优先于环境变量，点「清除」就回落回去。
-没配密钥时中文翻译那一步会跳过，新查的词可能没有中文释义。
+**查词链路**：按顺序列出查词时会依次尝试的来源——云端缓存 → dictionaryapi.dev → 百度翻译，某一步拿到完整释义就不再往后走。
+灰色的步骤表示查词时会被跳过并给原因（比如百度密钥没配——密钥是 Worker secret，只能用 `npx wrangler secret put` 配，页面上只读展示）。
 
 ### 英语学习
 
@@ -104,22 +115,22 @@ npm run dev:all         # 起本地服务(3456) + 前端(5173)
 逾期的词不会散落在过去的日期里，全部折叠进「今天」。
 按周打卡时同理，逾期的词折叠进「本周」。
 
+「今天 0 点」按用户时区算：Worker 进程是 UTC，服务端用 `DICT_TZ_OFFSET_HOURS`（`wrangler.toml` 里配了 8）做偏移。
+
 ## 数据存在哪
 
-数据全在一个 SQLite 文件里（`cache/study-history.sqlite`）：学习列表、学习进度、词库标签、学习目标、打印记录、词典缓存都在这一个库里。能直接看、直接备份；把这个文件提交到 git，另一台机器拉下来就能接着用（见「跨设备同步」）。
+唯一数据源是 Cloudflare D1 库 `english-study-sync`，桌面和手机看到的就是同一份，没有同步、没有快照。
 
-| 文件 | 内容 |
+| 表 | 内容 |
 | --- | --- |
-| `cache/study-history.sqlite` | 唯一的数据文件：学习列表 / 词条 / 打标日志 / 词库标签 / 学习目标 / 打印记录 / 词典缓存全在里面 |
-| `cache/backups/` | 迁移到 SQLite 之前、删除之前的自动备份（不进 git） |
-| `vocab/*.json` | 词库本身，统一格式，见下 |
-| `data/ecdict.csv` | ECDICT 原始数据（约 200MB），只在建索引时读，建完想省空间可以删；不进 git |
-| `data/ecdict/` | 本地词典索引（`records.tsv` + `index.bin` + `meta.json`，约 80MB），随仓库提交，服务端查词直接读它 |
+| `lists` / `list_words` | 学习列表和词条（含累计次数、排期锚点、幂等键） |
+| `learning_events` / `learning_event_meanings` | 打标日志（撤销 = 软删） |
+| `meaning_profiles` | 内容寻址的词义画像 |
+| `kv` | 词库标签 / 学习目标 / 打印批次 / 补齐队列状态（整份 JSON 一行） |
+| `dict_cache` | 词典缓存，一个词一行 |
 
-`cache/study-history.sqlite`、`vocab/` 和 `data/ecdict/` 都跟着仓库走（前两个是你的数据，第三个是随仓库提交的词典产物），`data/ecdict.csv` 和 `cache/backups/` 是可以随时重建的产物，所以 `.gitignore` 里排掉了它们。
-
-环境变量：`DICT_DATA_DIR` 把 `cache/` 换到别处，`DICT_PORT` 换端口（换端口要同步改前端 hook 里写死的地址），
-`DICT_ECDICT_DIR` 换本地词典产物目录，`DICT_ECDICT_OFF=1` 这次启动不用本地词典。
+本地仓库里：`vocab/*.json` 是词库本体（构建期打包进前端）；`cache/` 只剩迁移前的历史遗留，不进 git。
+访问令牌存浏览器 localStorage（key `es-api-token`）；词库标签也在浏览器留一份镜像，服务端可用时以服务端为准。
 
 ## 词库格式与新增词库
 
@@ -143,7 +154,7 @@ npm run dev:all         # 起本地服务(3456) + 前端(5173)
 新增一个词库：
 
 1. 把词表整理成上面的格式，存成 `vocab/<id>.json`；`id` 用 kebab-case、全局唯一。
-2. 重启前端（`vocab/*.json` 是构建期打包进去的，热更新不一定认新文件）。
+2. 重新构建 / 重启 dev（`vocab/*.json` 是构建期打包进去的，热更新不一定认新文件）。
 3. 需要的话在 `vocab/` 里放一个 `parse_<来源>.py`，方便以后重新解析。
 
 从 PDF 解析的现成例子是 `vocab/parse_a2_key.py`，两步：
@@ -158,95 +169,26 @@ python3 vocab/parse_a2_key.py
 
 ## 释义从哪来
 
-查词优先用本机的 ECDICT（英汉简明字典，开源，约 77 万词条），本地查不到才去请求外部接口。装一次就够：
-
-```bash
-npm run ecdict:fetch
-```
-
-它做三件事：从 GitHub Releases 下 `ecdict-csv-28.zip`（约 60MB）→ 解压出约 200MB 的 csv 到 `data/ecdict.csv` → 编译成 `data/ecdict/` 里约 80MB 的索引。编译产物已经提交进仓库，换台机器 `git pull` 就有，平时不用跑这个命令；只有想升级词典版本时才需要重跑。**装完要重启本地服务才生效。**
-
-下载不通（连不上 GitHub）时手动装：自己下 `ecdict-csv-28.zip`，把解压出来的 csv 放成 `data/ecdict.csv`，再跑 `npm run ecdict:build` 建索引。也可以换个下载地址：`ECDICT_URL=<地址> npm run ecdict:fetch`。
-
 查一个词的顺序：
 
-1. SQLite 词典缓存里已经查齐的（`status: ok`）直接用；
-2. 本机 ECDICT：音标 + 中文 + 英文释义，一次网络请求都不发；
-3. 本地还是缺东西，才走外部接口——dictionaryapi.dev 给单词音标和英文释义全集，百度大模型文本翻译 API 给中文；句子直接交给百度翻译。
+1. D1 词典缓存里已经查齐的（`status: ok`）直接用；
+2. dictionaryapi.dev 给单词音标和英文释义全集，百度大模型文本翻译 API 给中文；句子直接交给百度翻译（逐词拼音标）。
 
-外部接口有限流，所以批量补齐仍走后台队列：并发 2、每次间隔 250ms。**本地词典命中的词不占这个限速**，导入几百个常见词几乎瞬间补完。百度 API Key 和应用 ID 分别通过环境变量 BAIDU_TRANSLATE_API_KEY、BAIDU_TRANSLATE_APP_ID 提供，不能写进代码或缓存；接口地址可用 BAIDU_TRANSLATE_API_URL 覆盖。
+外部接口有限流，批量补齐走后台队列：并发 2、每次间隔 250ms（Worker 里用 `waitUntil` 驱动，一次请求约 30 秒内跑不完的留在队列里，下次补齐接着跑）。百度密钥是 Worker secret（`BAIDU_TRANSLATE_API_KEY` / `BAIDU_TRANSLATE_APP_ID`），接口地址可用 `BAIDU_TRANSLATE_API_URL` 覆盖。
 一条缓存只有音标 / 释义 / 中文都拿到才标成 `ok`，缺一块标 `partial`，下次查会自动重取。
-带空格的短语和句子不查 dictionaryapi.dev（查不到），但 ECDICT 收了 `a few` 这类固定短语。
+带空格的短语和句子不查 dictionaryapi.dev（查不到），音标逐词拼回。
+「一个汉字都没有」的百度返回会被当失败，不写进缓存。
 
-关于例句：**ECDICT 不带例句，应用也不再显示例句**——词卡只有音标 + 中文释义，打印卡片反面同样只印音标 + 中文，缓存里也不再存例句字段。
+关于例句：**应用不显示例句**——词卡只有音标 + 中文释义，打印卡片反面同样只印音标 + 中文，缓存里也不存例句字段。
 
-缓存里的老数据会自动换成 ECDICT：装好词典并重启服务后，凡是来源不是本地词典的历史缓存被查到时（查词、学习列表、导出卡片都算），服务端就地重查一次本地词典并覆盖，这一步不联网。想一次性全换完，给 `POST /api/dict/repair` 发一次带 `force: true` 的请求，它把所有在学的词重跑一遍。
-
-设 `DICT_NO_NETWORK=1` 可以完全断网跑（只吃缓存 + 本地词典），服务端测试就是这么跑的。
-
-## 跨设备同步
-
-两种方式：日常用云端同步（自动提示方向），git 手动交接当备用。
-
-### 云端同步（Cloudflare Worker + D1）
-
-云端同步服务和手机端页面合并成同一个 Cloudflare Worker（`english-study-mobile`）：
-同一个 Worker 既发手机端静态页面，又处理 `/sync/*` 同步接口，共用一个 D1 库，页面和同步接口因此同源、不再跨域。
-桌面端把整库快照推上去，另一台设备（或手机端）再拉下来；桌面应用仍然跑在本机，
-由本地服务（127.0.0.1:3456）server-to-server 调用云端，不经过浏览器。
-
-部署（在能连外网的机器上，仓库根目录执行）：
-
-```
-npm run deploy:mobile
-```
-
-首次部署后还要给这个 Worker 建表、设同步令牌（各跑一次即可，D1 库名仍是 english-study-sync）：
-
-```
-npx wrangler d1 execute english-study-sync --remote --file=worker/schema.sql
-npx wrangler secret put SYNC_TOKEN
-```
-
-桌面端在「设置 → 数据同步」里填这几个：
-
-- **云端地址**：`https://english-study-mobile.rextao666.workers.dev`
-- **设备名**（可选）：给这台机器起个名字，推送后能分辨是谁传的
-- **同步令牌**：上面 `npx wrangler secret put SYNC_TOKEN` 设的那串
-
-手机端打开网页后只填令牌：它和同步接口同源，自动用当前站点地址，不用再填云端地址。
-
-令牌不放本文件里——README 会提交到 git，跟着进 GitHub 就泄露了。它存在本机 `cache/sync-keys.json`（已被 `.gitignore` 忽略），或写在 `.env.local` 的 `SYNC_WORKER_TOKEN` 里；新机器要填时从那里复制。
-
-日常用法：
-
-- 顶部提示条自动提示方向：本地有新改动 → 点「上传到云端」；云端有更新的数据 → 点「同步到本地」；两边都改了 → 弹窗选一个方向
-- 传的是整库快照（学习列表 / 学习记录 / 标签 / 目标 / 打印批次），不做逐行合并，最后同步的一份数据为准；查词缓存不参与同步（随时能重新生成）
-- 从云端拉取覆盖本地前会自动备份当前数据库到 `cache/backups/`
-- 同步只在你点按钮时才执行，不会自动跑
-
-### git 手动交接（备用）
-
-数据都在 `cache/study-history.sqlite` 一个文件里，git 提交它就能换设备接着用：
-
-1. A 机正常学习，数据自动写库；想同步时把 `cache/study-history.sqlite` 提交到 git
-2. B 机 `git pull` 后启动服务，学习列表、进度、标签、目标、打印记录、词典缓存全都在，不用重新查词或导入
-3. 用完 B 机再提交回去，A 机拉一下即可
-
-这是「手动提交、手动拉取」的顺序交接，不是实时同步——两台机同时改了同一个库再合并会冲突，
-SQLite 是二进制文件没法自动合并，这时以某一台的数据为准重新提交一次就行。
-本地词典索引 `data/ecdict/` 随仓库提交（约 80MB；`.gitattributes` 里标成二进制，防止 git 换行符转换破坏 `index.bin` 里的字节偏移），新机器 `git pull` 就有。
-以前版本留下的 `cache/*.json` 会在第一次启动服务时自动迁进 SQLite 并备份到 `cache/backups/`，不用手动处理。
+设 `DICT_NO_NETWORK=1` 可以完全断网跑（只吃缓存），服务端测试就是这么跑的。
 
 ## 常见问题
 
-- **页面提示「本地服务未启动」**：跑 `npm run dev:all`，或单独 `npm run server`。
-- **服务启动时提示「本地词典: 未安装」**：产物随仓库走，`git pull` 应该就有；确认 `data/ecdict/` 下 `records.tsv` / `index.bin` / `meta.json` 三个文件都在。想重建或升级版本才跑 `npm run ecdict:fetch`，装完重启本地服务。
-- **以前查过的词还是机翻中文**：装好本地词典并重启服务后不用管它，这些词下次被查到会自动换成 ECDICT 的音标和中文；想立刻全换完就给 `POST /api/dict/repair` 发一次带 `force: true` 的请求。
-- **`npm run ecdict:fetch` 下载失败**：手动下 `ecdict-csv-28.zip`，把解压出的 csv 放成 `data/ecdict.csv`，再跑 `npm run ecdict:build`；或者换地址 `ECDICT_URL=<镜像地址> npm run ecdict:fetch`。
-- **查词一直没有中文**：检查服务启动时是否同时配置了 BAIDU_TRANSLATE_API_KEY 和 BAIDU_TRANSLATE_APP_ID，以及百度翻译 API 是否可用。服务端会把「一个汉字都没有」的返回当失败，不会把错误提示写进缓存。
+- **页面弹令牌门 / 提示「云端服务不可用」**：令牌没填或填错了，填 Worker secret `API_TOKEN` 的值；云端连接失败则检查网络或 Worker 是否在线。
+- **查词一直没有中文**：百度两个 secret 没配或百度翻译 API 不可用。服务端会把「一个汉字都没有」的返回当失败，不会把错误提示写进缓存。
 - **点打印卡片没反应**：浏览器拦了新标签页，允许本站弹窗后重试，或者改用「仅标记开始学习」。
 - **卡片上没有音标**：那些词的词典数据还没补齐，等导入后的后台队列跑完，或重新查询这些词。
 - **打印记录里的词写着「已移除」**：那个词后来被从学习列表删了，整批打卡时会跳过它，同一批的其他词照常标记。
-- **卡片开出来了，却提示「打印记录没保存」**：本地服务中途没响应。卡片和学习进度都不受影响，只是这一批没进「打印记录」，之后不能整批打卡。补救办法：在月历里给这些词单独打卡，或者等它们到期时用「今日复习 / 打印整周卡片」再导一次，那次会重新留档。
+- **卡片开出来了，却提示「打印记录没保存」**：请求中途失败。卡片和学习进度都不受影响，只是这一批没进「打印记录」，之后不能整批打卡。补救办法：在月历里给这些词单独打卡，或者等它们到期时用「今日复习 / 打印整周卡片」再导一次，那次会重新留档。
 - **打印页如何排列**：卡片默认按 A4 横向、2 列 × 3 行排版，奇数页是英文正面，偶数页是对应的音标与中文反面；偶数页会逐行左右镜像，行的上下顺序不变，方便短边翻转双面打印后裁切对齐。顶部可分别调整单词和语句字号，单词不会换行，过长时会自动缩小；反面的音标和中文也会作为整体自动使用卡片可容纳的最大字号。

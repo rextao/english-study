@@ -1,13 +1,13 @@
 /* 学习列表页：顶部列表选择器 + 词条平铺清单，通用骨架仍走 App.css */
 
+.lists-page .page-header__actions { align-self: center; }
+
 .lists-bar {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 20px;
 }
-
-.lists-bar > .ui-btn { flex-shrink: 0; }
 
 /* 列表选择器：浅灰底分段控件，选中项是白色 pill，与顶部导航同一套观感 */
 .lists-tabs {
@@ -67,16 +67,6 @@
 
 .lists-tab--active .lists-tab__count { background: var(--color-primary); color: #fff; }
 
-/* 新增列表：平时只有一个按钮，点开后原地展开名称输入 */
-.lists-new {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.lists-new__input { width: 150px; }
-
 .lists-alert { margin-bottom: 12px; }
 
 .lists-toast {
@@ -128,9 +118,6 @@
   white-space: nowrap;
 }
 
-.lists-toolbar__rename { flex: 1; min-width: 0; max-width: 280px; }
-.lists-toolbar__rename .ui-input__inner { font-size: 15px; font-weight: 600; }
-
 .lists-toolbar__actions {
   display: flex;
   align-items: center;
@@ -140,33 +127,38 @@
 
 .lists-toolbar__filter { width: 160px; }
 
-/* 批次开关：放在筛选输入框左边，不换行 */
+/* 分组开关：放在筛选输入框左边，不换行 */
 .lists-toolbar__batch-toggle { white-space: nowrap; }
 
-/* 批次分组视图：一个自然日一组，头部是日期名 + 数量 + 重命名 */
+/* 分组视图：一个自然日一组，头部是日期名 + 数量 + 重命名 */
 .word-batches { margin-top: 4px; }
 
 .word-batch { margin-bottom: 18px; }
 
-/* 批次头部可点击：点标题折叠 / 展开该批次 */
+/* 分组头部可点击：点标题折叠 / 展开该分组；加一条底色让分组标题和词条一眼分得开 */
 .word-batch__head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   margin: 0 0 6px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--color-border);
+  padding: 7px 12px;
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   user-select: none;
-  border-radius: var(--radius-sm, 4px);
+  transition: background .15s;
 }
+
+.word-batch__head:hover { background: var(--color-border-strong); }
 
 .word-batch__head:focus-visible {
   outline: 2px solid var(--color-primary, #2563eb);
   outline-offset: 2px;
 }
 
-.word-batch__head--collapsed { border-bottom-color: transparent; }
+/* 折叠时头部不再预留和词条之间的间距 */
+.word-batch__head--collapsed { margin-bottom: 0; }
 
 .word-batch__chevron {
   width: 12px;
@@ -317,8 +309,8 @@
 
 @media (max-width: 640px) {
   .lists-bar { flex-wrap: wrap; }
-  .lists-tabs { flex-basis: 100%; margin-right: 0; }
-  .lists-bar > .ui-btn, .lists-new { margin-left: auto; }
+  /* 灰色分段底只包住 tab 本身，不铺满整行；列表多的时候内部横向滚动 */
+  .lists-tabs { flex: 0 0 auto; max-width: 100%; margin-right: 0; }
   .lists-toolbar { flex-wrap: wrap; }
   .lists-toolbar__actions { width: 100%; }
   .lists-toolbar__filter { flex: 1; width: auto; }

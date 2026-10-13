@@ -1,7 +1,0 @@
-# Godot 4 编辑器 / 导入缓存
-.godot/
-
-# 导出产物
-/build/
-export_presets.cfg
-

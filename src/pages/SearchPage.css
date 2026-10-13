@@ -68,12 +68,18 @@
 
 .search-target {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-end;
   position: absolute;
   top: 0;
   right: 0;
-  gap: 8px;
+  gap: 6px;
 }
+
+
+.search-target__new { display: flex; align-items: center; gap: 6px; }
+
+.search-target__new-input { width: 120px; }
 
 .search-target .field-label { white-space: nowrap; }
 
@@ -99,14 +105,27 @@
 .search-page .word-card { margin-top: 20px; }
 
 @media (max-width: 640px) {
-  .search-target {
-    position: static;
-    justify-content: center;
-    margin-top: 10px;
+  /* 窄屏下切换按钮、标题、学习列表下拉排成一行，不再各占一行 */
+  .search-hero {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
   }
-  /* 窄屏下切换按钮不再绝对定位，排在标题上方，避免和标题挤在一起 */
   .search-hero__toggle {
     position: static;
-    margin: 0 0 10px;
+    margin: 0;
+    flex-shrink: 0;
+  }
+  .search-hero__title {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+  }
+  .search-target {
+    position: static;
+    align-items: center;
+    margin-top: 0;
+    flex-shrink: 0;
   }
 }

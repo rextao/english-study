@@ -3,7 +3,7 @@ import { pinyin } from 'pinyin-pro'
 // 打印卡片：A4 横向双面排版，偶数页按行左右镜像。
 // 每组按“单词正面 → 音标与翻译反面”相邻输出，双面打印时奇数页是正面、偶数页是反面。
 
-const SERVER = 'http://127.0.0.1:3456'
+import { apiFetch } from './apiBase'
 
 export interface FlashCard {
   word: string
@@ -122,7 +122,7 @@ interface BatchReply {
 /** 一次把本地缓存里已有的释义全捞出来 */
 async function fetchCached(words: string[]): Promise<BatchReply | null> {
   try {
-    const res = await fetch(SERVER + '/api/dict/batch', {
+    const res = await apiFetch('/api/dict/batch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ words }),
@@ -138,7 +138,7 @@ async function fetchCached(words: string[]): Promise<BatchReply | null> {
 /** 缺释义的词现查一次，服务端会顺手写进缓存 */
 async function fetchOne(word: string): Promise<CachedEntry> {
   try {
-    const res = await fetch(SERVER + '/api/dict?word=' + encodeURIComponent(word))
+    const res = await apiFetch('/api/dict?word=' + encodeURIComponent(word))
     return await res.json() as CachedEntry
   } catch {
     return {}

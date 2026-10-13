@@ -7,7 +7,7 @@ import type {
   StudyMarkAction,
 } from '../types/vocab'
 
-const API_BASE = 'http://127.0.0.1:3456'
+import { apiFetch } from '../utils/apiBase'
 
 export type LearningRecordFilterAction = 'all' | Extract<StudyMarkAction, 'spelling' | 'done' | 'again'>
 
@@ -48,7 +48,7 @@ export function useLearningAchievements(libraryId: string) {
       setError(null)
       try {
         const query = new URLSearchParams({ libraryId })
-        const response = await fetch(`${API_BASE}/api/study/achievements?${query}`, { signal: controller.signal })
+        const response = await apiFetch(`/api/study/achievements?${query}`, { signal: controller.signal })
         const body = await readJson<LearningAchievementsResponse>(response, '学习成果读取失败')
         if (!Array.isArray(body.items)) throw new Error('学习成果数据格式不正确')
         setItems(body.items)
@@ -98,7 +98,7 @@ export function useLearningRecords(filters: HistoryFilters, enabled: boolean) {
         limit: String(limit),
         offset: String(offset),
       })
-      const response = await fetch(`${API_BASE}/api/study/history?${query}`)
+      const response = await apiFetch(`/api/study/history?${query}`)
       const body = await readJson<LearningHistoryResponse>(response, '学习记录读取失败')
       if (!Array.isArray(body.items) || typeof body.total !== 'number') throw new Error('学习记录数据格式不正确')
       if (requestRef.current !== requestId) return
@@ -129,7 +129,7 @@ export function useLearningRecords(filters: HistoryFilters, enabled: boolean) {
     setMutating(true)
     setError(null)
     try {
-      const response = await fetch(`${API_BASE}${url}`, { method: 'DELETE' })
+      const response = await apiFetch(url, { method: 'DELETE' })
       await readJson<unknown>(response, fallback)
       // 交给 effect 使用最新筛选条件刷新，避免删除期间切换筛选时旧请求覆盖新结果。
       reloadLimitRef.current = Math.max(PAGE_SIZE, itemCountRef.current)
@@ -152,7 +152,7 @@ export function useLearningRecords(filters: HistoryFilters, enabled: boolean) {
     setMutating(true)
     setError(null)
     try {
-      const response = await fetch(`${API_BASE}/api/study/history/purge`, {
+      const response = await apiFetch('/api/study/history/purge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

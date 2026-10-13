@@ -160,6 +160,15 @@ export function LearningRecordsPage({ libraries, getLabelById, onBack }: Learnin
       {!records.loading && !records.error && records.items.length === 0 && <p className="empty">没有符合条件的学习记录。</p>}
 
       {!records.loading && records.items.length > 0 && (
+        <div className="learning-records-page__select-all">
+          <Checkbox checked={allVisibleSelected} disabled={records.items.length === 0 || records.mutating}
+            onChange={event => toggleAllVisible(event.target.checked)}>
+            <span>{allVisibleSelected ? '取消本页' : '本页全选'}</span>
+          </Checkbox>
+        </div>
+      )}
+
+      {!records.loading && records.items.length > 0 && (
         <div className="card learning-records-page__table-wrap">
           <table className="learning-records-page__table">
             <thead><tr><th className="learning-records-page__select">
@@ -178,15 +187,15 @@ export function LearningRecordsPage({ libraries, getLabelById, onBack }: Learnin
                     <span className="learning-records-page__sr-only">选择 {group.word}</span>
                   </Checkbox>
                 </td>
-                <td><strong>{group.word}</strong></td>
-                <td><div className="learning-records-page__tags">
+                <td className="learning-records-page__word"><strong>{group.word}</strong></td>
+                <td className="learning-records-page__libs" data-label="词库"><div className="learning-records-page__tags">
                   {group.sourceIds.length > 0
                     ? group.sourceIds.map(sourceId => <Tag key={sourceId} color="blue">{getLabelById(sourceId)}</Tag>)
                     : <span className="learning-records-page__none">未归属词库</span>}
                 </div></td>
-                <td className="learning-records-page__number">{group.spellingCount}</td>
-                <td className="learning-records-page__number">{group.rememberedCount}</td>
-                <td className="learning-records-page__number">{group.forgottenCount}</td>
+                <td className="learning-records-page__number" data-label="背过">{group.spellingCount}</td>
+                <td className="learning-records-page__number" data-label="记住">{group.rememberedCount}</td>
+                <td className="learning-records-page__number" data-label="没记住">{group.forgottenCount}</td>
                 <td className="learning-records-page__actions">
                   <Button size="small" onClick={() => setDetailWord(group.word)}>详情</Button>
                   <Popconfirm title={`清空 ${group.word} 的全部学习记录？`}

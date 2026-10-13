@@ -174,14 +174,93 @@
 .learning-records-page__detail-table th:last-child,
 .learning-records-page__detail-table td:last-child { width: 100px; text-align: right; }
 
+/* 手机端「本页全选」：桌面端它在表头里，卡片式把表头藏了，挪到表格上方独立一行 */
+.learning-records-page__select-all { display: none; }
+
 @media (max-width: 720px) {
   .learning-records-page__header { align-items: flex-start; flex-wrap: wrap; padding: 16px; }
   .learning-records-page__eyebrow { width: 100%; order: -1; }
   .learning-records-page__back { margin-left: 0; }
   .learning-records-page__filters { grid-template-columns: 1fr; }
   .learning-records-page__bulk-bar { max-width: 100%; }
-  .learning-records-page__table-wrap,
-  .learning-records-page__detail-table-wrap { overflow-x: auto; }
-  .learning-records-page__table { min-width: 850px; }
-  .learning-records-page__detail-table { min-width: 480px; }
+  .learning-records-page__select-all { display: flex; align-items: center; padding: 10px 14px 0; }
+
+  /* 主表转紧凑卡片：勾选 + 单词同一行，词库标签独占一行，三个次数横排，操作整行铺底 */
+  .learning-records-page__table-wrap { overflow: visible; padding: 4px; }
+  .learning-records-page__table { min-width: 0; }
+  .learning-records-page__table thead { display: none; }
+  .learning-records-page__table,
+  .learning-records-page__table tbody { display: block; }
+  .learning-records-page__table tbody tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    margin-bottom: 10px;
+    padding: 12px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xs);
+  }
+  .learning-records-page__table tbody tr:last-child { margin-bottom: 0; }
+  .learning-records-page__table td {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: none;
+  }
+  .learning-records-page__table td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    color: var(--color-text-subtle);
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .learning-records-page__select { width: auto; padding-right: 0; }
+  .learning-records-page__word { flex: 1; min-width: 0; font-size: 15px; display: flex; }
+  .learning-records-page__word strong {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .learning-records-page__libs { flex-basis: 100%; }
+  .learning-records-page__table .learning-records-page__number {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    justify-content: center;
+  }
+  .learning-records-page__actions {
+    width: 100%;
+    justify-content: flex-start;
+    padding-top: 8px;
+    border-top: 1px solid var(--color-border);
+  }
+
+  /* 详情弹窗里的小表也转成一行一条：标记 + 日期在左，删除靠右 */
+  .learning-records-page__detail-table-wrap { overflow: visible; }
+  .learning-records-page__detail-table { min-width: 0; }
+  .learning-records-page__detail-table thead { display: none; }
+  .learning-records-page__detail-table,
+  .learning-records-page__detail-table tbody { display: block; }
+  .learning-records-page__detail-table tbody tr {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .learning-records-page__detail-table tbody tr:last-child { border-bottom: none; }
+  .learning-records-page__detail-table td {
+    display: flex;
+    align-items: center;
+    padding: 0;
+    border: none;
+  }
+  .learning-records-page__detail-table td:nth-child(1) { flex: 1; min-width: 0; font-weight: 600; }
+  .learning-records-page__detail-table td:nth-child(2) { color: var(--color-text-muted); font-size: 13px; }
+  .learning-records-page__detail-table td:nth-child(3) { width: auto; margin-left: auto; }
 }

@@ -6,23 +6,13 @@ dist/
 .env.*
 !.env.example
 
-# ECDICT 的编译产物 data/ecdict/（records.tsv + index.bin + meta.json）提交进仓库，
-# 新机器 git pull 就能直接用，不用再跑 ecdict:fetch；.gitattributes 里已标成二进制。
-# 只排除可再生的构建输入：原始 csv、下载的压缩包、构建中途的 .tmp
+# ECDICT 本地词典已随「后端上云」退役；本地残留的词典文件（约 140MB）不进 git。
+data/ecdict/
 data/ecdict.csv
 data/*.zip
-data/ecdict/*.tmp
 
 .DS_Store
 .idea/
 
-# 本机永久学习历史及删除前自动备份
-cache/*.sqlite-wal
-cache/*.sqlite-shm
-cache/backups/
-cache/dict-cache.json.bak
-
-# 唯一的落盘数据文件：学习列表 / 学习历史 / 词库标签 / 目标 / 打印批次 / 词典缓存都在这一个库里，
-# 提交它就能在另一台机器 git pull 拿到完整数据（库里其余文件都是备份 / 临时产物，不进 git）
+# 本地缓存目录：sqlite 已迁移进 D1，目录仅剩本地调试产物，一律不进 git
 cache/*
-!cache/study-history.sqlite

@@ -101,6 +101,22 @@
 
 .nav__tab--active .nav__badge { background: var(--color-primary); color: #fff; }
 
+/* 手机端折叠菜单里的角标（学习列表条数），沿用分段控件里角标的观感 */
+.nav__menu-badge {
+  min-width: 17px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-border-strong);
+  color: var(--color-text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 17px;
+  text-align: center;
+}
+
+/* 折叠菜单的「更多」按钮：桌面端不需要，只在手机端出现 */
+.nav__more { display: none; }
+
 /* 学习入口：多色流光渐变胶囊 + 背后彩色光晕 + 高光扫过，一眼就想点进去 */
 .nav__cta {
   position: relative;
@@ -318,12 +334,15 @@
 @media (max-width: 640px) {
   .nav__inner { padding: 0 16px; gap: 10px; }
   .nav__brand-text { display: none; }
-  .nav__tabs { flex: 1; overflow-x: auto; scrollbar-width: none; }
-  .nav__tabs::-webkit-scrollbar { display: none; }
+  /* 只剩「查词」一个 tab，不再需要横向滚动；灰色底只包住按钮本身，不铺满整行 */
+  .nav__tabs { flex: 0 0 auto; overflow: visible; }
+  .nav__tab--extra { display: none; }
   .nav__tab { padding: 5px 10px; font-size: 12px; }
   .nav__cta { padding: 7px 12px; font-size: 12px; }
   .nav__cta::before { inset: -3px -4px; filter: blur(7px); opacity: .42; }
   .nav__cta-icon { font-size: 11px; }
+  .nav__settings-desktop { display: none; }
+  .nav__more { display: inline-flex; }
   /* 窄屏只留小圆点，省横向空间（完整文案仍在 title / aria-label 里）；
      挪到齿轮左侧，避免绝对定位时顶出屏幕右缘 */
   .nav__sync-tip {

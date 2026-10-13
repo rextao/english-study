@@ -1,19 +1,20 @@
-import { useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { useVocabLibraries } from './hooks/useVocabLibraries'
 import { useStudyList } from './hooks/useStudyList'
 import { useStudyPlan } from './hooks/useStudyPlan'
 import { useTabRoute } from './hooks/useTabRoute'
-import { useSync } from './hooks/useSync'
+import { AUTH_REQUIRED_EVENT, getStoredToken, setStoredToken } from './utils/apiBase'
 import { Nav } from './components/Nav'
-import { SyncNotice } from './components/SyncNotice'
+import { TokenGate } from './components/TokenGate'
 import { SearchPage } from './pages/SearchPage'
 import { ListsPage } from './pages/ListsPage'
-import { SettingsPage } from './pages/SettingsPage'
 import type { SettingsSection } from './pages/SettingsPage'
 import { StudyPage } from './pages/StudyPage'
 import { AchievementsPage } from './pages/AchievementsPage'
 import { LearningRecordsPage } from './pages/LearningRecordsPage'
 import './App.css'
+
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then(module => ({ default: module.SettingsPage })))
 
 export default function App() {
   const {
@@ -36,26 +37,39 @@ export default function App() {
   const plan = useStudyPlan()
   // 当前页面记在地址栏 hash 上，刷新后不会跳回首页
   const [tab, setTab] = useTabRoute()
-  // 数据同步：全局唯一一份，顶部提示条和设置页共用，避免切 tab 后状态不同步
-  const sync = useSync()
 
-  // 设置页当前子分区（词库配置 / 查询链路 / 数据同步）；提到这里是为了让同步提示条能一键切过去
-  const [settingsSection, setSettingsSection] = useState<SettingsSection>('libraries')
-  // 每 +1 一次，让设置页的同步面板自动展开并拉一次差异；用计数而不是布尔，连点也能重复触发
-  const [syncDiffTick, setSyncDiffTick] = useState(0)
+  // 访问令牌：云端 API 需要Bearer鉴权，首次打开填一次存 localStorage
+  const [token, setToken] = useState(getStoredToken)
+  const [authPrompt, setAuthPrompt] = useState(false)
 
-  /** 顶部同步提示条点「选择同步方向 / 详情」：切到设置页数据同步 tab，showDiff 时顺带展开差异 */
-  const goToSync = (showDiff: boolean) => {
-    setSettingsSection('sync')
-    setTab('settings')
-    if (showDiff) setSyncDiffTick(tick => tick + 1)
-  }
+  // 任何请求收到 401 就重新弹令牌输入（令牌被改 / 过期 / 换了部署）
+  useEffect(() => {
+    const handler = () => setAuthPrompt(true)
+    window.addEventListener(AUTH_REQUIRED_EVENT, handler)
+    return () => window.removeEventListener(AUTH_REQUIRED_EVENT, handler)
+  }, [])
 
-  /** 从云端拉取覆盖本地成功后，页面上的列表 / 计划 / 标签都还是旧数据，刷新一遍 */
-  const handleSyncApplied = () => {
+  const handleTokenSubmit = (value: string) => {
+    setStoredToken(value)
+    setToken(value)
+    setAuthPrompt(false)
+    // 新令牌生效后，把各页面已失败的请求重打一遍
     void study.fetchLists()
     void plan.refresh()
     void reloadLabels()
+  }
+
+  // 设置页当前子分区（词库配置 / 学习列表 / 学习记录 / 查询链路）
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>('libraries')
+
+  /** 学习列表页点「新增 / 重命名列表」：切到设置页的「学习列表」分区统一管理 */
+  const goToListSettings = () => {
+    setSettingsSection('lists')
+    setTab('settings')
+  }
+
+  if (!token || authPrompt) {
+    return <TokenGate onSubmit={handleTokenSubmit} hasExistingToken={Boolean(token)} />
   }
 
   if (loading) {
@@ -76,22 +90,15 @@ export default function App() {
         onChange={setTab}
         totalItems={totalItems}
         dueToday={plan.dueCount}
-        syncTip={sync.state === 'remote-ahead' ? {
-          title: '云端有更新的学习数据（' + (sync.status?.remote?.wordCount ?? 0) + ' 个词条'
-            + (sync.status?.remote?.deviceLabel ? '，来自「' + sync.status.remote.deviceLabel + '」' : '') + '）',
-          onClick: () => goToSync(true),
-        } : null}
       />
 
       {(study.offline || labelsOffline) && (
         <div className="app__notice">
           <div className="callout callout--warn">
-            本地服务未启动，学习列表暂不可用，词库标签只会临时存在浏览器里。请在项目目录运行 <code>npm run dev:all</code>
+            云端连接失败，学习列表暂不可用，词库标签只会临时存在浏览器里。请检查网络、Worker 部署状态与访问令牌。
           </div>
         </div>
       )}
-
-      <SyncNotice sync={sync} onNavigateToSync={goToSync} />
 
       <main>
         {tab === 'search' && (
@@ -99,15 +106,18 @@ export default function App() {
             libraries={libraries}
             getLabelById={getLabelById}
             study={study}
+            onManageLists={goToListSettings}
           />
         )}
         {tab === 'lists' && (
           <ListsPage
             getLabelById={getLabelById}
             study={study}
+            onManageLists={goToListSettings}
           />
         )}
         {tab === 'settings' && (
+          <Suspense fallback={<div className="app__loading"><span className="ui-spin" aria-hidden="true" />加载设置中...</div>}>
           <SettingsPage
             libraries={libraries}
             getLabelById={getLabelById}
@@ -119,12 +129,12 @@ export default function App() {
             onRenamePrintLabel={updatePrintLabel}
             onResetPrintLabel={resetPrintLabel}
             offline={labelsOffline}
-            sync={sync}
+            study={study}
             section={settingsSection}
             onSectionChange={setSettingsSection}
-            syncDiffTick={syncDiffTick}
-            onSyncApplied={handleSyncApplied}
+            onManageRecords={() => setTab('records')}
           />
+          </Suspense>
         )}
         {tab === 'study' && (
           <StudyPage
@@ -140,7 +150,6 @@ export default function App() {
             libraries={libraries}
             getLabelById={getLabelById}
             study={study}
-            onManageRecords={() => setTab('records')}
           />
         )}
         {tab === 'records' && (

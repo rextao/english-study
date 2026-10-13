@@ -1,0 +1,78 @@
+/* 设置页「学习列表」分区：一行一个列表 + 行内重命名 / 删除 */
+
+.list-manager__bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.list-manager__bar .hint { flex: 1; min-width: 0; margin: 0; }
+
+.list-manager__bar > .ui-btn { flex-shrink: 0; }
+
+.list-manager__new {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.list-manager__new-input { width: 160px; }
+
+.list-manager__alert { margin-bottom: 12px; }
+
+.list-manager__items { list-style: none; }
+
+.list-manager__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.list-manager__item + .list-manager__item { margin-top: 8px; }
+
+.list-manager__info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.list-manager__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.list-manager__count {
+  font-size: 12px;
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+}
+
+.list-manager__rename { flex: 1; min-width: 0; max-width: 280px; }
+.list-manager__rename .ui-input__inner { font-weight: 600; }
+
+.list-manager__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+@media (max-width: 640px) {
+  .list-manager__bar { flex-wrap: wrap; }
+  .list-manager__new { width: 100%; }
+  .list-manager__new-input { flex: 1; width: auto; }
+}

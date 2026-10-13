@@ -102,8 +102,7 @@ const content = (
     <>
       {offline && (
         <div className="callout callout--warn libs-notice">
-         本地服务未启动，标签改动先记在浏览器里，服务起来后会自动同步到 cache/vocab-labels.json。
-          本地服务未启动，标签改动先记在浏览器里，服务起来后会自动同步到服务端。
+          云端连接失败，标签改动先记在浏览器里，恢复后会自动同步到服务端。
         </div>
       )}
 

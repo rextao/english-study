@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useRef } from 'react'
-import { notifyLocalDataChanged } from '../syncBus'
 import type { PrintBatch, StudyMarkScope, StudyReviewAction } from '../types/vocab'
 
-const SERVER = 'http://127.0.0.1:3456'
-const BASE = SERVER + '/api/print-batches'
+import { apiFetch } from '../utils/apiBase'
+import { invalidateWords } from '../utils/studyListCache'
+const BASE = '/api/print-batches'
 
 /** 记一次卡片导出。一批词可能跨列表（复习计划里的词就是），所以按列表分组传 */
 export interface PrintRecordInput {
@@ -26,10 +25,10 @@ export interface PrintReviewOptions {
 
 type Result = { ok: true } | { ok: false; error: string }
 
-/** 三个写操作的公共壳子：fetch 抛错就当本地服务没起 */
+/** 三个写操作的公共壳子：fetch 抛错就当云端不可达 */
 async function send(url: string, method: string, body?: unknown): Promise<Result> {
   try {
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -39,7 +38,7 @@ async function send(url: string, method: string, body?: unknown): Promise<Result
     if (!res.ok || data?.ok !== true) return { ok: false, error: data?.error ?? '操作失败' }
     return { ok: true }
   } catch {
-    return { ok: false, error: '本地服务未启动' }
+    return { ok: false, error: '云端服务不可用' }
   }
 }
 
@@ -55,11 +54,10 @@ export function usePrintBatches() {
   const [offline, setOffline] = useState(false)
 
   // 挂载时那次拉取不算数据变动；之后每次 refresh 都是留档 / 打卡 / 删记录触发的
-  const notifiedRef = useRef(false)
 
   const refresh = useCallback(async () => {
     try {
-      const res  = await fetch(BASE)
+      const res  = await apiFetch(BASE)
       const data = await res.json() as { batches?: PrintBatch[] }
       if (Array.isArray(data?.batches)) setBatches(data.batches)
       setOffline(false)
@@ -67,8 +65,6 @@ export function usePrintBatches() {
       setOffline(true)
     }
     setLoading(false)
-    if (notifiedRef.current) notifyLocalDataChanged()
-    notifiedRef.current = true
   }, [])
 
   useEffect(() => { refresh() }, [refresh])
@@ -99,9 +95,14 @@ export function usePrintBatches() {
       scope: options?.scope,
       requestIds: options?.requestIds,
     })
-    if (res.ok) await refresh()
+    if (res.ok) {
+      // 整批打卡走的是 applyReview，stage / 排期变了，把涉及列表的词条缓存都作废
+      const batch = batches.find(item => item.id === id)
+      if (batch) for (const listId of new Set(batch.items.map(item => item.listId))) invalidateWords(listId)
+      await refresh()
+    }
     return res
-  }, [refresh])
+  }, [refresh, batches])
 
   /** 只删这条记录，词的学习进度不动 */
   const removeBatch = useCallback(async (id: string): Promise<Result> => {

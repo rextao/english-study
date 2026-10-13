@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { notifyLocalDataChanged } from '../syncBus'
 import type { VocabLibrary, VocabLibraryInfo } from '../types/vocab'
 
-const SERVER = 'http://127.0.0.1:3456'
-const LABELS_URL = SERVER + '/api/vocab-labels'
-const PRINT_LABELS_URL = SERVER + '/api/vocab-print-labels'
-/** 本地服务没起时的兜底；服务可用时也镜像一份，下次离线还能看到自定义标签 */
+import { apiFetch } from '../utils/apiBase'
+const LABELS_URL = '/api/vocab-labels'
+const PRINT_LABELS_URL = '/api/vocab-print-labels'
+/** 云端不可达时的兜底；服务可用时也镜像一份，下次离线还能看到自定义标签 */
 const MIRROR_KEY = 'vocab-labels'
 const PRINT_MIRROR_KEY = 'vocab-print-labels'
 
@@ -68,7 +67,7 @@ export function useVocabLibraries() {
     const mirror = readMirror(MIRROR_KEY)
     const printMirror = readMirror(PRINT_MIRROR_KEY)
     try {
-      const res  = await fetch(LABELS_URL)
+      const res  = await apiFetch(LABELS_URL)
       const data = (await res.json()) as { labels?: LabelMap; printLabels?: LabelMap }
       let next = data.labels ?? {}
       let nextPrint = data.printLabels ?? {}
@@ -77,14 +76,14 @@ export function useVocabLibraries() {
         Object.entries(mirror).filter(([id]) => next[id] == null),
       )
       if (Object.keys(missing).length > 0) {
-        await fetch(LABELS_URL, jsonInit('POST', { labels: missing }))
+        await apiFetch(LABELS_URL, jsonInit('POST', { labels: missing }))
         next = { ...next, ...missing }
       }
       const missingPrint = Object.fromEntries(
         Object.entries(printMirror).filter(([id]) => nextPrint[id] == null),
       )
       if (Object.keys(missingPrint).length > 0) {
-        await fetch(PRINT_LABELS_URL, jsonInit('POST', { printLabels: missingPrint }))
+        await apiFetch(PRINT_LABELS_URL, jsonInit('POST', { printLabels: missingPrint }))
         nextPrint = { ...nextPrint, ...missingPrint }
       }
       if (!aliveRef.current) return
@@ -124,7 +123,6 @@ export function useVocabLibraries() {
       return next
     })
     // 标签进了共享库（在线时）或本地镜像，都算一次可同步的改动
-    notifyLocalDataChanged()
   }, [])
 
   /** 改标签；服务端会拦空标签和重名，错误信息交给页面显示 */
@@ -132,12 +130,12 @@ export function useVocabLibraries() {
     const value = label.trim()
     if (!value) return { ok: false, error: '标签不能为空' }
     try {
-      const res  = await fetch(LABELS_URL + '/' + encodeURIComponent(id), jsonInit('PATCH', { label: value }))
+      const res  = await apiFetch(LABELS_URL + '/' + encodeURIComponent(id), jsonInit('PATCH', { label: value }))
       const data = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null
       if (!res.ok || data?.ok !== true) return { ok: false, error: data?.error ?? '保存失败' }
       setOffline(false)
     } catch {
-      // 本地服务没起：先记在浏览器里，服务起来后会自动补齐到服务端
+      // 云端不可达：先记在浏览器里，服务起来后会自动补齐到服务端
       setOffline(true)
     }
     applyLocally(id, value)
@@ -147,7 +145,7 @@ export function useVocabLibraries() {
   /** 重置为默认标签（回落到词库 id） */
   const resetLabel = useCallback(async (id: string) => {
     try {
-      await fetch(LABELS_URL + '/' + encodeURIComponent(id), { method: 'DELETE' })
+      await apiFetch(LABELS_URL + '/' + encodeURIComponent(id), { method: 'DELETE' })
       setOffline(false)
     } catch {
       setOffline(true)
@@ -163,14 +161,13 @@ export function useVocabLibraries() {
       writeMirror(PRINT_MIRROR_KEY, next)
       return next
     })
-    notifyLocalDataChanged()
   }, [])
 
   const updatePrintLabel = useCallback(async (id: string, label: string): Promise<UpdateLabelResult> => {
     const value = label.trim()
     if (!value) return { ok: false, error: '打印标签不能为空' }
     try {
-      const res = await fetch(PRINT_LABELS_URL + '/' + encodeURIComponent(id), jsonInit('PATCH', { label: value }))
+      const res = await apiFetch(PRINT_LABELS_URL + '/' + encodeURIComponent(id), jsonInit('PATCH', { label: value }))
       const data = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null
       if (!res.ok || data?.ok !== true) return { ok: false, error: data?.error ?? '保存失败' }
       setOffline(false)
@@ -183,7 +180,7 @@ export function useVocabLibraries() {
 
   const resetPrintLabel = useCallback(async (id: string) => {
     try {
-      await fetch(PRINT_LABELS_URL + '/' + encodeURIComponent(id), { method: 'DELETE' })
+      await apiFetch(PRINT_LABELS_URL + '/' + encodeURIComponent(id), { method: 'DELETE' })
       setOffline(false)
     } catch {
       setOffline(true)

@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { notifyLocalDataChanged } from '../syncBus'
 
-const SERVER = 'http://127.0.0.1:3456'
-const GOAL_URL = SERVER + '/api/study/goal'
+import { apiFetch } from '../utils/apiBase'
+const GOAL_URL = '/api/study/goal'
 
 /**
 * 学习目标 = 某个词库。只存「目标是哪个词库」，存在服务端（study-history.sqlite），
@@ -18,7 +17,7 @@ export function useStudyGoal() {
 
     async function load() {
       try {
-        const res  = await fetch(GOAL_URL)
+        const res  = await apiFetch(GOAL_URL)
         const data = (await res.json()) as { libraryId?: string }
         if (!alive) return
         if (typeof data?.libraryId === 'string') setLibraryId(data.libraryId)
@@ -37,13 +36,12 @@ export function useStudyGoal() {
   const setGoal = useCallback(async (next: string) => {
     setLibraryId(next)
     try {
-      await fetch(GOAL_URL, {
+      await apiFetch(GOAL_URL, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ libraryId: next }),
       })
       setOffline(false)
-      notifyLocalDataChanged()
     } catch {
       setOffline(true)
     }

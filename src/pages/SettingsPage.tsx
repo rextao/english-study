@@ -1,16 +1,23 @@
-import { useState } from 'react'
-import type { UpdateLabelResult } from '../hooks/useVocabLibraries'
-import type { SyncApi } from '../hooks/useSync'
+import type { StudyListApi } from '../hooks/useStudyList'
 import type { VocabLibraryInfo } from '../types/vocab'
+import type { UpdateLabelResult } from '../hooks/useVocabLibraries'
 import { useDictSources } from '../hooks/useDictSources'
 import { LibrariesPage } from './LibrariesPage'
 import { PageHeader } from '../components/PageHeader'
-import { SyncPanel } from '../components/SyncPanel'
-import { Button, Input, Tag } from '../ui'
+import { StudyListManager } from '../components/StudyListManager'
+import { Button, Tag } from '../ui'
 import './SettingsPage.css'
 
-/** 设置页的子分区：词库配置 / 查询链路 / 数据同步 */
-export type SettingsSection = 'chain' | 'libraries' | 'sync'
+/** 设置页的子分区：词库配置 / 学习列表 / 查询链路 / 学习记录 */
+export type SettingsSection = 'chain' | 'libraries' | 'lists' | 'records'
+
+/** 左侧菜单项，顺序即展示顺序 */
+const SECTIONS: { id: SettingsSection; label: string }[] = [
+  { id: 'libraries', label: '词库配置' },
+  { id: 'lists', label: '学习列表' },
+  { id: 'records', label: '学习记录' },
+  { id: 'chain', label: '查询链路' },
+]
 
 interface SettingsPageProps {
   libraries: VocabLibraryInfo[]
@@ -22,86 +29,51 @@ interface SettingsPageProps {
   hasCustomPrintLabel: (id: string) => boolean
   onRenamePrintLabel: (id: string, label: string) => Promise<UpdateLabelResult>
   onResetPrintLabel: (id: string) => void
+  /** 云端不可达时词库页显示降级提示 */
   offline: boolean
-  sync: SyncApi
-  /** 当前子分区由 App 托管，方便顶部同步提示条一键切到「数据同步」 */
+  /** 学习列表状态中枢，用于「学习列表」分区的新建 / 改名 / 删除 */
+  study: StudyListApi
+  /** 当前子分区由 App 托管 */
   section: SettingsSection
   onSectionChange: (section: SettingsSection) => void
-  /** 每变一次就让同步面板自动展开差异（顶部「详情」按钮触发） */
-  syncDiffTick?: number
-  /** 从云端拉取覆盖本地成功后，通知 App 刷新列表 / 计划 / 标签 */
-  onSyncApplied?: () => void
+  /** 去「学习记录」管理页（成果页的那个入口，设置里也放一个） */
+  onManageRecords: () => void
 }
 
 export function SettingsPage(props: SettingsPageProps) {
-  const { sources, chain, saving, error, saveKeys, clearKeys } = useDictSources()
-  // sync / 子分区控制单独摘出来；剩下的字段才好整体摊给 LibrariesPage（它不认这些）
-  const { sync, section, onSectionChange, syncDiffTick, onSyncApplied, ...libraryProps } = props
-  const [apiKeyDraft, setApiKeyDraft] = useState('')
-  const [appIdDraft, setAppIdDraft] = useState('')
-
-  const baidu = chain.find(step => step.id === 'baidu')
-
-  async function handleSaveKeys() {
-    const patch: { baiduApiKey?: string; baiduAppId?: string } = {}
-    if (apiKeyDraft.trim()) patch.baiduApiKey = apiKeyDraft.trim()
-    if (appIdDraft.trim()) patch.baiduAppId = appIdDraft.trim()
-    if (!patch.baiduApiKey && !patch.baiduAppId) return
-    if (await saveKeys(patch)) {
-      setApiKeyDraft('')
-      setAppIdDraft('')
-    }
-  }
-
-  async function handleClearKeys() {
-    if (await clearKeys(['baiduApiKey', 'baiduAppId'])) {
-      setApiKeyDraft('')
-      setAppIdDraft('')
-    }
-  }
+  const { sources, chain } = useDictSources()
+  const { study, section, onSectionChange, onManageRecords, offline, ...libraryProps } = props
 
   return (
     <div className="page settings-page">
-      <PageHeader title="设置" subtitle="词库标签和查词链路都在这里配置" />
+      <PageHeader title="设置" />
 
-      <div className="settings-tabs" role="tablist" aria-label="设置分区">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={section === 'libraries'}
-          className={'settings-tabs__btn' + (section === 'libraries' ? ' settings-tabs__btn--active' : '')}
-          onClick={() => onSectionChange('libraries')}
-        >
-          词库配置
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={section === 'chain'}
-          className={'settings-tabs__btn' + (section === 'chain' ? ' settings-tabs__btn--active' : '')}
-          onClick={() => onSectionChange('chain')}
-        >
-          查询链路
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={section === 'sync'}
-          className={'settings-tabs__btn' + (section === 'sync' ? ' settings-tabs__btn--active' : '')}
-          onClick={() => onSectionChange('sync')}
-        >
-          数据同步
-        </button>
-      </div>
+      <div className="settings-layout">
+        <nav className="settings-nav" role="tablist" aria-label="设置分区">
+          {SECTIONS.map(item => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={section === item.id}
+              className={'settings-nav__btn' + (section === item.id ? ' settings-nav__btn--active' : '')}
+              onClick={() => onSectionChange(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="settings-content">
 
       {section === 'chain' && (
       <section className="settings-section">
         <div className="settings-section__head">
-          <p className="hint">查词时按下面的顺序依次尝试：①② 命中就直接返回，一个网络请求都不发；③④ 是同一轮外部请求里互补的两步——dictionaryapi 取音标和英文释义，百度翻译取中文，前者成功也不会跳过后者。灰色的步骤查词时会被跳过。</p>
+          <p className="hint">查词时按下面的顺序依次尝试：① 命中就直接返回，一个网络请求都不发；②③ 是同一轮外部请求里互补的两步——dictionaryapi 取音标和英文释义，百度翻译取中文，前者成功也不会跳过后者。灰色的步骤查词时会被跳过。</p>
         </div>
         {sources === null ? (
           <div className="callout callout--warn">
-            无法读取查词链路状态，请确认本地服务已启动（<code>npm run dev:all</code>）。
+            无法读取查词链路状态，请确认云端 Worker 已部署且访问令牌正确。
           </div>
         ) : (
           <ol className="chain">
@@ -122,73 +94,10 @@ export function SettingsPage(props: SettingsPageProps) {
                         已缓存 {sources.cache.complete}/{sources.cache.total} 条
                       </span>
                     )}
-                    {step.id === 'ecdict' && step.available && sources.local.count > 0 && (
-                      <span className="chain-step__stat">
-                        {sources.local.count.toLocaleString('zh-CN')} 词条
-                      </span>
-                    )}
                   </div>
                   <p className="chain-step__desc">{step.desc}</p>
                   {!step.available && step.reason && (
                     <p className="chain-step__reason">{step.reason}</p>
-                  )}
-
-                  {step.id === 'baidu' && (
-                    <div className="key-form">
-                      <div className="key-form__row">
-                        <label className="field-label key-form__label" htmlFor="baidu-api-key">API Key</label>
-                        <Input
-                          id="baidu-api-key"
-                          size="small"
-                          value={apiKeyDraft}
-                          placeholder={
-                            baidu?.hasKey
-                              ? '已配置 ' + baidu.keyHint + '，输入新的覆盖'
-                              : '粘贴百度翻译 API Key'
-                          }
-                          onChange={e => setApiKeyDraft(e.target.value)}
-                          onPressEnter={handleSaveKeys}
-                          spellCheck={false}
-                        />
-                      </div>
-                      <div className="key-form__row">
-                        <label className="field-label key-form__label" htmlFor="baidu-app-id">App ID</label>
-                        <Input
-                          id="baidu-app-id"
-                          size="small"
-                          value={appIdDraft}
-                          placeholder={
-                            baidu?.hasAppId
-                              ? '已配置 ' + baidu.appIdHint + '，输入新的覆盖'
-                              : '粘贴百度翻译 App ID'
-                          }
-                          onChange={e => setAppIdDraft(e.target.value)}
-                          onPressEnter={handleSaveKeys}
-                          spellCheck={false}
-                        />
-                      </div>
-                      <div className="key-form__actions">
-                        <Button
-                          type="primary"
-                          size="small"
-                          loading={saving}
-                          disabled={!apiKeyDraft.trim() && !appIdDraft.trim()}
-                          onClick={() => { void handleSaveKeys() }}
-                        >
-                          保存
-                        </Button>
-                        {(baidu?.hasKey || baidu?.hasAppId) && (
-                          <Button size="small" disabled={saving} onClick={() => { void handleClearKeys() }}>
-                            清除并回落环境变量
-                          </Button>
-                        )}
-                      </div>
-                      <p className="hint key-form__hint">
-                        密钥存在本机 cache/dict-keys.json（不进 git）；也可以写在 .env.local 的
-                        BAIDU_TRANSLATE_API_KEY / BAIDU_TRANSLATE_APP_ID 里，页面配置优先。「清除」只删掉这里配的，自动回落到环境变量。
-                      </p>
-                      {error && <div className="callout callout--error key-form__error">{error}</div>}
-                    </div>
                   )}
                 </div>
               </li>
@@ -198,18 +107,36 @@ export function SettingsPage(props: SettingsPageProps) {
       </section>
       )}
 
-      {section === 'sync' && (
-        <SyncPanel sync={sync} diffTick={syncDiffTick} onApplied={onSyncApplied} />
-      )}
-
       {section === 'libraries' && (
         <section className="settings-section">
           <div className="settings-section__head">
             <p className="hint">显示标签用于页面展示；打印标签用于卡片右上角，未设置时沿用显示标签。</p>
           </div>
-          <LibrariesPage embedded {...libraryProps} />
+          <LibrariesPage embedded offline={offline} {...libraryProps} />
         </section>
       )}
+
+      {section === 'lists' && (
+        <section className="settings-section">
+          <StudyListManager study={study} />
+        </section>
+      )}
+      {section === 'records' && (
+        <section className="settings-section">
+          <div className="settings-section__head">
+            <p className="hint">学习记录是按单词累计的背过 / 记住 / 没记住次数，移出学习列表或删除列表都不会影响它。</p>
+          </div>
+          <div className="card card--pad settings-records">
+            <div className="settings-records__text">
+              <div className="settings-records__title">学习记录管理</div>
+              <p className="settings-records__desc">在新页面里按单词查看明细、筛选与批量删除记录；删除前会自动备份，但页面内不可撤销。</p>
+            </div>
+            <Button className="settings-records__button" type="primary" onClick={onManageRecords}>管理学习记录</Button>
+          </div>
+        </section>
+      )}
+        </div>
+      </div>
     </div>
   )
 }

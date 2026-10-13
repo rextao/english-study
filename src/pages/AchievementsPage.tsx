@@ -8,6 +8,12 @@ import './AchievementsPage.css'
 
 const ALL_LIBRARIES = ''
 
+// 手机端没有表头，排序做成一排按钮：点同一个维度切换正逆序，点别的维度按默认方向
+const SORT_KEYS: SortKey[] = ['word', 'spelling', 'reading', 'remembered', 'forgotten']
+const SORT_LABEL: Record<SortKey, string> = {
+  word: '单词', spelling: '会拼', reading: '会读', remembered: '知意', forgotten: '没记住',
+}
+
 // 排序维度：单词字母 / 会拼 / 会读 / 知意 / 没记住 次数
 type SortKey = 'word' | 'spelling' | 'reading' | 'remembered' | 'forgotten'
 type SortDir = 'asc' | 'desc'
@@ -30,10 +36,9 @@ interface AchievementsPageProps {
   getLabelById: (id: string) => string
   /** App 仍统一传入学习列表 API；永久成果本身不再依赖它。 */
   study: StudyListApi
-  onManageRecords: () => void
 }
 
-export function AchievementsPage({ libraries, getLabelById, onManageRecords }: AchievementsPageProps) {
+export function AchievementsPage({ libraries, getLabelById }: AchievementsPageProps) {
   const [selectedLibrary, setSelectedLibrary] = useState(ALL_LIBRARIES)
   const [sort, setSort] = useState<SortState>({ key: 'word', dir: 'asc' })
   const achievements = useLearningAchievements(selectedLibrary)
@@ -83,15 +88,36 @@ export function AchievementsPage({ libraries, getLabelById, onManageRecords }: A
 
   return (
     <div className="page page--wide achievements-page">
-      <PageHeader title="学习成果"
-        subtitle="汇总永久学习记录；从学习列表移除单词或删除列表，都不会影响这里的成果。"
-        actions={<Button onClick={onManageRecords}>管理学习记录</Button>} />
+      <PageHeader title="学习成果" />
 
       <div className="card card--pad achievements-filter">
         <label className="field-label" htmlFor="achievements-library">按词库筛选</label>
         <Select id="achievements-library" className="achievements-filter__select" value={selectedLibrary}
           options={options} onChange={setSelectedLibrary} aria-label="按词库筛选学习成果" />
         <span className="achievements-filter__result">共 {achievements.items.length} 个词</span>
+        {/* 手机端没有表头，排序入口搬到这里：按钮形式，点同一个维度切换正逆序 */}
+        <div className="achievements-sort">
+          {SORT_KEYS.map(key => {
+            const active = sort.key === key
+            return (
+              <Button
+                key={key}
+                size="small"
+                type={active ? 'primary' : 'default'}
+                aria-pressed={active}
+                title={active
+                  ? (sort.dir === 'asc' ? '当前正序，点击切换为逆序' : '当前逆序，点击切换为正序')
+                  : '按' + SORT_LABEL[key] + '排序'}
+                onClick={() => toggleSort(key)}
+              >
+                {SORT_LABEL[key]}
+                <span className="achievements-sort__arrow" aria-hidden="true">
+                  {active ? (sort.dir === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </Button>
+            )
+          })}
+        </div>
       </div>
 
       {achievements.error && (
@@ -117,17 +143,15 @@ export function AchievementsPage({ libraries, getLabelById, onManageRecords }: A
               <th className="achievements-table__number"><SortHeader sortKey="forgotten" label="没记住" numeric /></th></tr></thead>
             <tbody>
              {sortedItems.map(item => (
-                <tr key={item.word}>
-                 <td><strong className="achievements-table__word">{item.word}</strong></td>
-                 <td><div className="achievements-table__tags">
-                   {item.sourceIds.length > 0
-                     ? item.sourceIds.map(id => <Tag key={id} color="blue">{getLabelById(id)}</Tag>)
-                     : <span className="achievements-table__none">未归属词库</span>}
+                <tr key={item.word} className="achievements-table__row">
+                 <td className="achievements-table__cell-word"><strong className="achievements-table__word">{item.word}</strong></td>
+                 <td className="achievements-table__libs"><div className="achievements-table__tags">
+                   {item.sourceIds.map(id => <Tag key={id} color="blue">{getLabelById(id)}</Tag>)}
                  </div></td>
-                 <td className="achievements-table__number">{item.spellingCount}</td>
-                 <td className="achievements-table__number">{item.readingCount}</td>
-                 <td className="achievements-table__number achievements-table__number--remembered">{item.rememberedCount}</td>
-                 <td className="achievements-table__number achievements-table__number--forgotten">{item.forgottenCount}</td>
+                 <td className="achievements-table__number" data-label="会拼">{item.spellingCount}</td>
+                 <td className="achievements-table__number" data-label="会读">{item.readingCount}</td>
+                 <td className="achievements-table__number achievements-table__number--remembered" data-label="知意">{item.rememberedCount}</td>
+                 <td className="achievements-table__number achievements-table__number--forgotten" data-label="没记住">{item.forgottenCount}</td>
                 </tr>
               ))}
             </tbody>
