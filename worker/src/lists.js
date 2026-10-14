@@ -6,7 +6,7 @@
  * 所有函数都是 async——底下是 D1。
  */
 
-import { normalizeText, capitalizeSentence } from './text.js'
+import { normalizeText } from './text.js'
 import { createStudyListsStore } from './study-lists.js'
 import { KV_KEYS } from './kv.js'
 import { nextDueAt, studyState, pushMark } from './review.js'
@@ -90,92 +90,16 @@ export function normalizeTranslationIds(input) {
 
 // ── 学习列表读写 ────────────────────────────────────────────────────────────
 
-function makeDefaultList() {
-  return { id: DEFAULT_LIST_ID, name: '默认列表', createdAt: Date.now(), words: [] }
-}
-
-/** { lists: [ { id, name, createdAt, batchNames, words: [StudyWordItem] } ] } */
-export async function loadLists(app) {
-  // 数据在 D1 的 lists / list_words 表里；store 返回和老 json 同构的结构
-  const data = await app.listsStore.load()
-  // default 列表必须存在
-  if (!data.lists.some(l => l.id === DEFAULT_LIST_ID)) {
-    data.lists.unshift(makeDefaultList())
-  }
-  // 老数据补齐字段
-  for (const list of data.lists) {
-    if (!Array.isArray(list.words)) list.words = []
-    // 批次显示名：形如 { '2026-09-15': '秋词汇' }，没有自定义名的日期留在日期本身
-    if (!list.batchNames || typeof list.batchNames !== 'object' || Array.isArray(list.batchNames)) {
-      list.batchNames = {}
-    }
-    for (const item of list.words) {
-      if (!Array.isArray(item.sourceIds)) item.sourceIds = []
-      if (!item.type) item.type = detectType(item.word, item.sourceIds)
-      if (item.type === 'sentence') item.displayText = capitalizeSentence(item.displayText || item.word)
-      else delete item.displayText
-      // 中文翻译是加入列表时保存的快照；兼容旧词条和空值
-      if ('translation' in item) {
-        const translation = String(item.translation ?? '').trim()
-        if (translation) item.translation = translation
-        else delete item.translation
-      }
-      // 只背某几条释义；空数组不落盘，字段缺省 = 自动（中文 + 第一条英文释义）
-      if ('senseIds' in item) {
-        const ids = normalizeSenseIds(item.senseIds)
-        if (ids.length) item.senseIds = ids
-        else delete item.senseIds
-      }
-      if ('translationIds' in item) {
-        const ids = normalizeTranslationIds(item.translationIds)
-        if (ids.length) item.translationIds = ids
-        else delete item.translationIds
-      }
-      // 自定义词义：旧数据没有这个字段；存在就顺手归一化
-      if ('customTranslations' in item) {
-        const customs = normalizeCustomTranslations(item.customTranslations)
-        if (customs.length) item.customTranslations = customs
-        else delete item.customTranslations
-      }
-      // 批次归属：缺省按 addedAt 自然日分批；自定义批次键 b:... 原样保留
-      if ('batchKey' in item) {
-        const key = String(item.batchKey ?? '').trim()
-        if (key) item.batchKey = key
-        else delete item.batchKey
-      }
-      // 复习进度字段只在开始学习后才写，未开始的词保持精简
-      if (item.startedAt) {
-        if (typeof item.stage !== 'number' || !(item.stage >= 0)) item.stage = 0
-        if (!Array.isArray(item.reviewedAt)) item.reviewedAt = []
-      }
-    }
-  }
-  return data
-}
-
-export async function saveLists(app, data) {
-  // 一个 batch（事务）整库重写；marks 镜像已废弃，事件表是唯一来源
-  await app.listsStore.save(data)
-}
-
 /** 把词典里已经拿到的中文翻译同步到学习列表词条；不改变列表页面的展示规则。 */
 export async function syncListTranslation(word, entry, app) {
   const target = normalizeText(word)
   if (!target) return false
-  const data = await loadLists(app)
-  let changed = false
-  for (const list of data.lists) {
-    for (const item of list.words) {
-      if (item.word !== target) continue
-      if (String(item.translation ?? '').trim()) continue
-      const value = selectedTranslation(entry, item.translationIds)
-      if (!value) continue
-      item.translation = value
-      changed = true
-    }
-  }
-  if (changed) await saveLists(app, data)
-  return changed
+  const items = await app.listsStore.itemsMissingTranslation(target)
+  const updates = items.map(item => ({
+    ...item,
+    translation: selectedTranslation(entry, item.translationIds),
+  })).filter(item => item.translation)
+  return (await app.listsStore.syncTranslations(updates)) > 0
 }
 
 // ── 中文快照选择 ────────────────────────────────────────────────────────────

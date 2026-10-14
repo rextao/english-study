@@ -21,14 +21,158 @@ import {
   startOfDay, startOfWeek, pushMark, countOf, hasReviewKey, rememberReviewKey,
 } from './review.js'
 import {
-  loadLists, saveLists, syncListTranslation, selectedTranslation, recordStudyEvent,
+  syncListTranslation, selectedTranslation, recordStudyEvent,
   loadLabels, saveLabels, loadGoal, saveGoal, loadPrints, savePrints,
   uniquePrintId, printBatchItemsKey, enrichBatch, detectType,
   normalizeSenseIds, normalizeCustomTranslations, normalizeTranslationIds,
   DEFAULT_LIST_ID, MAX_LABEL_LENGTH, MAX_LIBRARY_ID_LENGTH,
   MAX_PRINT_BATCHES, DEFAULT_PRINT_LIMIT, MAX_PRINT_TITLE, PRINT_KINDS,
 } from './lists.js'
+import { progressRow } from './study-lists.js'
 import { enqueuePrefetch, enqueuePhoneticPrefetch, currentPrefetchState } from './prefetch.js'
+
+/**
+ * 列表名：lists 表里有这一行就用行里的名字；没有时只有默认列表兜底，
+ * 其余列表返回 null 表示不存在。
+ */
+async function ensureListName(app, listId) {
+  const name = await app.listsStore.listName(listId)
+  if (name !== null) return name
+  return listId === DEFAULT_LIST_ID ? '默认列表' : null
+}
+
+/** 打印档只引用少量词：按引用加载对应列表及词条，不扫描学习库。 */
+async function loadReferencedLists(app, refs) {
+  const grouped = new Map()
+  for (const ref of Array.isArray(refs) ? refs : []) {
+    const id = String(ref?.listId ?? '')
+    const word = normalizeText(ref?.word)
+    if (!id || !word) continue
+    if (!grouped.has(id)) grouped.set(id, new Set())
+    grouped.get(id).add(word)
+  }
+  const lists = []
+  for (const [id, words] of grouped) {
+    const list = await app.listsStore.listMeta(id)
+    if (!list) continue
+    list.words = await app.listsStore.selectWords(id, [...words])
+    lists.push(list)
+  }
+  return lists
+}
+
+/** 打卡前给命中词逐词拍一份进度列快照，落盘前比对出真正变化的词 */
+function progressSnapshot(listId, words) {
+  return new Map(words.map(item => [item.word, progressRow(listId, item)]))
+}
+
+/** 快照里没有的词视为没动过；快照前后一致的词（幂等跳过）也不写回 */
+function changedProgressWords(listId, words, before) {
+  return words.filter(item => {
+    const prior = before.get(item.word)
+    return prior !== undefined
+      && JSON.stringify(prior) !== JSON.stringify(progressRow(listId, item))
+  })
+}
+
+/**
+ * 复习打卡（tally / done / again / stop）的行级实现：
+ * 只 SELECT 命中词、只 UPDATE 进度列真正变化的词。
+ * 校验顺序、幂等逻辑和返回结构保持一致。
+ */
+async function reviewRowLevel(app, listId, body) {
+  const env = app.env
+  const listName = await ensureListName(app, listId)
+  if (listName === null) return { status: 404, body: { error: 'list not found' } }
+  const action = String(body?.action || 'done')
+  if (!REVIEW_ACTIONS.has(action)) return { status: 400, body: { error: 'unknown action' } }
+  if (action === 'tally' && !TALLY_KINDS.has(body?.successKind)) {
+    return { status: 400, body: { error: 'tally requires successKind' } }
+  }
+  const raw = Array.isArray(body?.words) ? body.words : []
+  const targets = new Set(raw.map(normalizeText).filter(Boolean))
+  if (targets.size === 0) return { status: 400, body: { error: 'missing words' } }
+  // 打卡只用到列表的 id / name / 命中词：applyReview 不碰列表的其余字段
+  const words = await app.listsStore.selectWords(listId, [...targets])
+  const list = { id: listId, name: listName, words }
+  const rawIds = body?.requestIds && typeof body?.requestIds === 'object' ? body.requestIds : {}
+  const requestIds = new Map()
+  for (const word of targets) {
+    const supplied = typeof rawIds[word] === 'string' ? rawIds[word] : ''
+    const current = words.find(item => item.word === word)
+    const fallback = [
+      listId,
+      word,
+      current?.stage ?? 0,
+      current ? nextDueAt(current, env) ?? 'new' : 'new',
+      action,
+      body?.scope || '',
+      body?.successKind || '',
+    ].join('|')
+    requestIds.set(word, supplied || fallback)
+  }
+  const before = progressSnapshot(listId, words)
+  const { updated, items } = await applyReview(list, targets, action, {
+    scope: body?.scope,
+    successKind: body?.successKind,
+    requestIds,
+    now: Date.now(),
+    hasRequest: requestId => app.history.hasRequest(requestId),
+    onEvent: event => recordStudyEvent(app, list, event),
+  }, app)
+  const changed = changedProgressWords(listId, words, before)
+  await app.listsStore.saveWordProgress(listId, changed)
+  console.log('[study ~]  ', action, updated, '->', listId)
+  return { status: 200, body: { ok: true, updated, updatedWords: changed.map(item => item.word), items } }
+}
+
+/**
+ * 撤销本周期内最近一次会拼 / 会读 / 知意：软删事件、回退计数，
+ * 同样只写真正变化的词。
+ */
+async function tallyUndoRowLevel(app, listId, body) {
+  const env = app.env
+  const listName = await ensureListName(app, listId)
+  if (listName === null) return { status: 404, body: { error: 'list not found' } }
+  const kind = String(body?.successKind || '')
+  if (!TALLY_KINDS.has(kind)) return { status: 400, body: { error: 'invalid successKind' } }
+  const scope = normalizeScope(body?.scope)
+  const now = Number(body?.now) || Date.now()
+  const from = scope === 'week' ? startOfWeek(now, env) : startOfDay(now, env)
+  const raw = Array.isArray(body?.words) ? body.words : []
+  const targets = new Set(raw.map(normalizeText).filter(Boolean))
+  if (targets.size === 0) return { status: 400, body: { error: 'missing words' } }
+  const words = await app.listsStore.selectWords(listId, [...targets])
+  const before = progressSnapshot(listId, words)
+  let undone = 0
+  const undoneWords = []
+  const items = []
+  for (const item of words) {
+    // 事件表是唯一来源：软删本周期内最近一条 tally 事件，累计计数跟着回退
+    const result = await app.history.undoTallyEvent({ listId, word: item.word, action: kind, from })
+    if (result.deleted > 0) {
+      if (kind === 'spelling') item.spellingCount = Math.max(0, countOf(item.spellingCount) - 1)
+      else if (kind === 'reading') item.readingCount = Math.max(0, countOf(item.readingCount) - 1)
+      else item.rememberedCount = Math.max(0, countOf(item.rememberedCount) - 1)
+      item.markCount = Math.max(0, countOf(item.markCount) - 1)
+      undone++
+      undoneWords.push(item.word)
+    }
+    items.push(enrichItem(item, now, env))
+  }
+  await app.listsStore.saveWordProgress(listId, changedProgressWords(listId, words, before))
+  console.log('[study ~]  tally-undo', kind, undone, '->', listId)
+  return { status: 200, body: { ok: true, undone, undoneWords, items } }
+}
+
+/** plan 里某个词的本周期熟悉度计数；聚合表里查不到就给全零，结构和逐词版一致 */
+const EMPTY_TALLY_COUNTS = { spelling: 0, reading: 0, meaning: 0 }
+function planTallyCounts(tallies, listId, word) {
+  const wordKey = normalizeText(word)
+  const day = tallies.day.get(listId)?.get(wordKey) || { ...EMPTY_TALLY_COUNTS }
+  const week = tallies.week.get(listId)?.get(wordKey) || { ...EMPTY_TALLY_COUNTS }
+  return { day, week }
+}
 
 export async function handleApi(method, pathname, searchParams, body, app) {
   const env = app.env
@@ -184,15 +328,7 @@ export async function handleApi(method, pathname, searchParams, body, app) {
   if (method === 'POST' && pathname === '/api/dict/repair') {
     let words = Array.isArray(body?.words) ? body.words.map(normalizeText).filter(Boolean) : []
     if (words.length === 0) {
-      const seen = new Set()
-      const { lists } = await loadLists(app)
-      for (const list of lists) {
-        for (const item of list.words) {
-          if (seen.has(item.word)) continue
-          seen.add(item.word)
-          words.push(item.word)
-        }
-      }
+      words = (await app.listsStore.wordsNeedingRepair()).map(row => row.word)
     }
     const queued = await enqueuePrefetch(words, body?.force === true, app)
     console.log('[repair]   ', words.length, 'scanned,', queued, 'queued')
@@ -206,10 +342,10 @@ export async function handleApi(method, pathname, searchParams, body, app) {
 
   // GET /api/lists
   if (method === 'GET' && pathname === '/api/lists') {
-    const { lists } = await loadLists(app)
+    const lists = await app.listsStore.listSummaries()
     return {
       status: 200,
-      body: lists.map(l => ({ id: l.id, name: l.name, createdAt: l.createdAt, wordCount: l.words.length })),
+      body: lists.map(l => ({ id: l.id, name: l.name, createdAt: Number(l.createdAt), wordCount: Number(l.wordCount) })),
     }
   }
 
@@ -217,13 +353,12 @@ export async function handleApi(method, pathname, searchParams, body, app) {
   if (method === 'POST' && pathname === '/api/lists') {
     const name = body?.name?.trim()
     if (!name) return { status: 400, body: { error: 'missing name' } }
-    const data = await loadLists(app)
-    if (data.lists.some(l => l.name === name)) {
+    if (await app.listsStore.nameExists(name)) {
       return { status: 409, body: { ok: false, error: '同名列表已存在' } }
     }
     const id = 'list_' + Date.now()
-    data.lists.push({ id, name, createdAt: Date.now(), words: [] })
-    await saveLists(app, data)
+    const createdAt = Date.now()
+    await app.listsStore.insertList({ id, name, createdAt })
     console.log('[list +]   ', name)
     return { status: 200, body: { ok: true, id, name } }
   }
@@ -233,19 +368,32 @@ export async function handleApi(method, pathname, searchParams, body, app) {
   if (listMatch) {
     const listId  = decodeURIComponent(listMatch[1])
     const subpath = listMatch[2] || ''
-    const data    = await loadLists(app)
-    const list    = data.lists.find(l => l.id === listId)
+    // 高频只读端点直接按主键/索引读取，避免为了一个列表或词载入整库。
+    if (method === 'GET' && subpath === 'words') {
+      const name = await ensureListName(app, listId)
+      if (name === null) return { status: 404, body: { error: 'list not found' } }
+      const now = Date.now()
+      return { status: 200, body: (await app.listsStore.listWords(listId)).map(w => enrichItem(w, now, env)) }
+    }
+    if (method === 'GET' && subpath === 'batches') {
+      const name = await ensureListName(app, listId)
+      if (name === null) return { status: 404, body: { error: 'list not found' } }
+      return { status: 200, body: { batchNames: await app.listsStore.batchNames(listId) } }
+    }
+    // 复习打卡 / 撤销熟悉度是高频写操作：走行级更新，不再整库重写
+    if (method === 'POST' && subpath === 'review') return await reviewRowLevel(app, listId, body)
+    if (method === 'POST' && subpath === 'tally-undo') return await tallyUndoRowLevel(app, listId, body)
+    const list    = await app.listsStore.listMeta(listId)
     if (!list) return { status: 404, body: { error: 'list not found' } }
 
     // PATCH /api/lists/:id  — rename
     if (method === 'PATCH' && subpath === '') {
       const name = body?.name?.trim()
       if (!name) return { status: 400, body: { error: 'missing name' } }
-      if (data.lists.some(l => l.id !== listId && l.name === name)) {
+      if (await app.listsStore.nameExists(name, listId)) {
         return { status: 409, body: { ok: false, error: '同名列表已存在' } }
       }
-      list.name = name
-      await saveLists(app, data)
+      await app.listsStore.renameList(listId, name)
       console.log('[list ~]   ', listId, '->', name)
       return { status: 200, body: { ok: true, id: listId, name } }
     }
@@ -255,23 +403,16 @@ export async function handleApi(method, pathname, searchParams, body, app) {
       if (listId === DEFAULT_LIST_ID) {
         return { status: 400, body: { ok: false, error: '默认列表不可删除' } }
       }
-      data.lists = data.lists.filter(l => l.id !== listId)
-      await saveLists(app, data)
+      await app.listsStore.deleteList(listId)
       console.log('[list -]   ', listId)
       return { status: 200, body: { ok: true } }
-    }
-
-    // GET /api/lists/:id/words
-    if (method === 'GET' && subpath === 'words') {
-      const now = Date.now()
-      return { status: 200, body: list.words.map(w => enrichItem(w, now, env)) }
     }
 
     // POST /api/lists/:id/words  — add single word / sentence
     if (method === 'POST' && subpath === 'words') {
       const word = normalizeText(body?.text ?? body?.word)
       if (!word) return { status: 400, body: { error: 'missing text' } }
-      if (list.words.find(w => w.word === word)) {
+      if ((await app.listsStore.selectWords(listId, [word])).length) {
         return { status: 200, body: { ok: false, reason: 'already exists' } }
       }
       const sourceIds = Array.isArray(body.sourceIds) ? body.sourceIds : []
@@ -297,12 +438,9 @@ export async function handleApi(method, pathname, searchParams, body, app) {
       const batchKey = String(body?.batchKey ?? '').trim()
       const batchName = batchKey ? String(body?.batchName ?? '').trim() : ''
       if (batchName.length > 40) return { status: 409, body: { ok: false, error: '标签过长' } }
-      if (batchKey) {
-        item.batchKey = batchKey
-        if (batchName) list.batchNames[batchKey] = batchName
-      }
-      list.words.push(item)
-      await saveLists(app, data)
+      if (batchKey) item.batchKey = batchKey
+      if (batchKey && batchName) list.batchNames[batchKey] = batchName
+      await app.listsStore.insertWords(listId, [item], batchKey && batchName ? list.batchNames : undefined)
       // 加入学习只保存搜索页传来的快照；缺失的音标等数据交给后台补齐，不阻塞响应。
       const queued = await enqueuePhoneticPrefetch([word], app)
       console.log('[word +]   ', word, '->', listId)
@@ -322,7 +460,7 @@ export async function handleApi(method, pathname, searchParams, body, app) {
       if (name.length > 40) return { status: 409, body: { ok: false, error: '标签过长' } }
       if (name) list.batchNames[date] = name
       else delete list.batchNames[date]
-      await saveLists(app, data)
+      await app.listsStore.updateBatchNames(listId, list.batchNames)
       console.log('[list ~]   ', listId, 'batch', date, '->', name || '(日期)')
       return { status: 200, body: { ok: true, batchNames: list.batchNames } }
     }
@@ -331,10 +469,8 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     const wordPathMatch = subpath.match(/^words\/(.+)$/)
     if (method === 'DELETE' && wordPathMatch) {
       const target = normalizeText(decodeURIComponent(wordPathMatch[1]))
-      const before = list.words.length
-      list.words = list.words.filter(w => w.word !== target)
-      if (list.words.length === before) return { status: 404, body: { ok: false, reason: 'not found' } }
-      await saveLists(app, data)
+      const removed = await app.listsStore.removeWords(listId, [target])
+      if (!removed) return { status: 404, body: { ok: false, reason: 'not found' } }
       console.log('[word -]   ', target, '<-', listId)
       return { status: 200, body: { ok: true } }
     }
@@ -342,7 +478,7 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     // PATCH /api/lists/:id/words/:text  — 改这个词这一阶段要背的释义
     if (method === 'PATCH' && wordPathMatch) {
       const target = normalizeText(decodeURIComponent(wordPathMatch[1]))
-      const item = list.words.find(w => w.word === target)
+      const item = (await app.listsStore.selectWords(listId, [target]))[0]
       if (!item) return { status: 404, body: { ok: false, reason: 'not found' } }
       if ('senseIds' in (body || {})) {
         const senseIds = normalizeSenseIds(body?.senseIds)
@@ -365,7 +501,7 @@ export async function handleApi(method, pathname, searchParams, body, app) {
         else if (item.customTranslations?.length) item.translation = selectedTranslation(undefined, [], item.customTranslations)
         else delete item.translation
       }
-      await saveLists(app, data)
+      await app.listsStore.updateWordContent(listId, item)
       console.log('[word ~]   ', target, 'updated selections')
       return { status: 200, body: { ok: true, item: enrichItem(item, Date.now(), env) } }
     }
@@ -378,11 +514,8 @@ export async function handleApi(method, pathname, searchParams, body, app) {
         if (word) targets.add(word)
       }
       if (targets.size === 0) return { status: 400, body: { error: 'missing words' } }
-      const before = list.words.length
-      list.words = list.words.filter(w => !targets.has(w.word))
-      const removed = before - list.words.length
+      const removed = await app.listsStore.removeWords(listId, [...targets])
       // 一个都没对上就不写盘（比如界面上的选中项已经被别处删掉了）
-      if (removed > 0) await saveLists(app, data)
       console.log('[word -]   ', removed, 'removed <-', listId)
       return { status: 200, body: { ok: true, removed, missing: targets.size - removed } }
     }
@@ -394,13 +527,16 @@ export async function handleApi(method, pathname, searchParams, body, app) {
         : (body?.words || []).map(w => ({ text: w, sourceIds: body?.sourceIds }))
       let added = 0, skipped = 0
       const fresh = []
-      const seen = new Set(list.words.map(w => w.word))
+      const candidates = raw.map(entry => normalizeText(entry?.text ?? entry)).filter(Boolean)
+      const existing = await app.listsStore.selectWords(listId, candidates)
+      const seen = new Set(existing.map(item => item.word))
       const importBatchKey = String(body?.batchKey ?? '').trim()
       const importBatchName = importBatchKey ? String(body?.batchName ?? '').trim() : ''
       if (importBatchName.length > 40) return { status: 409, body: { ok: false, error: '标签过长' } }
       // 批量查询页已经完成查词和中文选择：优先原样保存前端快照。
       // 缓存兜底只读一次，导入过程绝不发起查询。
-      const cache = await getCacheEntries([...seen.keys()].concat(raw.map(entry => entry?.text ?? entry)), app)
+      const cache = await getCacheEntries(candidates, app)
+      const freshItems = []
       for (const entry of raw) {
         const word = normalizeText(entry?.text ?? entry)
         if (!word || seen.has(word)) { if (word) skipped++; continue }
@@ -426,13 +562,15 @@ export async function handleApi(method, pathname, searchParams, body, app) {
         const selected = snapshot || selectedTranslation(cache[word], translationIds, customTranslations)
         if (selected) item.translation = selected
         if (importBatchKey) item.batchKey = importBatchKey
-        list.words.push(item)
+        freshItems.push(item)
         seen.add(word)
         fresh.push(word)
         added++
       }
       if (importBatchKey && importBatchName && fresh.length > 0) list.batchNames[importBatchKey] = importBatchName
-      await saveLists(app, data)
+      await app.listsStore.insertWords(
+        listId, freshItems, importBatchKey && importBatchName && freshItems.length ? list.batchNames : undefined,
+      )
       // 中文已在批量查询阶段确定；导入后最多后台补音标，不重新翻译、不覆盖中文快照。
       const queued = await enqueuePhoneticPrefetch(fresh, app)
       console.log('[import]   ', added, 'added,', skipped, 'skipped ->', listId)
@@ -448,7 +586,9 @@ export async function handleApi(method, pathname, searchParams, body, app) {
       const scope = normalizeScope(body?.scope)
       let started = 0, skipped = 0
       const items = []
-      for (const item of list.words) {
+      const words = await app.listsStore.selectWords(listId, [...targets])
+      const before = progressSnapshot(listId, words)
+      for (const item of words) {
         if (!targets.has(item.word)) continue
         // 已经在学的词默认不动，避免重复打印时把进度清零；restart 才强制重开
         if (item.startedAt && !body?.restart) {
@@ -464,78 +604,9 @@ export async function handleApi(method, pathname, searchParams, body, app) {
         }
         items.push(enrichItem(item, at, env))
       }
-      await saveLists(app, data)
+      await app.listsStore.saveWordProgress(listId, changedProgressWords(listId, words, before))
       console.log('[study +]  ', started, 'started,', skipped, 'skipped ->', listId)
       return { status: 200, body: { ok: true, started, skipped, startedAt: at, items } }
-    }
-
-    // POST /api/lists/:id/review  — 复习打卡
-    if (method === 'POST' && subpath === 'review') {
-      const action = String(body?.action || 'done')
-      if (!REVIEW_ACTIONS.has(action)) return { status: 400, body: { error: 'unknown action' } }
-      if (action === 'tally' && !TALLY_KINDS.has(body?.successKind)) {
-        return { status: 400, body: { error: 'tally requires successKind' } }
-      }
-      const raw = Array.isArray(body?.words) ? body.words : []
-      const targets = new Set(raw.map(normalizeText).filter(Boolean))
-      if (targets.size === 0) return { status: 400, body: { error: 'missing words' } }
-      const rawIds = body?.requestIds && typeof body.requestIds === 'object' ? body.requestIds : {}
-      const requestIds = new Map()
-      for (const word of targets) {
-        const supplied = typeof rawIds[word] === 'string' ? rawIds[word] : ''
-        const current = list.words.find(item => item.word === word)
-        const fallback = [
-          listId,
-          word,
-          current?.stage ?? 0,
-          current ? nextDueAt(current, env) ?? 'new' : 'new',
-          action,
-          body?.scope || '',
-          body?.successKind || '',
-        ].join('|')
-        requestIds.set(word, supplied || fallback)
-      }
-      const { updated, items } = await applyReview(list, targets, action, {
-        scope: body?.scope,
-        successKind: body?.successKind,
-        requestIds,
-        now: Date.now(),
-        hasRequest: requestId => app.history.hasRequest(requestId),
-        onEvent: event => recordStudyEvent(app, list, event),
-      }, app)
-      await saveLists(app, data)
-      console.log('[study ~]  ', action, updated, '->', listId)
-      return { status: 200, body: { ok: true, updated, items } }
-    }
-
-    // POST /api/lists/:id/tally-undo  — 撤销本周期内最近一次会拼 / 会读 / 知意
-    if (method === 'POST' && subpath === 'tally-undo') {
-      const kind = String(body?.successKind || '')
-      if (!TALLY_KINDS.has(kind)) return { status: 400, body: { error: 'invalid successKind' } }
-      const scope = normalizeScope(body?.scope)
-      const now = Number(body?.now) || Date.now()
-      const from = scope === 'week' ? startOfWeek(now, env) : startOfDay(now, env)
-      const raw = Array.isArray(body?.words) ? body.words : []
-      const targets = new Set(raw.map(normalizeText).filter(Boolean))
-      if (targets.size === 0) return { status: 400, body: { error: 'missing words' } }
-      let undone = 0
-      const items = []
-      for (const item of list.words) {
-        if (!targets.has(item.word)) continue
-        // 事件表是唯一来源：软删本周期内最近一条 tally 事件，累计计数跟着回退
-        const result = await app.history.undoTallyEvent({ listId, word: item.word, action: kind, from })
-        if (result.deleted > 0) {
-          if (kind === 'spelling') item.spellingCount = Math.max(0, countOf(item.spellingCount) - 1)
-          else if (kind === 'reading') item.readingCount = Math.max(0, countOf(item.readingCount) - 1)
-          else item.rememberedCount = Math.max(0, countOf(item.rememberedCount) - 1)
-          item.markCount = Math.max(0, countOf(item.markCount) - 1)
-          undone++
-        }
-        items.push(enrichItem(item, now, env))
-      }
-      await saveLists(app, data)
-      console.log('[study ~]  tally-undo', kind, undone, '->', listId)
-      return { status: 200, body: { ok: true, undone, items } }
     }
 
     // POST /api/lists/:id/mark  — 只记一次打标，不动复习排期
@@ -552,7 +623,9 @@ export async function handleApi(method, pathname, searchParams, body, app) {
       let marked = 0
       const items = []
       const rawIds = body?.requestIds && typeof body.requestIds === 'object' ? body.requestIds : {}
-      for (const item of list.words) {
+      const words = await app.listsStore.selectWords(listId, [...targets])
+      const before = progressSnapshot(listId, words)
+      for (const item of words) {
         if (!targets.has(item.word)) continue
         const requestId = typeof rawIds[item.word] === 'string'
           ? rawIds[item.word]
@@ -569,7 +642,7 @@ export async function handleApi(method, pathname, searchParams, body, app) {
         marked++
         items.push(enrichItem(item, now, env))
       }
-      await saveLists(app, data)
+      await app.listsStore.saveWordProgress(listId, changedProgressWords(listId, words, before))
       console.log('[mark +]   ', action, scope || 'day', marked, '->', listId)
       return { status: 200, body: { ok: true, marked, items } }
     }
@@ -579,10 +652,7 @@ export async function handleApi(method, pathname, searchParams, body, app) {
   if (method === 'GET' && pathname === '/api/word-lists') {
     const word = normalizeText(searchParams.get('word'))
     if (!word) return { status: 400, body: { error: 'missing ?word=' } }
-    const { lists } = await loadLists(app)
-    const found = lists
-      .filter(l => l.words.find(w => w.word === word))
-      .map(l => l.id)
+    const found = (await app.listsStore.listIdsForWord(word)).map(row => row.list_id)
     return { status: 200, body: { word, listIds: found } }
   }
 
@@ -591,32 +661,28 @@ export async function handleApi(method, pathname, searchParams, body, app) {
   // GET /api/study/plan  — 所有列表里正在学习的词，按下次复习日期排序
   if (method === 'GET' && pathname === '/api/study/plan') {
     const now = Date.now()
-    const { lists } = await loadLists(app)
+    const dayStart = startOfDay(now, env)
+    const weekStart = startOfWeek(now, env)
+    const planRows = await app.listsStore.activePlanRows()
+    // 本周期会拼 / 会读 / 知意次数：一次聚合查全量，不再逐词往返
+    const tallies = await app.history.periodTallyCountsAll({ dayStart, weekStart })
     const items = []
-    for (const list of lists) {
-      for (const item of list.words) {
-        if (!item.startedAt) continue
-        items.push(Object.assign(withoutMarks(enrichItem(item, now, env)), {
-          listId: list.id,
-          listName: list.name,
-          weekStart: startOfWeek(item.startedAt, env),
-        }))
-        // 本周期会拼 / 会读 / 知意次数：按钮直接展示，撤销也只认这段镜像
-        const planItem = items[items.length - 1]
-        planItem.tallyCounts = await app.history.periodTallyCounts({
-          listId: list.id,
-          word: item.word,
-          dayStart: startOfDay(now, env),
-          weekStart: startOfWeek(now, env),
-        })
-      }
+    for (const { listId, listName, item } of planRows) {
+      if (!item.startedAt) continue
+      items.push(Object.assign(withoutMarks(enrichItem(item, now, env)), {
+        listId,
+        listName,
+        weekStart: startOfWeek(item.startedAt, env),
+      }))
+      // 按钮直接展示本周期计数，撤销也只认事件表这段镜像
+      items[items.length - 1].tallyCounts = planTallyCounts(tallies, listId, item.word)
     }
     items.sort((a, b) => {
       const da = a.nextDueAt === null ? Infinity : a.nextDueAt
       const db = b.nextDueAt === null ? Infinity : b.nextDueAt
       return da === db ? a.word.localeCompare(b.word) : da - db
     })
-    return { status: 200, body: { intervals: REVIEW_INTERVALS, today: startOfDay(now, env), items } }
+    return { status: 200, body: { intervals: REVIEW_INTERVALS, today: dayStart, items } }
   }
 
   // ── 永久学习成果与历史 ───────────────────────────────────────────────
@@ -703,13 +769,14 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     const limit = Number.isFinite(asked) && asked > 0
       ? Math.min(Math.floor(asked), MAX_PRINT_BATCHES)
       : DEFAULT_PRINT_LIMIT
-    const { lists } = await loadLists(app)
     const { batches } = await loadPrints(app)
-    const out = batches
+    const selected = batches
       .slice()
       .sort((a, b) => b.printedAt - a.printedAt)
       .slice(0, limit)
-      .map(batch => enrichBatch(batch, lists, now, env))
+    const refs = selected.flatMap(batch => batch.items)
+    const lists = await loadReferencedLists(app, refs)
+    const out = selected.map(batch => enrichBatch(batch, lists, now, env))
     return { status: 200, body: { batches: out, total: batches.length } }
   }
 
@@ -721,11 +788,16 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     const scope     = normalizeScope(body?.scope)
     const kindRaw   = String(body?.kind || 'start')
     const kind      = PRINT_KINDS.has(kindRaw) ? kindRaw : 'start'
-    const data      = await loadLists(app)
     const items   = []
     const missing = []
+    const refs = groups.flatMap(group => (Array.isArray(group?.words) ? group.words : [])
+      .map(raw => ({ listId: String(group?.listId ?? ''), word: normalizeText(raw) })))
+      .filter(ref => ref.listId && ref.word)
+    const lists = await loadReferencedLists(app, refs)
+    const listsById = new Map(lists.map(list => [list.id, list]))
+    const beforeById = new Map(lists.map(list => [list.id, progressSnapshot(list.id, list.words)]))
     for (const group of groups) {
-      const list  = data.lists.find(l => l.id === String(group?.listId ?? ''))
+      const list  = listsById.get(String(group?.listId ?? ''))
       const words = Array.isArray(group?.words) ? group.words : []
       for (const raw of words) {
         const word = normalizeText(raw)
@@ -745,7 +817,9 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     if (items.length === 0) {
       return { status: 400, body: { ok: false, error: '没有匹配到学习列表里的词', missing } }
     }
-    await saveLists(app, data)
+    for (const list of lists) {
+      await app.listsStore.saveWordProgress(list.id, changedProgressWords(list.id, list.words, beforeById.get(list.id)))
+    }
     const store = await loadPrints(app)
     const title = String(body?.title ?? '').trim().slice(0, MAX_PRINT_TITLE)
       || ('打印 ' + items.length + ' 词')
@@ -759,7 +833,7 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     store.batches = [batch, ...differentBatches].slice(0, MAX_PRINT_BATCHES)
     await savePrints(app, store)
     console.log('[print +]  ', items.length, 'words', kind, scope || 'day', '->', batch.id)
-    return { status: 200, body: { ok: true, batch: enrichBatch(batch, data.lists, Date.now(), env), missing } }
+    return { status: 200, body: { ok: true, batch: enrichBatch(batch, lists, Date.now(), env), missing } }
   }
 
   const printMatch = pathname.match(/^\/api\/print-batches\/([^/]+)(?:\/(.+))?$/)
@@ -779,14 +853,16 @@ export async function handleApi(method, pathname, searchParams, body, app) {
       }
       const now   = Date.now()
       const scope = normalizeScope(body?.scope) || batch.scope
-      const data  = await loadLists(app)
+      const lists = await loadReferencedLists(app, batch.items)
       const rawIds = body?.requestIds && typeof body.requestIds === 'object' ? body.requestIds : {}
       let updated = 0
       const items = []
-      for (const list of data.lists) {
+      for (const list of lists) {
         const batchItems = batch.items.filter(i => i.listId === list.id)
         const targets = new Set(batchItems.map(i => i.word))
         if (targets.size === 0) continue
+        // 打卡前拍一份命中词的进度列快照，落盘时只写真正变化的词（行级更新）
+        const before = progressSnapshot(list.id, list.words)
         const requestIds = new Map()
         for (const item of batchItems) {
           const supplied = typeof rawIds[list.id + '|' + item.word] === 'string'
@@ -817,8 +893,8 @@ export async function handleApi(method, pathname, searchParams, body, app) {
         for (const item of result.items) {
           items.push(Object.assign(withoutMarks(item), { listId: list.id, listName: list.name }))
         }
+        await app.listsStore.saveWordProgress(list.id, changedProgressWords(list.id, list.words, before))
       }
-      await saveLists(app, data)
       if (updated > 0) {
         batch.reviewedAt    = now
         batch.reviewAction  = action
@@ -827,7 +903,7 @@ export async function handleApi(method, pathname, searchParams, body, app) {
       }
       await savePrints(app, store)
       console.log('[print ~]  ', action, updated, '->', batchId)
-      return { status: 200, body: { ok: true, updated, items, batch: enrichBatch(batch, data.lists, now, env) } }
+      return { status: 200, body: { ok: true, updated, items, batch: enrichBatch(batch, lists, now, env) } }
     }
 
     // DELETE /api/print-batches/:id  — 只删这条记录，词的学习进度不动

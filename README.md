@@ -33,16 +33,31 @@
 git clone https://github.com/rextao/english-study.git   # 已经克隆过就 cd 进去 git pull 拉到最新
 cd english-study
 npm install
-npm run dev             # wrangler dev(8787) + vite(5173) 一起起，vite 的 /api 代理到 wrangler
+
+# 首次：给本地 D1 建表（落在 .wrangler/state，跟线上库完全无关）
+npm run db:local:init
+
+npm run dev             # wrangler dev(8787) + vite(5173)，vite 的 /api 代理到 8787
 ```
 
-打开 http://localhost:5173，首次会弹出令牌门，填访问令牌（`API_TOKEN` secret 的值）即可。
+打开 http://localhost:5173，首次会弹出令牌门，填 `.dev.vars` 里的 `API_TOKEN`（默认 `dev-local-token`）即可。
+
+本地库默认是空的，**dev 环境读写的是本地 D1，不会动线上数据**——随便建列表、加词、打卡、造脏数据试边界都行。
+想要一份接近真实的样例数据，可以从线上导一份灌进本地：
+
+```bash
+npx wrangler d1 export english-study-sync --remote --output=prod-dump.sql
+npx wrangler d1 execute english-study-sync --local --file=prod-dump.sql
+```
 
 | 命令 | 作用 |
 | --- | --- |
-| `npm run dev` | 本地开发：wrangler dev + vite 一起起 |
+| `npm run dev` | 本地开发：wrangler dev + vite 一起起（`/api` 走本地 D1） |
+| `npm run db:local:init` | 给本地 D1 建表（首次 / schema 变更后跑一次） |
+| `npm run db:local:migrate` | 给**已存在**的本地 D1 补结构变更（建表语句补不上已有表的新列；跑一次即可） |
+| `npm run db:local:import` | 把 `migration.sql` 灌进本地 D1（从历史 sqlite 快照造样例数据用） |
 | `npm run build` | 类型检查 + 打包到 `dist/` |
-| `npm run test:server` | 服务端测试，282 项，跑在临时目录的 node:sqlite shim 上、不联网，不会动你的数据 |
+| `npm run test:server` | 服务端测试，292 项，跑在临时目录的 node:sqlite shim 上、不联网，不会动你的数据 |
 | `npm run migrate:to-d1` | 把本地历史 sqlite 生成 migration.sql（已迁移过就不用再跑） |
 | `npm run deploy` | 构建 + `wrangler deploy`（Worker + 静态资源一起发） |
 
@@ -50,14 +65,22 @@ npm run dev             # wrangler dev(8787) + vite(5173) 一起起，vite 的 /
 
 ```bash
 npm run build
-npx wrangler deploy
 
 # 首次 / schema 变更：建表
 npx wrangler d1 execute english-study-sync --remote --file=worker/schema.sql
 
+# 已有库的结构变更（一次性，必须在上线新版本前跑；建表语句补不上已存在表的新列）
+npx wrangler d1 execute english-study-sync --remote --file=worker/migrations/001-dict-cache-status.sql
+# 学习数据定向查询索引与默认列表初始化（一次性，上线新版本前跑）
+npx wrangler d1 execute english-study-sync --remote --file=worker/migrations/002-study-query-indexes.sql
+
+# 迁移完成后再发布使用新结构的 Worker
+npx wrangler deploy
+
 # 从本地历史 sqlite 迁数据（幂等：先 DELETE 再 INSERT）
 npm run migrate:to-d1
 npx wrangler d1 execute english-study-sync --remote --file=migration.sql
+# 导完数据再跑一次上面的迁移（生成的 INSERT 里没有 dict_cache.status，靠它回填）
 
 # 密钥（Worker secret，不进 git）
 npx wrangler secret put API_TOKEN
@@ -130,6 +153,7 @@ npx wrangler secret put BAIDU_TRANSLATE_APP_ID
 | `dict_cache` | 词典缓存，一个词一行 |
 
 本地仓库里：`vocab/*.json` 是词库本体（构建期打包进前端）；`cache/` 只剩迁移前的历史遗留，不进 git。
+本地开发读写的是另一份独立的本地 D1（`.wrangler/state/`，用 `npm run db:local:init` 建表），线上库只有部署后的 Worker 会碰。
 访问令牌存浏览器 localStorage（key `es-api-token`）；词库标签也在浏览器留一份镜像，服务端可用时以服务端为准。
 
 ## 词库格式与新增词库

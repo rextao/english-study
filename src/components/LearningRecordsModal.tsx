@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { LearningRecordEvent, VocabLibraryInfo } from '../types/vocab'
 import { useLearningRecords } from '../hooks/useLearningRecords'
 import type { LearningRecordFilterAction } from '../hooks/useLearningRecords'
-import { Button, Input, Modal, Popconfirm, Select, Tag } from '../ui'
+import { Button, ENGLISH_WORD_INPUT_PROPS, Input, Modal, Popconfirm, Select, Tag } from '../ui'
 import './LearningRecordsModal.css'
 
 const ALL_LIBRARIES = ''
@@ -81,7 +81,7 @@ export function LearningRecordsModal({ open, libraries, getLabelById, onClose, o
       </div>
 
       <div className="learning-records__filters">
-        <Input block value={searchInput} placeholder="搜索单词" aria-label="搜索学习记录中的单词"
+        <Input {...ENGLISH_WORD_INPUT_PROPS} block value={searchInput} placeholder="搜索单词" aria-label="搜索学习记录中的单词"
           allowClear onClear={() => setSearchInput('')} onChange={event => setSearchInput(event.target.value)} />
         <Select value={libraryId} options={libraryOptions} onChange={setLibraryId} aria-label="按词库筛选学习记录" />
         <Select value={action} options={ACTION_OPTIONS}

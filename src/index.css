@@ -43,6 +43,9 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  /* 手机端禁用手势缩放：只允许单指平移，双指捏合与双击放大一律不生效。
+     iOS Safari 会忽略 viewport 里的 user-scalable=no，再由 main.tsx 的 gesture* 事件兜底 */
+  touch-action: pan-x pan-y;
   /* 永远给纵向滚动条留出位置：从短页面切到长页面时滚动条才出现/消失，
      不会把居中的内容整体左右推一下，切换模式就不晃了 */
   scrollbar-gutter: stable;
@@ -51,6 +54,8 @@ html {
 body {
   background: var(--color-bg);
   color: var(--color-text);
+  /* 与 html 上的 touch-action 同值：两者取交集，任一被某个浏览器忽略都不影响结果 */
+  touch-action: pan-x pan-y;
   font-size: 15px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;

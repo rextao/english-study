@@ -1,13 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { DictionaryEntry } from '../types/vocab'
 
-import { apiFetch } from '../utils/apiBase'
+import { ApiError, peekApiCache, queryApi } from '../utils/apiCache'
 
 export type DictionaryStatus = 'idle' | 'loading' | 'done' | 'error' | 'no-server'
 
-/** 查过的词在内存里留 5 分钟，同一个词反复查不再打接口（刷新页面才清空这份缓存） */
 const ENTRY_CACHE_TTL = 5 * 60 * 1000
-const entryCache = new Map<string, { entry: DictionaryEntry; ts: number }>()
 
 export function useDictionary() {
   const [entry, setEntry]   = useState<DictionaryEntry | null>(null)
@@ -32,35 +30,32 @@ export function useDictionary() {
     controllerRef.current?.abort()
 
     // 同一个词短时间内的结果直接复用，不再请求云端
-    const cacheKey = w.toLowerCase()
-    const cached = entryCache.get(cacheKey)
-    if (cached && Date.now() - cached.ts < ENTRY_CACHE_TTL) {
-      setEntry(cached.entry)
+    const peeked = peekApiCache<DictionaryEntry & { fromCache?: boolean }>(
+      '/api/dict?word=' + encodeURIComponent(w), {},
+    )
+    if (peeked) {
+      const resolvedPeek = /\s/.test(w) ? { ...peeked, displayText: w } : peeked
+      setEntry(resolvedPeek)
       setStatus('done')
       return
     }
-
     const controller = new AbortController()
     controllerRef.current = controller
     setStatus('loading')
     try {
-      const res = await apiFetch('/api/dict?word=' + encodeURIComponent(w), {
+      const data = await queryApi<DictionaryEntry & { fromCache?: boolean }>('/api/dict?word=' + encodeURIComponent(w), {
         signal: controller.signal,
-      })
-      if (requestId !== requestRef.current) return
-      if (!res.ok) { setEntry(null); setStatus('error'); return }
-      const data = await res.json() as DictionaryEntry & { fromCache?: boolean }
+      }, { staleTime: ENTRY_CACHE_TTL, tags: ['dictionary'] })
       if (requestId !== requestRef.current) return
       // 服务端的 word 始终是稳定的小写主键；句子另存本次查询使用的展示文本。
       const resolved = /\s/.test(w) ? { ...data, displayText: w } : data
-      entryCache.set(cacheKey, { entry: resolved, ts: Date.now() })
       setEntry(resolved)
       setStatus('done')
     } catch (error) {
       if (controller.signal.aborted || requestId !== requestRef.current) return
-      // Server not running
       setEntry(null)
-      setStatus('no-server')
+      // 服务端回了错误状态码 = 这次没抓到释义；请求根本没发出去才是云端不可用。
+      setStatus(error instanceof ApiError ? 'error' : 'no-server')
     } finally {
       if (controllerRef.current === controller) controllerRef.current = null
     }

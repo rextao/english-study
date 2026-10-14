@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { DictionaryEntry } from '../types/vocab'
 
-import { apiFetch } from '../utils/apiBase'
+import { queryApi } from '../utils/apiCache'
 
 /** 和服务端一致的归一化：去首尾空格、压缩空白、转小写 */
 function keyOf(word: string) {
@@ -40,12 +40,11 @@ export function useDictBatch(words: string[]) {
     }
     setLoading(true)
     try {
-      const res = await apiFetch('/api/dict/batch', {
+      const data = await queryApi<BatchReply>('/api/dict/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ words: list }),
-      })
-      const data = await res.json() as BatchReply
+      }, { staleTime: 60_000, tags: ['dictionary', 'dictionary-batch'] })
       const next = new Map<string, DictionaryEntry>()
       for (const [key, entry] of Object.entries(data.entries ?? {})) next.set(key, entry)
       setEntries(next)

@@ -227,17 +227,25 @@ export function ListsPage({ getLabelById, study, onManageLists }: ListsPageProps
           ))}
           {/* 多选模式下藏掉单条的 ×，免得和勾选框抢操作 */}
           {!selectMode && (
-            <Button
-              className="word-row__remove"
-              type="text"
-              size="small"
+            <Popconfirm
+              title={'从列表移除「' + displayTextOf(item) + '」？'}
+              description="只从这个列表移除，其他列表和词典缓存不受影响，但不可恢复"
+              okText="移除"
               danger
-              title="从该列表移除"
-              aria-label="从该列表移除"
-              onClick={() => handleRemoveWord(item.word)}
+              placement="bottomRight"
+              onConfirm={() => { void handleRemoveWord(item.word) }}
             >
-              ×
-            </Button>
+              <Button
+                className="word-row__remove"
+                type="text"
+                size="small"
+                danger
+                title="从该列表移除"
+                aria-label={'从该列表移除 ' + displayTextOf(item)}
+              >
+                ×
+              </Button>
+            </Popconfirm>
           )}
         </div>
         <div className="word-row__detail">

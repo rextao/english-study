@@ -1,3 +1,18 @@
+/* 确认门：默认不展示列表，先用红字讲清物理删除不可找回 */
+.learning-records-page__gate {
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.learning-records-page__gate-text { min-width: 0; flex: 1 1 320px; }
+.learning-records-page__gate-text strong { display: block; margin-bottom: 4px; font-size: 14px; }
+.learning-records-page__gate-text p { margin: 0; }
+
 .learning-records-page__header {
   position: relative;
   display: flex;
@@ -173,6 +188,24 @@
 
 .learning-records-page__detail-table th:last-child,
 .learning-records-page__detail-table td:last-child { width: 100px; text-align: right; }
+
+/* 嵌进设置页「学习记录」分区：没有独立页的 .page 外壳和页头，宽度由设置内容区决定。
+   内容区比独立页（1080）窄，筛选行收成自适应列数，表格放不下就横向滚动，不硬压列宽。
+   限定在 721px 以上：更窄时上面那条手机端规则（单列筛选 + 卡片式表格）才是对的。 */
+@media (min-width: 721px) {
+  .learning-records-page--embedded .learning-records-page__filters {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+
+  .learning-records-page--embedded .learning-records-page__table-wrap { overflow-x: auto; }
+
+  /* 内容区约 790px（桌面）到 550px（平板），列宽比独立页收一档，多数情况不用滚动 */
+  .learning-records-page--embedded .learning-records-page__table th,
+  .learning-records-page--embedded .learning-records-page__table td { padding: 10px 10px; }
+  .learning-records-page--embedded .learning-records-page__table .learning-records-page__select { width: 62px; }
+  .learning-records-page--embedded .learning-records-page__table .learning-records-page__number { width: 68px; }
+  .learning-records-page--embedded .learning-records-page__table .learning-records-page__actions { width: 158px; }
+}
 
 /* 手机端「本页全选」：桌面端它在表头里，卡片式把表头藏了，挪到表格上方独立一行 */
 .learning-records-page__select-all { display: none; }

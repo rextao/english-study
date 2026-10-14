@@ -6,6 +6,12 @@ dist/
 .env.*
 !.env.example
 
+# 本地 dev 的密钥 / 变量（wrangler dev 读取），与线上 secret 无关，不要提交
+.dev.vars
+
+# wrangler dev 的本地状态目录：本地 D1（miniflare）就落在这里，不要提交
+.wrangler/
+
 # ECDICT 本地词典已随「后端上云」退役；本地残留的词典文件（约 140MB）不进 git。
 data/ecdict/
 data/ecdict.csv

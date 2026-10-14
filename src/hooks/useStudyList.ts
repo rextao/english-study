@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import type { StudyList, StudyWordItem } from '../types/vocab'
 
 import { apiFetch } from '../utils/apiBase'
+import { invalidateApiCache, queryApi } from '../utils/apiCache'
 import { invalidateListMembership, invalidateMembership } from './useStudy'
-import { readBatches, readWords, invalidateBatches, invalidateList, invalidateWords, writeBatches, writeWords } from '../utils/studyListCache'
 
 /** 批量导入的一条记录：单词或句子 + 命中的词库 id */
 export interface ImportItem {
@@ -60,9 +60,15 @@ export function useStudyList() {
   // 挂载时那次拉取不算数据变动；之后每次 fetchLists 都是用户写操作触发的刷新
 
   const fetchLists = useCallback(async () => {
-    const reply = await request<StudyList[]>('/api/lists')
-    setOffline(reply.offline)
-    if (Array.isArray(reply.data)) setLists(reply.data)
+    try {
+      const data = await queryApi<StudyList[]>('/api/lists', {}, {
+        staleTime: 30_000, tags: ['lists'],
+      })
+      setOffline(false)
+      if (Array.isArray(data)) setLists(data)
+    } catch {
+      setOffline(true)
+    }
     setLoading(false)
   }, [])
 
@@ -75,6 +81,7 @@ export function useStudyList() {
     )
     if (reply.offline) return { ok: false as const, error: '云端服务不可用' }
     if (!reply.data?.ok) return { ok: false as const, error: reply.data?.error ?? '新建失败' }
+    invalidateApiCache(['lists', 'study-plan'])
     await fetchLists()
     return { ok: true as const, id: reply.data.id }
   }, [fetchLists])
@@ -86,6 +93,7 @@ export function useStudyList() {
     )
     if (reply.offline) return { ok: false as const, error: '云端服务不可用' }
     if (!reply.data?.ok) return { ok: false as const, error: reply.data?.error ?? '重命名失败' }
+    invalidateApiCache(['lists', 'study-plan'])
     await fetchLists()
     return { ok: true as const }
   }, [fetchLists])
@@ -97,8 +105,8 @@ export function useStudyList() {
     )
     if (reply.offline) return { ok: false as const, error: '云端服务不可用' }
     if (!reply.data?.ok) return { ok: false as const, error: reply.data?.error ?? '删除失败' }
-    invalidateList(listId)
-    invalidateListMembership(listId)
+    invalidateApiCache(['lists', 'list-words:' + listId, 'list-batches:' + listId, 'study-plan', 'achievements', 'history'])
+    invalidateListMembership()
     await fetchLists()
     return { ok: true as const }
   }, [fetchLists])
@@ -115,7 +123,8 @@ export function useStudyList() {
     )
     if (reply.offline) return { ok: false as const, reason: '云端服务不可用' }
     if (!reply.data?.ok) return { ok: false as const, reason: reply.data?.reason ?? '添加失败' }
-    invalidateWords(listId)
+    invalidateApiCache(['list-words:' + listId, 'list-batches:' + listId, 'lists', 'study-plan', 'achievements'])
+    invalidateMembership(text)
     await fetchLists()
     return { ok: true as const, item: reply.data.item }
   }, [fetchLists])
@@ -126,30 +135,31 @@ export function useStudyList() {
       listPath(listId) + '/import', jsonInit('POST', { items, batchKey, batchName })
     )
     if (reply.offline || !reply.data?.ok) return null
-    invalidateWords(listId)
+    invalidateApiCache(['list-words:' + listId, 'list-batches:' + listId, 'lists', 'study-plan', 'achievements'])
+    // 导入会改变这些词的成员关系；查询页的「在哪些列表里」缓存不跟着作废会停在旧结果。
+    invalidateMembership(items.map(item => item.text))
     await fetchLists()
     return { added: reply.data.added, skipped: reply.data.skipped, queued: reply.data.queued ?? 0 }
   }, [fetchLists])
 
   /** 读取某个列表下的全部词条 */
   const fetchListWords = useCallback(async (listId: string): Promise<StudyWordItem[]> => {
-    const hit = readWords(listId)
-    if (hit !== null) return hit
-    const reply = await request<StudyWordItem[]>(listPath(listId) + '/words')
-    const words = Array.isArray(reply.data) ? reply.data : []
-    // 云端不可达时拿到的是空表，不写缓存，免得网络恢复后还显示空列表
-    if (!reply.offline) writeWords(listId, words)
-    return words
+    try {
+      const words = await queryApi<StudyWordItem[]>(listPath(listId) + '/words', {}, {
+        staleTime: 5 * 60_000, tags: ['list-words:' + listId, 'lists'],
+      })
+      return Array.isArray(words) ? words : []
+    } catch { return [] }
   }, [])
 
   /** 读取列表的分组显示名（按导入自然日分组） */
   const fetchBatches = useCallback(async (listId: string): Promise<Record<string, string>> => {
-    const hit = readBatches(listId)
-    if (hit !== null) return hit
-    const reply = await request<{ batchNames: Record<string, string> }>(listPath(listId) + '/batches')
-    const names = reply.data?.batchNames ?? {}
-    if (!reply.offline) writeBatches(listId, names)
-    return names
+    try {
+      const data = await queryApi<{ batchNames: Record<string, string> }>(listPath(listId) + '/batches', {}, {
+        staleTime: 5 * 60_000, tags: ['list-batches:' + listId],
+      })
+      return data.batchNames ?? {}
+    } catch { return {} }
   }, [])
 
   /** 重命名某个分组；name 空串=重置为日期；服务不可用/失败返回 null */
@@ -158,7 +168,7 @@ export function useStudyList() {
       listPath(listId) + '/batches', jsonInit('PATCH', { date, name })
     )
     if (reply.offline || !reply.data?.ok) return null
-    invalidateBatches(listId)
+    invalidateApiCache(['list-batches:' + listId, 'lists'])
     return reply.data.batchNames ?? {}
   }, [])
 
@@ -168,7 +178,7 @@ export function useStudyList() {
       listPath(listId) + '/words/' + encodeURIComponent(text), { method: 'DELETE' }
     )
     if (!reply.data?.ok) return false
-    invalidateWords(listId)
+    invalidateApiCache(['list-words:' + listId, 'list-batches:' + listId, 'lists', 'study-plan', 'achievements'])
     invalidateMembership(text)
     await fetchLists()
     return true
@@ -184,8 +194,8 @@ export function useStudyList() {
       listPath(listId) + '/remove', jsonInit('POST', { words })
     )
     if (reply.offline || !reply.data?.ok) return null
-    invalidateWords(listId)
-    for (const word of words) invalidateMembership(word)
+    invalidateApiCache(['list-words:' + listId, 'list-batches:' + listId, 'lists', 'study-plan', 'achievements'])
+    invalidateMembership(words)
     await fetchLists()
     return { removed: reply.data.removed, missing: reply.data.missing ?? 0 }
   }, [fetchLists])
@@ -198,7 +208,7 @@ export function useStudyList() {
       listPath(listId) + '/words/' + encodeURIComponent(text),
       jsonInit('PATCH', { senseIds })
     )
-    invalidateWords(listId)
+    invalidateApiCache(['list-words:' + listId, 'study-plan', 'achievements'])
     if (!reply.data?.ok) return null
     return reply.data.item ?? null
   }, [])
@@ -212,17 +222,21 @@ export function useStudyList() {
       listPath(listId) + '/words/' + encodeURIComponent(text),
       jsonInit('PATCH', { translationIds, translation, customTranslations })
     )
-    invalidateWords(listId)
+    invalidateApiCache(['list-words:' + listId, 'study-plan', 'achievements'])
     if (!reply.data?.ok) return null
     return reply.data.item ?? null
   }, [])
 
   /** 某个词在哪些学习列表里 */
   const getWordListIds = useCallback(async (word: string): Promise<string[]> => {
-    const reply = await request<{ listIds: string[] }>(
-      '/api/word-lists?word=' + encodeURIComponent(word)
-    )
-    return reply.data?.listIds ?? []
+    const normalized = word.trim().toLowerCase()
+    try {
+      const data = await queryApi<{ listIds: string[] }>(
+        '/api/word-lists?word=' + encodeURIComponent(normalized), {},
+        { staleTime: 5 * 60_000, tags: ['word-lists', 'word-lists:' + normalized] },
+      )
+      return data.listIds ?? []
+    } catch { return [] }
   }, [])
 
   const getListName = useCallback(

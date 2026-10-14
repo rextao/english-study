@@ -11,6 +11,10 @@ CREATE TABLE IF NOT EXISTS lists (
   position INTEGER NOT NULL, batch_names_json TEXT NOT NULL
 ) STRICT;
 
+-- 默认列表是系统内建对象；整库读时代码曾在内存兜底，现在由 D1 显式持有。
+INSERT OR IGNORE INTO lists (id, name, created_at, position, batch_names_json)
+VALUES ('default', '默认列表', 0, 0, '{}');
+
 CREATE TABLE IF NOT EXISTS list_words (
   list_id TEXT NOT NULL REFERENCES lists(id) ON DELETE CASCADE, word TEXT NOT NULL,
   position INTEGER NOT NULL, type TEXT NOT NULL, display_text TEXT,
@@ -26,6 +30,13 @@ CREATE TABLE IF NOT EXISTS list_words (
 ) STRICT;
 
 CREATE INDEX IF NOT EXISTS idx_list_words_added ON list_words(added_at);
+CREATE INDEX IF NOT EXISTS idx_list_words_word ON list_words(word, list_id);
+CREATE INDEX IF NOT EXISTS idx_list_words_started ON list_words(list_id, started_at)
+  WHERE started_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_list_words_repair_phonetic ON list_words(word)
+  WHERE phonetic IS NULL OR phonetic = '';
+CREATE INDEX IF NOT EXISTS idx_list_words_repair_translation ON list_words(word)
+  WHERE translation IS NULL OR translation = '';
 
 CREATE TABLE IF NOT EXISTS meaning_profiles (
   meaning_key TEXT PRIMARY KEY,
@@ -64,6 +75,9 @@ CREATE INDEX IF NOT EXISTS idx_learning_events_action_time
   ON learning_events(action, occurred_at DESC);
 CREATE INDEX IF NOT EXISTS idx_learning_events_active_time
   ON learning_events(deleted_at, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_learning_events_tally_period
+  ON learning_events(deleted_at, action, occurred_at, list_id, word_key)
+  WHERE action IN ('spelling', 'reading', 'meaning');
 
 CREATE TABLE IF NOT EXISTS learning_event_meanings (
   event_id TEXT NOT NULL REFERENCES learning_events(id),
@@ -79,8 +93,14 @@ CREATE TABLE IF NOT EXISTS kv (
 ) STRICT;
 
 CREATE TABLE IF NOT EXISTS dict_cache (
-  word TEXT PRIMARY KEY, entry_json TEXT NOT NULL
+  word TEXT PRIMARY KEY, entry_json TEXT NOT NULL,
+  -- 词条完整度。只是给统计 / 运维查询用的冗余列，行为判断仍以 entry_json 里的
+  -- status 为准（见 normalizeEntry），由 kv.js 的 UPSERT 随写更新，避免两处真相打架。
+  status TEXT NOT NULL DEFAULT 'partial'
 ) STRICT;
+
+-- /api/dict/sources 的缓存统计按 status 计数，不必再读整张表的 entry_json 逐条解析
+CREATE INDEX IF NOT EXISTS idx_dict_cache_status ON dict_cache(status);
 
 -- 快照同步机制已随「后端上云」退役，旧表直接丢弃
 DROP TABLE IF EXISTS sync_snapshot;

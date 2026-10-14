@@ -94,29 +94,47 @@
   gap: 4px;
 }
 
+.achievements-table__libs {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.achievements-table__libs .achievements-table__tags {
+  justify-content: flex-end;
+}
+
 .achievements-table .achievements-table__number {
- width: 118px;
   width: 92px;
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
 
-.achievements-table__number--remembered { color: #067a4d; font-weight: 600; }
-.achievements-table__number--forgotten { color: #b42318; font-weight: 600; }
+/* 次数：知意绿，0 次统一灰掉让位给有内容的数字 */
+.achievements-table__count {
+  font-variant-numeric: tabular-nums;
+}
 
-.achievements-page .page-header__actions { align-self: center; }
+.achievements-table__count--remembered { color: #067a4d; font-weight: 600; }
+.achievements-table__count--zero { color: var(--color-text-subtle); font-weight: 500; }
+
+/* 最近学习：显示的是天数文字（今天 / N 天前），字号比次数小一档 */
+.achievements-table__recent {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.achievements-table__recent--none { color: var(--color-text-subtle); }
 
 /* 手机端排序按钮组：桌面端排序都在表头，这排按钮平时不占地方 */
 .achievements-sort { display: none; }
-.achievements-sort__arrow {
-  font-size: 11px;
-  line-height: 1;
-  opacity: 0.55;
-}
 
 @media (max-width: 720px) {
+  /* 这一块里凡是覆盖 .card / .card--pad 的属性都带上 .achievements-page 前缀：
+     打包后 App.css 排在本文件之后，同权重会被 .card 的边框、内边距和投影压掉 */
   /* 筛选模块去边框，变成纯工具条：不显示「按词库筛选」文案，下拉框和结果数同一行 */
-  .achievements-filter {
+  .achievements-page .achievements-filter {
     flex-wrap: wrap;
     align-items: center;
     gap: 10px 12px;
@@ -128,80 +146,137 @@
   }
   .achievements-filter .field-label { display: none; }
   .achievements-filter__select { flex: 1; width: auto; min-width: 160px; }
-  .achievements-table-wrap { overflow-x: auto; }
-  .achievements-table { min-width: 760px; }
-  .achievements-sort {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 4px;
-    flex-basis: 100%;
-  }
-  /* 五个排序按钮均分整行宽度，窄屏也不换行 */
-  .achievements-sort .ui-btn {
-    flex: 1;
-    min-width: 0;
-    justify-content: center;
-    padding: 4px 4px;
-    gap: 2px;
-    white-space: nowrap;
-  }
-  .achievements-sort__arrow { font-size: 10px; }
   .achievements-filter__result { margin-left: auto; }
 
-  /* 表格转紧凑列表：一行一词，词库标签独占一行，四个次数横排；去边框，模块之间只用分割线 */
-  .achievements-table-wrap { overflow: visible; padding: 4px; }
-  .achievements-table { min-width: 0; }
-  .achievements-table thead { display: none; }
-  .achievements-table,
-  .achievements-table tbody { display: block; }
-  .achievements-table__row {
+  .achievements-sort {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px 10px;
-    padding: 12px 14px;
-    box-shadow: inset 0 -1px 0 var(--color-border);
+    gap: 6px;
+    flex-basis: 100%;
   }
-  .achievements-table__row:last-child { box-shadow: none; }
-  .achievements-table__row:hover { background: var(--color-surface-sunken); }
+  /* 排序做成一排安静的 chip：默认灰底、当前项蓝底 + 方向箭头。
+     不再用五个等宽描边按钮——那条像分段控件的边线是这条工具条上最重的元素 */
+  .achievements-sort .ui-tag {
+    padding: 5px 10px;
+    font-size: 12px;
+    line-height: 18px;
+  }
+  .achievements-sort .ui-tag--blue { font-weight: 600; }
+  .achievements-sort__label {
+    flex-shrink: 0;
+    color: var(--color-text-subtle);
+    font-size: 12px;
+  }
+  .achievements-sort__arrow {
+    font-size: 10px;
+    line-height: 1;
+    opacity: .7;
+  }
+  /* 没选中的维度只留一个很淡的 ↕，提示「这里也能点」 */
+  .achievements-sort .ui-tag--default .achievements-sort__arrow { opacity: .4; }
+
+  /* 外层白卡拆掉，改成「一个词一张卡」：卡片自带圆角边框，卡片之间留 10px 呼吸 */
+  .achievements-page .achievements-table-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    overflow: visible;
+  }
+  .achievements-table { display: block; min-width: 0; }
+  .achievements-table thead { display: none; }
+  .achievements-table tbody { display: flex; flex-direction: column; gap: 10px; }
+
+  /* 卡片内部是 4 列网格：单词占 3 列，词库标签贴第 4 列；第二行三个次数 + 最近学习各占一列 */
+  .achievements-table__row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    row-gap: 10px;
+    padding: 12px 14px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-xs);
+  }
+  .achievements-table__row:hover {
+    background: var(--color-surface);
+    border-color: var(--color-border-strong);
+  }
   .achievements-table__row td {
     display: flex;
-    align-items: center;
-    gap: 6px;
     padding: 0;
     border: none;
   }
-  .achievements-table__row td[data-label]::before {
-    content: attr(data-label);
-    flex-shrink: 0;
-    color: var(--color-text-subtle);
-    font-size: 11px;
-    font-weight: 500;
-  }
-  /* 第一行：单词在左，词库标签贴在右上，长单词换行不省略 */
-  .achievements-table__cell-word { flex: 1 1 calc(60% - 5px); min-width: 0; }
-  .achievements-table__cell-word .achievements-table__word {
-    font-size: 15px;
+
+  .achievements-table__cell-word {
+    grid-column: 1 / span 3;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
     min-width: 0;
-    max-width: 100%;
+    padding-right: 10px;
+  }
+  .achievements-table__cell-word .achievements-table__word {
+    font-size: 16px;
+    font-weight: 650;
+    line-height: 1.4;
+    letter-spacing: -.01em;
     white-space: normal;
     word-break: break-word;
     overflow-wrap: anywhere;
   }
-  /* 词库标签固定在右上角，标签多时在右半区换行，不挤压单词 */
   .achievements-table__libs {
-    flex: 0 0 calc(40% - 5px);
+    grid-column: 4 / span 1;
+    align-self: start;
+    justify-content: flex-end;
+    width: auto;
     min-width: 0;
-    align-self: flex-start;
-    padding-top: 1px;
+    white-space: normal;
   }
   .achievements-table__libs .achievements-table__tags { justify-content: flex-end; }
-  /* 第二行：四个次数均分整行，不再和单词挤在一起 */
+
+  /* 次数拼成一条统计条：大数字在上、小标签在下，格与格之间一条发丝分割线 */
   .achievements-table .achievements-table__number {
-    flex: 1 1 calc(25% - 8px);
-    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
     width: auto;
-    justify-content: center;
+    min-width: 0;
+    padding: 7px 2px 6px;
+    background: var(--color-surface-sunken);
+    border-left: 1px solid var(--color-border);
   }
+  .achievements-table__libs + .achievements-table__number {
+    border-left: none;
+    border-top-left-radius: var(--radius-sm);
+    border-bottom-left-radius: var(--radius-sm);
+  }
+  .achievements-table__number:last-child {
+    border-top-right-radius: var(--radius-sm);
+    border-bottom-right-radius: var(--radius-sm);
+  }
+  .achievements-table__row td[data-label]::before {
+    content: attr(data-label);
+    order: 2;
+    margin-top: 1px;
+    color: var(--color-text-subtle);
+    font-size: 10.5px;
+    font-weight: 500;
+    line-height: 1.2;
+  }
+  .achievements-table__count {
+    order: 1;
+    font-size: 17px;
+    font-weight: 650;
+    line-height: 1.15;
+  }
+  /* 最近学习是文字不是数字：压到和标签接近的体量，窄屏允许折行，别把统计条撑宽 */
+  .achievements-table__recent { font-size: 12px; font-weight: 600; white-space: normal; }
+  .achievements-table__recent--none { font-weight: 500; }
+  .achievements-table__count--zero { font-weight: 500; }
 }

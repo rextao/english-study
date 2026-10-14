@@ -1,12 +1,10 @@
 import { useState, useCallback } from 'react'
 
-import { apiFetch } from '../utils/apiBase'
+import { invalidateApiCache, queryApi } from '../utils/apiCache'
 
 export type StudyStatus = 'unknown' | 'checking' | 'in-study' | 'not-in-study' | 'adding' | 'error'
 
-/** 「某词在哪些列表里」短时间内的查询结果复用，切 tab 重建页面不重打接口 */
 const MEMBERSHIP_CACHE_TTL = 5 * 60 * 1000
-const membershipCache = new Map<string, { listIds: string[]; ts: number }>()
 
 export function useStudy() {
   // word -> list ids that contain it
@@ -24,18 +22,12 @@ export function useStudy() {
   const checkWord = useCallback(async (word: string) => {
     const w = word.trim().toLowerCase()
     if (!w) return
-    const cached = membershipCache.get(w)
-    if (cached && Date.now() - cached.ts < MEMBERSHIP_CACHE_TTL) {
-      setWordListMap(prev => ({ ...prev, [w]: cached.listIds }))
-      setStatusMap(prev => ({ ...prev, [w]: cached.listIds.length > 0 ? 'in-study' : 'not-in-study' }))
-      return
-    }
     setStatusMap(prev => ({ ...prev, [w]: 'checking' }))
     try {
-      const res = await apiFetch('/api/word-lists?word=' + encodeURIComponent(w))
-      if (!res.ok) throw new Error()
-      const data = await res.json() as { listIds: string[] }
-      membershipCache.set(w, { listIds: data.listIds, ts: Date.now() })
+      const data = await queryApi<{ listIds: string[] }>(
+        '/api/word-lists?word=' + encodeURIComponent(w), {},
+        { staleTime: MEMBERSHIP_CACHE_TTL, tags: ['word-lists', 'word-lists:' + w] },
+      )
       setWordListMap(prev => ({ ...prev, [w]: data.listIds }))
       setStatusMap(prev => ({ ...prev, [w]: data.listIds.length > 0 ? 'in-study' : 'not-in-study' }))
     } catch {
@@ -45,9 +37,7 @@ export function useStudy() {
 
   const markAdded = useCallback((word: string, listId: string) => {
     const w = word.toLowerCase()
-    // 加词后同步更新缓存，下次查同一个词直接命中，不会还显示「未加入」
-    const hit = membershipCache.get(w)
-    if (hit && !hit.listIds.includes(listId)) hit.listIds = [...hit.listIds, listId]
+    invalidateApiCache(['word-lists:' + w, 'lists'])
     setWordListMap(prev => {
       const current = prev[w] ?? []
       if (current.includes(listId)) return prev
@@ -59,17 +49,26 @@ export function useStudy() {
   return { getStatus, getListIds, checkWord, markAdded }
 }
 
-/** 作废某个词的「在哪些列表里」缓存（学习列表页删词后调用） */
-export function invalidateMembership(word: string): void {
-  membershipCache.delete(word.trim().toLowerCase())
+/**
+ * 作废这些词的「在哪些列表里」缓存（学习列表页增删词后调用）。
+ * 支持一次传一批词：只扫一遍缓存，导入几百个词时不会变成几百次全量扫描。
+ *
+ * 只作废成员关系本身：history / achievements 是按事件自己记的 source_ids 快照过滤的
+ * （见 worker/src/study-history.js 的 matchesLibrary），增删词不会改事件账本，
+ * 带上它们只会让记录页多做一次无谓刷新；需要一起刷的 study-plan 由各调用方自己作废。
+ */
+export function invalidateMembership(words: string | string[]): void {
+  const list = (Array.isArray(words) ? words : [words])
+    .map(value => value.trim().toLowerCase())
+    .filter(Boolean)
+  if (list.length === 0) return
+  invalidateApiCache(list.map(value => 'word-lists:' + value))
 }
 
-/** 把某个列表从所有成员资格记录里摘掉；删列表时调用，成员资格清空的词整个删掉 */
-export function invalidateListMembership(listId: string): void {
-  for (const [word, entry] of membershipCache) {
-    const rest = entry.listIds.filter(id => id !== listId)
-    if (rest.length === entry.listIds.length) continue
-    if (rest.length === 0) membershipCache.delete(word)
-    else entry.listIds = rest
-  }
+/**
+ * 删列表时调用：被删的列表可能出现在任意已查过的单词成员关系里，
+ * 按单词逐个摘除做不到，直接作废整个成员资格集合，下次查词重打接口。
+ */
+export function invalidateListMembership(): void {
+  invalidateApiCache(['word-lists'])
 }

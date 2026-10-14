@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { apiFetch } from '../utils/apiBase'
+import { invalidateApiCache } from '../utils/apiCache'
 
 /** 服务端补词队列的进度 */
 export interface PrefetchState {
@@ -92,6 +93,8 @@ export function useDictPrefetch(onFinish?: () => void) {
       setState(next)
       if (next.finished) {
         setWatching(false)
+        // 后台补齐会改变词典条目；清掉单词释义和批量读取快照。
+        invalidateApiCache(['dictionary', 'dictionary-batch'])
         finishRef.current?.()
       }
     }, 1200)
@@ -124,6 +127,7 @@ export function useDictPrefetch(onFinish?: () => void) {
     }
     const queued = numOf(body.queued) ?? 0
     setState(next)
+    invalidateApiCache(['dictionary', 'dictionary-batch'])
     // 一个词都没排队说明本来就是齐的，不用再轮询
     if (queued > 0 || !next.finished) setWatching(true)
     return { ok: true, scanned: numOf(body.scanned) ?? 0, queued }

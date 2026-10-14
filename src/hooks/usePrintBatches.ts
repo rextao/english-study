@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import type { PrintBatch, StudyMarkScope, StudyReviewAction } from '../types/vocab'
 
 import { apiFetch } from '../utils/apiBase'
-import { invalidateWords } from '../utils/studyListCache'
+import { invalidateApiCache, queryApi } from '../utils/apiCache'
 const BASE = '/api/print-batches'
 
 /** 记一次卡片导出。一批词可能跨列表（复习计划里的词就是），所以按列表分组传 */
@@ -57,8 +57,9 @@ export function usePrintBatches() {
 
   const refresh = useCallback(async () => {
     try {
-      const res  = await apiFetch(BASE)
-      const data = await res.json() as { batches?: PrintBatch[] }
+      const data = await queryApi<{ batches?: PrintBatch[] }>(BASE, {}, {
+        staleTime: 15_000, tags: ['print-batches'],
+      })
       if (Array.isArray(data?.batches)) setBatches(data.batches)
       setOffline(false)
     } catch {
@@ -80,7 +81,12 @@ export function usePrintBatches() {
       printedAt: input.printedAt,
       groups,
     })
-    if (res.ok) await refresh()
+    if (res.ok) {
+      invalidateApiCache(['print-batches', 'study-plan', 'achievements', 'history'])
+      // 留档同时给每个词记一条 print 标，作废涉及列表的词条快照
+      for (const group of groups) invalidateApiCache('list-words:' + group.listId)
+      await refresh()
+    }
     return res
   }, [refresh])
 
@@ -98,7 +104,10 @@ export function usePrintBatches() {
     if (res.ok) {
       // 整批打卡走的是 applyReview，stage / 排期变了，把涉及列表的词条缓存都作废
       const batch = batches.find(item => item.id === id)
-      if (batch) for (const listId of new Set(batch.items.map(item => item.listId))) invalidateWords(listId)
+      if (batch) for (const listId of new Set(batch.items.map(item => item.listId))) {
+        invalidateApiCache('list-words:' + listId)
+      }
+      invalidateApiCache(['print-batches', 'study-plan', 'achievements', 'history'])
       await refresh()
     }
     return res
@@ -107,7 +116,10 @@ export function usePrintBatches() {
   /** 只删这条记录，词的学习进度不动 */
   const removeBatch = useCallback(async (id: string): Promise<Result> => {
     const res = await send(BASE + '/' + encodeURIComponent(id), 'DELETE')
-    if (res.ok) await refresh()
+    if (res.ok) {
+      invalidateApiCache('print-batches')
+      await refresh()
+    }
     return res
   }, [refresh])
 

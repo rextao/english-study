@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { VocabLibrary, VocabLibraryInfo } from '../types/vocab'
 
 import { apiFetch } from '../utils/apiBase'
+import { invalidateApiCache, queryApi } from '../utils/apiCache'
 const LABELS_URL = '/api/vocab-labels'
 const PRINT_LABELS_URL = '/api/vocab-print-labels'
 /** 云端不可达时的兜底；服务可用时也镜像一份，下次离线还能看到自定义标签 */
@@ -67,8 +68,9 @@ export function useVocabLibraries() {
     const mirror = readMirror(MIRROR_KEY)
     const printMirror = readMirror(PRINT_MIRROR_KEY)
     try {
-      const res  = await apiFetch(LABELS_URL)
-      const data = (await res.json()) as { labels?: LabelMap; printLabels?: LabelMap }
+      const data = await queryApi<{ labels?: LabelMap; printLabels?: LabelMap }>(LABELS_URL, {}, {
+        staleTime: 5 * 60_000, tags: ['vocab-labels'],
+      })
       let next = data.labels ?? {}
       let nextPrint = data.printLabels ?? {}
       // 迁移：浏览器里有、服务端没有的标签推上去；两边都有时以服务端为准
@@ -77,6 +79,7 @@ export function useVocabLibraries() {
       )
       if (Object.keys(missing).length > 0) {
         await apiFetch(LABELS_URL, jsonInit('POST', { labels: missing }))
+        invalidateApiCache('vocab-labels')
         next = { ...next, ...missing }
       }
       const missingPrint = Object.fromEntries(
@@ -84,6 +87,7 @@ export function useVocabLibraries() {
       )
       if (Object.keys(missingPrint).length > 0) {
         await apiFetch(PRINT_LABELS_URL, jsonInit('POST', { printLabels: missingPrint }))
+        invalidateApiCache('vocab-labels')
         nextPrint = { ...nextPrint, ...missingPrint }
       }
       if (!aliveRef.current) return
@@ -133,6 +137,7 @@ export function useVocabLibraries() {
       const res  = await apiFetch(LABELS_URL + '/' + encodeURIComponent(id), jsonInit('PATCH', { label: value }))
       const data = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null
       if (!res.ok || data?.ok !== true) return { ok: false, error: data?.error ?? '保存失败' }
+      invalidateApiCache('vocab-labels')
       setOffline(false)
     } catch {
       // 云端不可达：先记在浏览器里，服务起来后会自动补齐到服务端
@@ -146,6 +151,7 @@ export function useVocabLibraries() {
   const resetLabel = useCallback(async (id: string) => {
     try {
       await apiFetch(LABELS_URL + '/' + encodeURIComponent(id), { method: 'DELETE' })
+      invalidateApiCache('vocab-labels')
       setOffline(false)
     } catch {
       setOffline(true)
@@ -170,6 +176,7 @@ export function useVocabLibraries() {
       const res = await apiFetch(PRINT_LABELS_URL + '/' + encodeURIComponent(id), jsonInit('PATCH', { label: value }))
       const data = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null
       if (!res.ok || data?.ok !== true) return { ok: false, error: data?.error ?? '保存失败' }
+      invalidateApiCache('vocab-labels')
       setOffline(false)
     } catch {
       setOffline(true)
@@ -181,6 +188,7 @@ export function useVocabLibraries() {
   const resetPrintLabel = useCallback(async (id: string) => {
     try {
       await apiFetch(PRINT_LABELS_URL + '/' + encodeURIComponent(id), { method: 'DELETE' })
+      invalidateApiCache('vocab-labels')
       setOffline(false)
     } catch {
       setOffline(true)

@@ -97,11 +97,6 @@ function json(value) {
   return JSON.stringify(value ?? null)
 }
 
-function parseJson(value, fallback) {
-  try { return JSON.parse(value) }
-  catch { return fallback }
-}
-
 const INSERT_MEANING_SQL = `
   INSERT OR IGNORE INTO meaning_profiles
     (meaning_key, word_key, kind, language, pos, text_snapshot, created_at)
@@ -159,76 +154,83 @@ export function createStudyHistoryStore(db) {
     return Boolean(await db.first('SELECT 1 FROM learning_events WHERE request_id = ? LIMIT 1', requestId))
   }
 
-  async function activeRows() {
-    return await db.all(`
-      SELECT e.*, GROUP_CONCAT(em.meaning_key) AS meaning_keys
-      FROM learning_events e
-      LEFT JOIN learning_event_meanings em ON em.event_id = e.id
-      WHERE e.deleted_at IS NULL
-      GROUP BY e.id
-      ORDER BY e.occurred_at DESC, e.created_at DESC
-    `)
-  }
-
-  function matchesLibrary(row, libraryId) {
-    if (!libraryId) return true
-    return parseJson(row.source_ids_json, []).includes(libraryId)
-  }
-
-  function actionMatches(action, filter) {
-    if (!filter) return true
-    if (filter === 'review') {
-      return action === 'done' || action === 'again' || action === 'spelling'
-        || action === 'reading' || action === 'meaning'
-    }
-    return action === filter
-  }
-
-  async function aggregate(options = {}) {
+  function eventFilter(options = {}, alias = 'e') {
     const libraryId = String(options.libraryId ?? '').trim()
     const wordFilter = normalizeText(options.word)
     const action = String(options.action ?? 'review').trim() || 'review'
-    const events = await activeRows()
-    const groups = new Map()
-    const ensure = row => {
-      let item = groups.get(row.word_key)
-      if (!item) {
-        item = {
-          word: row.word_snapshot || row.word_key, sourceIds: [], reviewCount: 0,
-          spellingCount: 0, readingCount: 0, rememberedCount: 0, forgottenCount: 0, lastAt: null,
-          meanings: new Map(), events: [],
-        }
-        groups.set(row.word_key, item)
-      }
-      item.sourceIds = [...new Set([...item.sourceIds, ...parseJson(row.source_ids_json, [])])]
-      return item
+    const clauses = [alias + '.deleted_at IS NULL']
+    const params = []
+    if (libraryId) {
+      clauses.push('EXISTS (SELECT 1 FROM json_each(CASE WHEN json_valid(' + alias +
+        '.source_ids_json) THEN ' + alias + ".source_ids_json ELSE '[]' END) source WHERE source.value = ?)")
+      params.push(libraryId)
     }
-    for (const row of events) {
-      if (!matchesLibrary(row, libraryId) || !actionMatches(row.action, action)
-        || (wordFilter && !row.word_key.includes(wordFilter))) continue
+    if (action === 'review') clauses.push(alias + ".action IN ('done', 'again', 'spelling', 'reading', 'meaning')")
+    else {
+      clauses.push(alias + '.action = ?')
+      params.push(action)
+    }
+    if (wordFilter) {
+      clauses.push('instr(' + alias + '.word_key, ?) > 0')
+      params.push(wordFilter)
+    }
+    return { sql: clauses.join(' AND '), params }
+  }
 
-      const item = ensure(row)
-      // done / again 推进轮次才算复习；会拼 / 会读 / 知意是熟悉度计数，各算各的
-      if (row.action === 'done' || row.action === 'again') item.reviewCount++
-      if (row.action === 'meaning') item.rememberedCount++
-      if (row.action === 'again') item.forgottenCount++
-      if (row.action === 'spelling') item.spellingCount++
-      if (row.action === 'reading') item.readingCount++
-      item.lastAt = item.lastAt === null ? Number(row.occurred_at) : Math.max(item.lastAt, Number(row.occurred_at))
-      for (const key of String(row.meaning_keys || '').split(',').filter(Boolean)) {
-        const stats = item.meanings.get(key) || { meaningKey: key, reviewCount: 0, rememberedCount: 0, forgottenCount: 0 }
-        if (row.action === 'done' || row.action === 'again') stats.reviewCount++
-        if (row.action === 'meaning') stats.rememberedCount++
-        if (row.action === 'again') stats.forgottenCount++
-        item.meanings.set(key, stats)
-      }
+  async function aggregate(options = {}) {
+    const filter = eventFilter(options)
+    const rows = await db.all(
+      'WITH filtered AS (SELECT e.*, FIRST_VALUE(e.word_snapshot) OVER (' +
+      ' PARTITION BY e.word_key ORDER BY e.occurred_at DESC, e.created_at DESC' +
+      ' ) AS display_word FROM learning_events e WHERE ' + filter.sql + ')' +
+      ' SELECT word_key, display_word AS word,' +
+      " SUM(CASE WHEN action IN ('done', 'again') THEN 1 ELSE 0 END) AS review_count," +
+      " SUM(CASE WHEN action = 'spelling' THEN 1 ELSE 0 END) AS spelling_count," +
+      " SUM(CASE WHEN action = 'reading' THEN 1 ELSE 0 END) AS reading_count," +
+      " SUM(CASE WHEN action = 'meaning' THEN 1 ELSE 0 END) AS remembered_count," +
+      " SUM(CASE WHEN action = 'again' THEN 1 ELSE 0 END) AS forgotten_count," +
+      ' MAX(occurred_at) AS last_at FROM filtered GROUP BY word_key',
+      ...filter.params,
+    )
+    const meaningRows = await db.all(
+      'SELECT e.word_key, em.meaning_key,' +
+      " SUM(CASE WHEN e.action IN ('done', 'again') THEN 1 ELSE 0 END) AS review_count," +
+      " SUM(CASE WHEN e.action = 'meaning' THEN 1 ELSE 0 END) AS remembered_count," +
+      " SUM(CASE WHEN e.action = 'again' THEN 1 ELSE 0 END) AS forgotten_count" +
+      ' FROM learning_events e JOIN learning_event_meanings em ON em.event_id = e.id' +
+      ' WHERE ' + filter.sql + ' GROUP BY e.word_key, em.meaning_key',
+      ...filter.params,
+    )
+    const meaningsByWord = new Map()
+    for (const row of meaningRows) {
+      const values = meaningsByWord.get(row.word_key) || []
+      values.push({ meaningKey: row.meaning_key, reviewCount: Number(row.review_count),
+        rememberedCount: Number(row.remembered_count), forgottenCount: Number(row.forgotten_count) })
+      meaningsByWord.set(row.word_key, values)
     }
-    return [...groups.values()].map(item => ({ ...item, meanings: [...item.meanings.values()] }))
-      .sort((a, b) => b.reviewCount - a.reviewCount || a.word.localeCompare(b.word, 'en'))
+    const sourceRows = await db.all(
+      'SELECT e.word_key, source.value AS source_id FROM learning_events e,' +
+      " json_each(CASE WHEN json_valid(e.source_ids_json) THEN e.source_ids_json ELSE '[]' END) source WHERE " +
+      filter.sql + ' ORDER BY e.occurred_at DESC, e.created_at DESC, source.key',
+      ...filter.params,
+    )
+    const sourcesByWord = new Map()
+    for (const row of sourceRows) {
+      const values = sourcesByWord.get(row.word_key) || []
+      if (!values.includes(row.source_id)) values.push(row.source_id)
+      sourcesByWord.set(row.word_key, values)
+    }
+    return rows.map(row => ({
+      word: row.word || row.word_key, sourceIds: sourcesByWord.get(row.word_key) || [],
+      reviewCount: Number(row.review_count), spellingCount: Number(row.spelling_count),
+      readingCount: Number(row.reading_count), rememberedCount: Number(row.remembered_count),
+      forgottenCount: Number(row.forgotten_count), lastAt: row.last_at == null ? null : Number(row.last_at),
+      meanings: meaningsByWord.get(row.word_key) || [], wordKey: row.word_key, events: [],
+    })).sort((a, b) => b.reviewCount - a.reviewCount || a.word.localeCompare(b.word, 'en'))
   }
 
   async function achievements(options = {}) {
-    return { items: (await aggregate(options)).map(({ events: _events, ...item }) => item) }
+    return { items: (await aggregate(options)).map(({ events: _events, wordKey: _wordKey, ...item }) => item) }
   }
 
   async function history(options = {}) {
@@ -238,20 +240,32 @@ export function createStudyHistoryStore(db) {
     const limit = Math.min(100, Math.max(1, Number(options.limit) || 20))
     const offset = Math.max(0, Number(options.offset) || 0)
     const all = await aggregate({ libraryId, word: wordFilter, action })
-    const events = await activeRows()
     const page = all.slice(offset, offset + limit)
-    const byWord = new Map(page.map(item => [normalizeText(item.word), item]))
-    for (const row of events) {
-      const item = byWord.get(row.word_key)
-      if (!item || !matchesLibrary(row, libraryId) || !actionMatches(row.action, action)) continue
-      item.events.push({
-        id: row.id, action: row.action, at: Number(row.occurred_at), scope: row.scope || undefined,
-        stage: row.stage == null ? undefined : Number(row.stage),
-        requestId: row.request_id || undefined,
-        meaningKeys: String(row.meaning_keys || '').split(',').filter(Boolean),
-        meaningSnapshot: row.meaning_snapshot || undefined,
-      })
+    const wordKeys = page.map(item => item.wordKey)
+    if (wordKeys.length > 0) {
+      const filter = eventFilter({ libraryId, action })
+      const placeholders = wordKeys.map(() => '?').join(', ')
+      const events = await db.all(
+        'SELECT e.*, GROUP_CONCAT(em.meaning_key) AS meaning_keys FROM learning_events e' +
+        ' LEFT JOIN learning_event_meanings em ON em.event_id = e.id WHERE ' + filter.sql +
+        ' AND e.word_key IN (' + placeholders + ') GROUP BY e.id' +
+        ' ORDER BY e.occurred_at DESC, e.created_at DESC',
+        ...filter.params, ...wordKeys,
+      )
+      const byWord = new Map(page.map(item => [item.wordKey, item]))
+      for (const row of events) {
+        const item = byWord.get(row.word_key)
+        if (!item) continue
+        item.events.push({
+          id: row.id, action: row.action, at: Number(row.occurred_at), scope: row.scope || undefined,
+          stage: row.stage == null ? undefined : Number(row.stage),
+          requestId: row.request_id || undefined,
+          meaningKeys: String(row.meaning_keys || '').split(',').filter(Boolean),
+          meaningSnapshot: row.meaning_snapshot || undefined,
+        })
+      }
     }
+    for (const item of page) delete item.wordKey
     return { items: page, total: all.length, limit, offset }
   }
 
@@ -263,26 +277,42 @@ export function createStudyHistoryStore(db) {
   }
 
   /**
-   * 按周期（day / week）现算某个词的会拼 / 会读 / 知意次数。
+   * 一次聚合查询算出本周期（day / week）所有词的会拼 / 会读 / 知意次数。
+   * 在 D1 聚合后返回嵌套 Map：Map<listId, Map<wordKey, { spelling, reading, meaning }>>，
+   * day / week 各一份（day 窗口包含在 week 窗口内）；不把周期内每条事件搬进 Worker。
    * 事件表是唯一来源：撤销软删事件后这里自然回退，列表累计计数也只认这里。
    */
-  async function periodTallyCounts({ listId, word, dayStart, weekStart }) {
-    const wordKey = normalizeText(word)
-    const day = { spelling: 0, reading: 0, meaning: 0 }
-    const week = { spelling: 0, reading: 0, meaning: 0 }
-    if (!wordKey) return { day, week }
+  async function periodTallyCountsAll({ dayStart, weekStart }) {
+    const day = new Map()
+    const week = new Map()
+    const weekFrom = Number(weekStart)
+    if (!Number.isFinite(weekFrom)) return { day, week }
+    const dayFrom = Number(dayStart)
+    const hasDay = Number.isFinite(dayFrom)
     const rows = await db.all(`
-      SELECT action, occurred_at FROM learning_events
-      WHERE word_key = ? AND deleted_at IS NULL AND list_id IS ?
-        AND action IN ('spelling', 'reading', 'meaning')
-    `, wordKey, listId ?? null)
+      SELECT list_id, word_key, action, COUNT(*) AS week_count,
+        SUM(CASE WHEN occurred_at >= ? THEN 1 ELSE 0 END) AS day_count
+      FROM learning_events
+      WHERE deleted_at IS NULL AND action IN ('spelling', 'reading', 'meaning')
+        AND occurred_at >= ?
+      GROUP BY list_id, word_key, action
+    `, hasDay ? dayFrom : weekFrom, weekFrom)
     for (const row of rows) {
-      const at = Number(row.occurred_at)
-      if (!Number.isFinite(at)) continue
-      if (at >= dayStart) day[row.action] = (day[row.action] || 0) + 1
-      if (at >= weekStart) week[row.action] = (week[row.action] || 0) + 1
+      const wordKey = row.word_key
+      if (!wordKey) continue
+      bumpTally(week, row.list_id, wordKey, row.action, Number(row.week_count))
+      const dayCount = Number(row.day_count)
+      if (dayCount > 0) bumpTally(day, row.list_id, wordKey, row.action, dayCount)
     }
     return { day, week }
+  }
+
+  function bumpTally(map, listId, wordKey, action, count) {
+    if (!map.has(listId)) map.set(listId, new Map())
+    const byWord = map.get(listId)
+    const counts = byWord.get(wordKey) || { spelling: 0, reading: 0, meaning: 0 }
+    counts[action] = (counts[action] || 0) + count
+    byWord.set(wordKey, counts)
   }
 
   /**
@@ -362,6 +392,6 @@ export function createStudyHistoryStore(db) {
 
   return {
     record, hasRequest, achievements, history, deleteEvent, clearWord, purge,
-    undoTallyEvent, periodTallyCounts, integrityCheck,
+    undoTallyEvent, periodTallyCountsAll, integrityCheck,
   }
 }

@@ -5,7 +5,7 @@ import { useStudy } from '../hooks/useStudy'
 import type { StudyListApi } from '../hooks/useStudyList'
 import { WordCard } from '../components/WordCard'
 import { ImportPage } from './ImportPage'
-import { Button, Input, Select, Tag } from '../ui'
+import { Button, ENGLISH_WORD_INPUT_PROPS, Input, Select, Tag } from '../ui'
 import type { SelectOption } from '../ui'
 import type { VocabLibrary } from '../types/vocab'
 import type { StudyWordItem } from '../types/vocab'
@@ -290,6 +290,7 @@ export function SearchPage({ libraries, getLabelById, study, onManageLists }: Se
         <div className="search-main">
       <div className="search-bar">
         <Input
+          {...ENGLISH_WORD_INPUT_PROPS}
           size="large"
           block
           type="text"

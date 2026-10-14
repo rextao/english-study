@@ -3,9 +3,10 @@ import type { VocabLibraryInfo } from '../types/vocab'
 import type { UpdateLabelResult } from '../hooks/useVocabLibraries'
 import { useDictSources } from '../hooks/useDictSources'
 import { LibrariesPage } from './LibrariesPage'
+import { LearningRecordsPage } from './LearningRecordsPage'
 import { PageHeader } from '../components/PageHeader'
 import { StudyListManager } from '../components/StudyListManager'
-import { Button, Tag } from '../ui'
+import { Tag } from '../ui'
 import './SettingsPage.css'
 
 /** 设置页的子分区：词库配置 / 学习列表 / 查询链路 / 学习记录 */
@@ -36,13 +37,11 @@ interface SettingsPageProps {
   /** 当前子分区由 App 托管 */
   section: SettingsSection
   onSectionChange: (section: SettingsSection) => void
-  /** 去「学习记录」管理页（成果页的那个入口，设置里也放一个） */
-  onManageRecords: () => void
 }
 
 export function SettingsPage(props: SettingsPageProps) {
   const { sources, chain } = useDictSources()
-  const { study, section, onSectionChange, onManageRecords, offline, ...libraryProps } = props
+  const { study, section, onSectionChange, offline, libraries, getLabelById, ...libraryProps } = props
 
   return (
     <div className="page settings-page">
@@ -112,7 +111,7 @@ export function SettingsPage(props: SettingsPageProps) {
           <div className="settings-section__head">
             <p className="hint">显示标签用于页面展示；打印标签用于卡片右上角，未设置时沿用显示标签。</p>
           </div>
-          <LibrariesPage embedded offline={offline} {...libraryProps} />
+          <LibrariesPage embedded offline={offline} libraries={libraries} getLabelById={getLabelById} {...libraryProps} />
         </section>
       )}
 
@@ -124,15 +123,9 @@ export function SettingsPage(props: SettingsPageProps) {
       {section === 'records' && (
         <section className="settings-section">
           <div className="settings-section__head">
-            <p className="hint">学习记录是按单词累计的背过 / 记住 / 没记住次数，移出学习列表或删除列表都不会影响它。</p>
+            <p className="hint">学习记录是按单词累计的背过 / 记住 / 没记住次数，移出学习列表或删除列表都不会影响它。在这里筛选、查看明细、清空或物理删除记录；删除不可撤销，但不会改变学习列表和复习排期。</p>
           </div>
-          <div className="card card--pad settings-records">
-            <div className="settings-records__text">
-              <div className="settings-records__title">学习记录管理</div>
-              <p className="settings-records__desc">在新页面里按单词查看明细、筛选与批量删除记录；删除前会自动备份，但页面内不可撤销。</p>
-            </div>
-            <Button className="settings-records__button" type="primary" onClick={onManageRecords}>管理学习记录</Button>
-          </div>
+          <LearningRecordsPage embedded libraries={libraries} getLabelById={getLabelById} />
         </section>
       )}
         </div>

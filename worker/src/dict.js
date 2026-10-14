@@ -211,6 +211,9 @@ export function normalizeEntry(word, raw, app) {
   if (translations.length > 0) entry.translations = translations
   entry.senses = senses
   entry.cachedAt = Number(src.cachedAt) || Date.now()
+  // 上次「完整抓取」的尝试时间，解析失败冷却用。注意它和 cachedAt 不是一回事：
+  // 后台只补音标也会刷新 cachedAt，那不算一次完整抓取。缺省 0 = 从没试过，可以立刻重试。
+  entry.lastAttemptAt = Number(src.lastAttemptAt) || 0
   entry.status = status
   entry.phoneticStatus = phoneticStatus
   entry.translationStatus = translationStatus
@@ -343,6 +346,11 @@ async function fetchSentencePhonetic(text, app) {
   }
 }
 
+/** 百度密钥是否完整配置；没配的时候重试注定还是 not_configured */
+function baiduConfigured(app) {
+  return !!String(app.env.BAIDU_TRANSLATE_API_KEY ?? '') && !!String(app.env.BAIDU_TRANSLATE_APP_ID ?? '')
+}
+
 /**
  * 调用百度大模型文本翻译 API（Bearer API Key 鉴权）。
  * 密钥来自 Worker 的 secret（BAIDU_TRANSLATE_API_KEY / BAIDU_TRANSLATE_APP_ID），
@@ -350,11 +358,11 @@ async function fetchSentencePhonetic(text, app) {
  */
 async function fetchBaiduTranslation(text, app) {
   if (app.config.noNetwork) return { translation: undefined, errors: [] }
-  const apiKey = String(app.env.BAIDU_TRANSLATE_API_KEY ?? '')
-  const appId = String(app.env.BAIDU_TRANSLATE_APP_ID ?? '')
-  if (!apiKey || !appId) {
+  if (!baiduConfigured(app)) {
     return { translation: undefined, errors: [publicNetworkError(makeNetworkError('baidu', 'not_configured', undefined, app), 'baidu')] }
   }
+  const apiKey = String(app.env.BAIDU_TRANSLATE_API_KEY ?? '')
+  const appId = String(app.env.BAIDU_TRANSLATE_APP_ID ?? '')
   const baiduUrl = String(app.env.BAIDU_TRANSLATE_API_URL || '')
     || 'https://fanyi-api.baidu.com/ait/api/aiTextTranslate'
   try {
@@ -524,6 +532,7 @@ function mergeEntry(word, sources, app) {
   return normalizeEntry(word, {
     phonetic, translation, translations, senses,
     cachedAt: Date.now(),
+    lastAttemptAt: Date.now(),
     status: dictOk && translation ? 'ok' : 'partial',
     phoneticStatus,
     translationStatus,
@@ -535,8 +544,32 @@ function mergeEntry(word, sources, app) {
 }
 
 /**
+ * 抓不齐（status=partial）的词重试间隔。
+ * 这类词以前每次被看到都会重新打一遍 dictionaryapi + 百度：批量列表、反复切页、
+ * 以及一个永远抓不齐的词（配额用尽、词典查不到）会一直重复请求。冷却期内直接用缓存。
+ */
+const PARTIAL_RETRY_COOLDOWN_MS = 10 * 60 * 1000
+
+/**
+ * 上次没抓齐留下的「别马上重试」判断。
+ * force（refresh=1）和句子规则都不看这里——那两条是明确的「就是要重抓」。
+ */
+function inPartialCooldown(entry, app) {
+  if (!entry || entry.status === 'ok') return false
+  const notConfigured = (entry.errors || []).some(
+    error => error?.source === 'baidu' && error?.code === 'not_configured',
+  )
+  // 密钥没配是确定性失败，重试结果必然一样，一直用缓存；
+  // 密钥刚配好则说明失败原因没了，立刻重试一次，不用等冷却结束。
+  if (notConfigured) return !baiduConfigured(app)
+  const attemptedAt = Number(entry.lastAttemptAt) || 0
+  return attemptedAt > 0 && Date.now() - attemptedAt < PARTIAL_RETRY_COOLDOWN_MS
+}
+
+/**
  * 取词条的唯一实现。顺序是「缓存 → 外部接口」：
- * 缓存已抓齐（status=ok）直接返回；句子必须由百度翻译，翻译来源不对就重抓。
+ * 缓存已抓齐（status=ok）直接返回；没抓齐的在上次尝试的冷却期内也直接返回；
+ * 句子必须由百度翻译，翻译来源不对就重抓。
  * 返回 network 标记，补齐队列据此决定要不要限速。
  */
 export async function resolveEntry(word, force, app) {
@@ -551,6 +584,9 @@ export async function resolveEntry(word, force, app) {
   if (old && old.status === 'ok' && !force && !sentenceNeedsRefresh) {
     return { entry: old, network: false }
   }
+  if (old && !force && !sentenceNeedsRefresh && inPartialCooldown(old, app)) {
+    return { entry: old, network: false }
+  }
   if (app.config.noNetwork) {
     return { entry: old || normalizeEntry(w, { status: 'partial' }, app), network: false }
   }
@@ -561,6 +597,10 @@ export async function resolveEntry(word, force, app) {
 /**
  * 加入学习后的后台任务只补音标，不重新翻译中文，也不改动已缓存的中文候选。
  * 搜索阶段已经负责完整查询，这里只是处理搜索结果仍缺音标的降级情况。
+ *
+ * 这里读缓存 -> 抓网络 -> 写缓存之间有几百毫秒到几秒的窗口，前台可能刚好写完一份完整词条。
+ * 所以写回前要重读一次最新快照，只把音标相关字段合并进去，
+ * 否则会把前台刚拿到手的中文翻译 / 英文释义覆盖成开始抓之前的旧值。
  */
 export async function resolvePhoneticOnly(word, app) {
   const w = normalizeText(word)
@@ -572,14 +612,15 @@ export async function resolvePhoneticOnly(word, app) {
     if (app.config.noNetwork) return { entry: old || normalizeEntry(w, { status: 'partial' }, app), network: false }
     const sentence = await fetchSentencePhonetic(capitalizeSentence(w), app)
     if (!sentence.phonetic && !old) return { entry: normalizeEntry(w, { status: 'partial' }, app), network: true }
+    const latest = await getCacheEntry(w, app) || old
     const errors = [
-      ...(old?.errors || []).filter(error => error.source !== 'dictionaryapi'),
+      ...(latest?.errors || []).filter(error => error.source !== 'dictionaryapi'),
       ...sentence.errors,
     ]
     const entry = await putCache(normalizeEntry(w, {
-      ...old,
-      phonetic: sentence.phonetic || old?.phonetic,
-      phoneticStatus: sentence.complete ? 'complete' : (sentence.phonetic || old?.phonetic ? 'partial' : 'missing'),
+      ...latest,
+      phonetic: sentence.phonetic || latest?.phonetic,
+      phoneticStatus: sentence.complete ? 'complete' : (sentence.phonetic || latest?.phonetic ? 'partial' : 'missing'),
       errors,
       cachedAt: Date.now(),
     }, app), app)
@@ -596,12 +637,13 @@ export async function resolvePhoneticOnly(word, app) {
   const source = Array.isArray(data) ? data[0] : null
   const phonetic = source?.phonetic || source?.phonetics?.find(item => item.text)?.text
   if (!phonetic) throw makeNetworkError('dictionaryapi', 'invalid_response', undefined, app)
+  const latest = await getCacheEntry(w, app) || old
   const entry = await putCache(normalizeEntry(w, {
-    ...old,
+    ...latest,
     phonetic,
     phoneticStatus: 'complete',
     spellingStatus: 'valid',
-    errors: (old?.errors || []).filter(error => error.source !== 'dictionaryapi'),
+    errors: (latest?.errors || []).filter(error => error.source !== 'dictionaryapi'),
     cachedAt: Date.now(),
   }, app), app)
   return { entry, network: true }
@@ -612,15 +654,9 @@ export async function ensureEntry(word, force, app) {
   return (await resolveEntry(word, force, app)).entry
 }
 
-/** 缓存统计（GET /api/cache/stats 与 /api/dict/sources 用） */
+/** 缓存统计（GET /api/cache/stats 与 /api/dict/sources 用）；只数 status 列，不读词条 JSON */
 export async function cacheStats(app) {
-  const raw = await app.kv.getAllCache()
-  let complete = 0
-  const total = Object.keys(raw).length
-  for (const [word, entry] of Object.entries(raw)) {
-    if (normalizeEntry(word, entry, app).status === 'ok') complete++
-  }
-  return { total, complete, incomplete: total - complete }
+  return app.kv.cacheCounts()
 }
 
 /**

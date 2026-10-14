@@ -164,30 +164,6 @@
 }
 
 /* ---------------- 密钥表单 ---------------- */
-/* ---------------- 学习记录 ---------------- */
-
-.settings-records {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.settings-records__title { font-size: 14px; font-weight: 600; }
-
-.settings-records__desc {
-  margin-top: 4px;
-  font-size: 12.5px;
-  color: var(--color-text-muted);
-  line-height: 1.6;
-}
-
-@media (max-width: 640px) {
-  .settings-records__button { width: 100%; }
-}
-
-/* ---------------- 密钥表单 ---------------- */
 
 .key-form {
   margin-top: 12px;

@@ -24,7 +24,7 @@
 - **TS 严格**：`tsconfig.app.json` 开了 `strict` + `noUnusedLocals` + `noUnusedParameters` + `noFallthroughCasesInSwitch`（**没开** `noUncheckedIndexedAccess`）。
 - **验证命令**：`npm run build`（= `tsc -b && vite build`）必须 exit 0；动过 `worker/` 再跑 `npm run test:server`（282 项断言，跑在临时目录的 node:sqlite shim 上，不碰真实数据）。
 - **密钥不进 git**：`API_TOKEN` / 百度翻译密钥只能通过 `npx wrangler secret put <NAME>` 配成 Worker secret；沙箱连不了外网，部署 / 建表 / 迁数据 / 配密钥由用户在本机执行。
-- **免费版 CPU 限制**：Workers 免费版每请求 10ms CPU。store 的写路径是「一个 batch 事务整表重写」，当前数据量（<1MB）没问题；若超限优先把热点写路径改成行级 UPSERT。
+- **D1 写路径**：学习列表 / 词条与学习进度使用定向 SQL 和行级 INSERT / UPDATE / DELETE；不要在请求路径整库 load 或重写。全库读取仅留在测试断言辅助中。小型配置仍可用 kv JSON；打印记录目前有 60 条上限，若单批次规模明显增长，再评估拆成关系表。
 
 ## 目录地图（一行一职责）
 
@@ -57,9 +57,11 @@ src/pages/StudyPage.tsx        英语学习页：StudyGoal + 挑词弹窗（Moda
 src/pages/SettingsPage.tsx     设置页（tab=settings）：顶部「词库配置 / 学习列表 / 学习记录 / 查询链路」子菜单切换；
                                查询链路 = useDictSources.chain 排成有序列表（云端缓存 → dictionaryapi → 百度翻译），
                                不可用的步骤灰色标「跳过」并给原因（密钥未配 = Worker secret 没配）；
-                               词库配置 = LibrariesPage embedded
-src/pages/AchievementsPage.tsx     学习成果页（tab=achievements）：目标达成度统计；onManageRecords 跳记录页
-src/pages/LearningRecordsPage.tsx  学习记录页（tab=records，导航里没有，从成果页进）：学习 / 打卡日志明细
+                               词库配置 = LibrariesPage embedded，学习记录 = LearningRecordsPage embedded
+src/pages/AchievementsPage.tsx     学习成果页（tab=achievements）：目标达成度统计
+src/pages/LearningRecordsPage.tsx  学习记录页：学习 / 打卡日志明细 + 筛选 + 批量删除；
+                               默认 embedded 进设置页「学习记录」分区（不画 .page 外壳和页头），
+                               也仍挂在 #/records 上独立成页（导航里没有，从成果页进，带 onBack 和页头）
 
 src/components/Nav.tsx         顶部导航：普通 tab = 查词 / 学习列表 / 学习成果（列表角标 = totalItems）
                                + 右侧「英语学习」流光胶囊（角标 = plan.dueCount）+ 齿轮图标按钮（设置）；
@@ -74,17 +76,19 @@ src/components/StudyGoal.tsx   目标模块：目标词库（useStudyGoal）vs �
 src/hooks/useTabRoute.ts       hash 路由（#/search #/lists #/settings #/achievements #/records #/study），刷新与前进后退都停在原页；
                                LEGACY_TABS 把 #/import → #/search、#/libraries → #/settings，老书签不会失效
 src/hooks/useSearch.ts         useVocabMatch：词 → 命中的词库 id 列表（纯内存 Map，不走网络）
-src/hooks/useDictionary.ts     单词查询 GET /api/dict；模块级 entryCache（TTL 5 分钟），同一个词反复查不再打接口
+src/hooks/useDictionary.ts     单词查询 GET /api/dict；走共享读缓存 apiCache（TTL 5 分钟），同一个词反复查不再打接口；
+                               服务端回错误状态码 → 'error'（这次没抓到释义），请求根本没发出去 → 'no-server'
 src/hooks/useDictBatch.ts      批量读缓存 POST /api/dict/batch → entries / missing / incomplete
 src/hooks/useDictPrefetch.ts   后台补齐队列：repair() 排队 + 1.2s 轮询进度；响应认不出就报 stale 而不是照抄进 state
 src/hooks/useDictSources.ts    词典来源状态 GET /api/dict/sources（字段校验不过 / 老服务 404 → null，界面不显示）；
                                buildChain 排成设置页的查词链路（缓存 → dictionaryapi → 百度翻译，不可用给原因）
-src/hooks/useStudy.ts          某个词在哪些学习列表里（查词页用）；模块级 membershipCache（TTL 5 分钟），
-                               markAdded 增量更新；useStudyList 删词 / 删列表时调它导出的 invalidateMembership 作废
+src/hooks/useStudy.ts          某个词在哪些学习列表里（查词页用）；走 apiCache（TTL 5 分钟），markAdded 增量更新；
+                               invalidateMembership(词 或 词数组) 按词作废，删列表时用 invalidateListMembership 全量作废
 src/hooks/useStudyList.ts      学习列表全套 CRUD + 导入 + senseIds + 批量移除（removeItems）；导出类型 StudyListApi；
-                               fetchListWords / fetchBatches 走共享读缓存（studyListCache），写操作自己作废
+                               fetchListWords / fetchBatches 走共享读缓存 apiCache，写操作自己作废；
+                               增删词后连带调 invalidateMembership（成员关系变了，查词页不能停在旧结果）
 src/hooks/useStudyPlan.ts      复习计划 GET /api/study/plan + startWords + reviewWords + tallyUndo；
-                               三个写操作成功后按 listId 作废 studyListCache 的词条缓存（否则学习页打卡后停在旧数据）
+                               三个写操作成功后按 listId 作废 apiCache 的词条缓存（否则学习页打卡后停在旧数据）
                                导出 StudyPlanApi / ReviewAction / ReviewOptions
 src/hooks/usePrintBatches.ts   打印批次：留档 + 整批打卡 + 删记录（/api/print-batches 四个接口）；
                                导出 PrintBatchesApi；只在 StudyPage 里用，不进 App.tsx
@@ -96,9 +100,9 @@ src/ui/                        手写组件库：Button Select Dropdown Input(�
                                Popover Modal + useDismiss；统一从 src/ui/index.ts 导出（它顺带 import ui.css）
 src/utils/apiBase.ts           API 基址（恒为 ''，同源）+ getStoredToken/setStoredToken + apiFetch
                                （统一带 Bearer 头、401 时广播 AUTH_REQUIRED_EVENT）+ apiJson
-src/utils/studyListCache.ts    学习列表读结果的模块级内存缓存（词条 + 分组名，TTL 5 分钟）；
-                               useStudyList / useStudyPlan / usePrintBatches 三个写 hook 共用它，
-                               谁改了 list_words 就调 invalidateWords / invalidateBatches / invalidateList
+src/utils/apiCache.ts          所有只读接口共用的会话级缓存：queryApi / peekApiCache / invalidateApiCache / ApiError；
+                               key = 登录态 + URL（参数排序）+ 方法 + body，按 tag 作废，同 key 在途请求合并；
+                               写入按 LRU 封顶 200 条，达到上限才回收标签计数；带 refresh=1 的请求既不读也不写缓存
 src/utils/flashcards.ts        打印卡片：fetchCards（顺手补释义）/ pickSenses / mirrorRows / buildFlashcardsHtml；偶数页逐行左右镜像
                                / openCardWindow；卡片反面只印音标 + 中文，英文释义不上卡片
                                / renderCardsInto（打印会话 + 卡片右上角 ✕）
@@ -115,9 +119,9 @@ worker/src/dict.js             词典链路：缓存 → dictionaryapi.dev → �
 worker/src/prefetch.js         后台补齐队列：状态存 D1 kv（prefetch-state），执行走 app.waitUntil
                                （生产 = ctx.waitUntil，测试收进数组）；队头「认领」写回缩小并发撞车窗口
 worker/src/review.js           艾宾浩斯算法：REVIEW_INTERVALS / nextDueAt / studyState / applyReview（打卡唯一实现）
-worker/src/lists.js            列表领域服务：loadLists / saveLists / syncListTranslation / selectedTranslation /
+worker/src/lists.js            列表领域服务：syncListTranslation / selectedTranslation /
                                标签 / 目标 / 打印批次三份小文档 / enrichBatch
-worker/src/study-lists.js      lists / list_words 两张表的 store（行 ↔ StudyWordItem 映射，save = 整库 batch 重写）
+worker/src/study-lists.js      lists / list_words 两张表的 store（行 ↔ StudyWordItem 映射；业务路径按列表 / 词条定向读写）
 worker/src/study-history.js    learning_events / meaning_profiles store：内容寻址词义身份 + 聚合 + 软删
 worker/src/kv.js               kv 表（标签 / 目标 / 打印批次 / 补齐状态整份 JSON 一行）+ dict_cache 表（一词一行）
 worker/src/text.js             normalizeText / capitalizeSentence（全库唯一主键规则）
@@ -158,7 +162,7 @@ App.tsx（唯一状态中枢，避免切 tab 后数据不同步）
 vocab/*.json ──import.meta.glob(eager, 构建期打包)──▶ useVocabLibraries
 ```
 
-页面内的局部状态：`useDictionary` + `useStudy` 在 SearchPage；`useDictBatch` 在 ListsPage；`useDictPrefetch` 在 ImportPage（查词页以 embedded 形式渲染时也归 SearchPage）；`useStudyGoal` 在 StudyGoal 组件内部；`useDictSources`（查词链路）在 SettingsPage；`usePrintBatches` 在 StudyPage 内部（只有那一页要打印记录）。
+页面内的局部状态：`useDictionary` + `useStudy` 在 SearchPage；`useDictBatch` 在 ListsPage；`useDictPrefetch` 在 ImportPage（查词页以 embedded 形式渲染时也归 SearchPage）；`useStudyGoal` 在 StudyGoal 组件内部；`useDictSources`（查词链路）在 SettingsPage；`usePrintBatches` 在 StudyPage 内部（只有那一页要打印记录）；`useLearningRecords` 在 LearningRecordsPage 内部（设置页嵌入与 #/records 独立页共用同一个组件，不额外挂状态）。
 
 ## 类型契约（`src/types/vocab.ts`）
 
@@ -263,16 +267,23 @@ D1 english-study-sync（wrangler.toml 绑定为 DB；沿用同步时代建好的
   learning_event_meanings  事件 ↔ 词义画像关联
   meaning_profiles      内容寻址词义画像（meaning_key = sha256(词+种类+语言+词性+文本)）
   kv                    一整份 JSON 存一行：vocab-labels / study-goal / print-batches / prefetch-state
-  dict_cache            一个词一行 entry_json
+  dict_cache            一个词一行 entry_json + status（`ok` / `partial`；冗余列，只为统计和
+                        运维查询，行为判断仍以 entry_json 里的 status 为准）
 
 STRICT 表。schema 由 `npx wrangler d1 execute english-study-sync --remote --file=worker/schema.sql`
 一次性建好，Worker 运行时不做 DDL。本地 `cache/study-history.sqlite` 已迁移进 D1
 （scripts/migrate-to-d1.mjs），本地文件只作回滚兜底，不再被应用读写。
+
+已有库改结构要另写迁移：`worker/migrations/*.sql` 一次性执行，必须赶在使用新结构的版本
+上线之前跑完（例如 `dict_cache.status`：新代码的 UPSERT 会写这一列，列不存在直接报错）。
+`migration.sql` 是数据导入，生成的 INSERT 按本地表结构来（没有 status），所以顺序是
+schema.sql → migration.sql → 回填迁移的 UPDATE。
 ```
 
 ## 数据归属（取代旧的「跨设备共享」章节）
 
 D1 是唯一数据源：桌面浏览器和手机浏览器打开同一个 Worker URL、带同一个令牌，看到并操作的就是同一份数据。没有同步、没有快照、没有手动提交 sqlite。本地 `cache/` 目录只剩历史遗留，不进 git。
+本地 `npm run dev` 读写的是另一份本地 D1（`.wrangler/state/`，`npm run db:local:init` 建表），与线上库完全隔离，测试造数据不会污染生产（见「部署与迁移」的本地开发小节）。
 
 归一化主键 = `normalizeText` = trim + 连续空白压成一个空格 + 转小写。服务端在 `worker/src/text.js`；前端还是各写一遍：`useDictBatch.keyOf`、`ImportPage.normalize`、`StudyGoal.keyOf`、`flashcards.ts`。改规则这几处要一起改（`meaning_profiles` 的 key 也按它算，改了旧画像就对不上）。
 
@@ -310,11 +321,13 @@ applyReview() 是打卡的唯一实现：列表打卡（/api/lists/:id/review）
 GET /api/dict → ensureEntry(word, force) → resolveEntry(word, force) → { entry, network }
   1 缓存 status===ok 且未 force → 直接返回，network=false
       例外：句子的翻译来源不是百度、或音标 / 翻译不齐 → 重抓（旧缓存不能挡住重翻）
-  2 NO_NETWORK：只有旧缓存可用，没有回空 partial
-  3 fetchDictEntry(word)：非短语 → dictionaryapi.dev 取 phonetic + senses 全集，
+  2 上次没抓齐（partial）且还在冷却期内 → 也用缓存，network=false
+      例外：force（refresh=1）；上次是「百度密钥没配」且现在已经配好 → 立刻重试
+  3 NO_NETWORK：只有旧缓存可用，没有回空 partial
+  4 fetchDictEntry(word)：非短语 → dictionaryapi.dev 取 phonetic + senses 全集，
       再打百度大模型文本翻译 API 取中文；dictionaryapi 404 = 确认没这个词（spellingStatus=suspect），
       超时 / 限流 = unknown，留给下次 repair
-  4 句子：逐词查音标按原句拼回（允许部分成功 → phoneticStatus=partial），
+  5 句子：逐词查音标按原句拼回（允许部分成功 → phoneticStatus=partial），
       整句中文必须百度（translationSource=baidu）
   收尾 mergeEntry({ fresh, old })：这次抓的 > 旧缓存；status = (dictOk && translation) ? ok : partial
 ```
@@ -323,7 +336,9 @@ GET /api/dict → ensureEntry(word, force) → resolveEntry(word, force) → { e
 - 容量上限：`MAX_SENSES_PER_POS=12`、`MAX_SENSES=40`、`MAX_PICKED_SENSES=12`、`MAX_BATCH_SEARCH_ITEMS=200`、`BATCH_SEARCH_CONCURRENCY=2`。
 - `isBadTranslation`：空 / 等于原词 / **一个汉字都没有** → 当失败（不会写入缓存）。
 - 补齐队列：`PREFETCH_CONCURRENCY=2`、`PREFETCH_PACE_MS=250`，只有真打了外部接口（`network===true`）才 sleep。执行挂在 `app.waitUntil`（生产 = `ctx.waitUntil`，平台给约 30s；没跑完的留在队列里，下次 repair 续上）。加词 / 导入只排 `phoneticOnly` 任务（不重翻中文，不覆盖快照）。
-- 缓存就是 D1 的 `dict_cache` 表，无常驻内存副本，每次按需 `IN` 查询（`IN_CHUNK=80` 防 D1 绑定参数上限）。
+- 「查一次就永久复用」是有意设计：`status=ok` 的词条不再碰外部接口（没有 TTL、没有版本号）。改「什么算抓齐」的规则时要自己失效旧缓存。
+- 抓不齐的重试冷却：`PARTIAL_RETRY_COOLDOWN_MS=10 分钟`，判断依据是 `entry.lastAttemptAt`（只有完整抓取才会写它，后台补音标不算）。没有它就变成「每次被看到都重打一遍 dictionaryapi + 百度」。句子不适用冷却——句子规则（必须有百度翻译 + 音标）优先。
+- 缓存就是 D1 的 `dict_cache` 表，无常驻内存副本，每次按需 `IN` 查询（`IN_CHUNK=80` 防 D1 绑定参数上限）。统计接口（`/api/dict/sources`、`/api/cache/stats`）只数 `status` 列，不读 `entry_json`。
 
 ## UI 层约定
 
@@ -349,7 +364,7 @@ GET /api/dict → ensureEntry(word, force) → resolveEntry(word, force) → { e
 - `node:sqlite` 在 Node 23 会抛「只支持 Node 22.5+/24」或直接缺模块——测试必须用 Node 24（见硬约束）。
 - `worker/schema.sql` 建表顺序有讲究：`learning_event_meanings` 的索引要在表建好之后建（FOREIGN KEY 引用 `meaning_profiles`），调整时保持顺序。
 - Worker 的 `applyReview` 里事件落库从本地版的同步改成「收集后统一 await」：事件表和 list_words 之间没有外键约束，先后顺序不影响结果；但 `onEvent` 别改成 fire-and-forget，测试依赖事件已落库。
-- **前端读缓存是模块级的，写完必须作废**：`studyListCache.ts`（词条 / 分组名）、`useDictionary` 的 `entryCache`、`useStudy` 的 `membershipCache` 都是 TTL 5 分钟的模块级 Map，切 tab 重建页面时直接复用、不打接口。新增任何改 `list_words` 的写路径，成功后必须调对应的 `invalidateWords` / `invalidateBatches` / `invalidateList`，否则页面停在旧数据：学习页打卡靠 `setReloadToken` 触发 `fetchListWords`，缓存没作废等于白刷新。
+- **前端读缓存是会话级的，写完必须作废**：所有只读接口走 `src/utils/apiCache.ts`（TTL 由调用方给，切 tab 重建页面时直接复用、不打接口），缓存按 tag 作废。新增任何改 `list_words` 的写路径，成功后必须调对应的 `invalidateApiCache(['list-words:<listId>', ...])` / `invalidateMembership(词)`，否则页面停在旧数据：学习页打卡靠 `setReloadToken` 触发 `fetchListWords`，缓存没作废等于白刷新。带 `refresh=1` 的请求是服务端「跳过缓存」语义，`queryApi` 对它既不读也不写缓存。
 
 ## 改动落点索引
 
@@ -377,7 +392,7 @@ GET /api/dict → ensureEntry(word, force) → resolveEntry(word, force) → { e
 | 外部词典接口、缓存字段 | 服务端 `worker/src/dict.js` 的 `fetchDictEntry` / `normalizeEntry` / `mergeEntry` |
 | 补齐队列速率 | 服务端 `worker/src/prefetch.js` 的 `PREFETCH_CONCURRENCY` / `PREFETCH_PACE_MS` |
 | API 路由 / 新增接口 | `worker/src/routes.js`（handleApi）+ 测试 `worker/test/api.test.mjs` + 上面的接口表 |
-| D1 表结构 | `worker/schema.sql`（改了要重新 `wrangler d1 execute`；已有数据要写迁移） |
+| D1 表结构 | `worker/schema.sql`（改了要重新 `wrangler d1 execute`；已有数据的库另写 `worker/migrations/*.sql`，且必须在上线前跑） |
 | 部署配置 | `wrangler.toml`（Worker 名 / assets / D1 绑定 / vars） |
 | 词库格式规范 | `vocab/format.md`（改了要同步 `src/types/vocab.ts`） |
 | 设计 token / 通用类 | `src/index.css`、`src/App.css`、`src/ui/ui.css` |
@@ -387,22 +402,34 @@ GET /api/dict → ensureEntry(word, force) → resolveEntry(word, force) → { e
 ```bash
 export PATH=/Users/rextao/.nvm/versions/node/v24.18.0/bin:$PATH
 npm run build                                  # tsc -b && vite build
-npx wrangler deploy                            # 部署 Worker + 静态资源（dist）
 
 # 首次 / schema 变更：建表（会 DROP 废弃的 sync_snapshot）
 npx wrangler d1 execute english-study-sync --remote --file=worker/schema.sql
 
+# 已有库的结构变更（一次性；上线前必须跑完，只有 CREATE TABLE IF NOT EXISTS 补不上列）
+npx wrangler d1 execute english-study-sync --remote --file=worker/migrations/001-dict-cache-status.sql
+# 学习数据定向查询索引与默认列表初始化（一次性，上线新版本前跑）
+npx wrangler d1 execute english-study-sync --remote --file=worker/migrations/002-study-query-indexes.sql
+
+# 迁移完成后再发布使用新结构的 Worker
+npx wrangler deploy                            # 部署 Worker + 静态资源（dist）
+
 # 本地 sqlite 一次性迁入（幂等：先 DELETE 再 INSERT）
 npm run migrate:to-d1                          # 生成 migration.sql
 npx wrangler d1 execute english-study-sync --remote --file=migration.sql
+# 导完数据后再跑一次上面的迁移（生成的 INSERT 里没有 status，靠它回填）
 
 # 密钥（Worker secret）
 npx wrangler secret put API_TOKEN
 npx wrangler secret put BAIDU_TRANSLATE_API_KEY
 npx wrangler secret put BAIDU_TRANSLATE_APP_ID
 
-# 本地开发
-npx wrangler dev & vite                        # vite 的 /api 代理到 wrangler dev 的 8787
+# 本地开发（读写的是一份独立的本地 D1，落在 .wrangler/state，不碰线上库）
+npm run db:local:init                          # 本地 D1 建表（= wrangler d1 execute --local --file=worker/schema.sql），首次 / 改 schema 后跑
+npm run dev                                    # wrangler dev(8787) + vite(5173)，vite 的 /api 代理到 8787
+npm run db:local:import                        # 可选：把 migration.sql 灌进本地库，造接近真实的样例数据
+# 本地 wrangler dev 的 secret / vars 读 .dev.vars（不进 git）：API_TOKEN 必填（本地随便设一个），
+# 没有它 /api/* 直接 500；DICT_NO_NETWORK=1 可断网只吃缓存；百度密钥填了本地查词才有中文
 ```
 
 ## 验证清单

@@ -132,7 +132,6 @@ export default function App() {
             study={study}
             section={settingsSection}
             onSectionChange={setSettingsSection}
-            onManageRecords={() => setTab('records')}
           />
           </Suspense>
         )}

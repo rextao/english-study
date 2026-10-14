@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { StudyMarkScope, StudyPlan, StudyReviewAction } from '../types/vocab'
+import type { StudyMarkScope, StudyPlan, StudyReviewAction, StudyWordItem } from '../types/vocab'
 
 import { apiFetch } from '../utils/apiBase'
-import { invalidateWords } from '../utils/studyListCache'
+import { invalidateApiCache, queryApi } from '../utils/apiCache'
 
 /** done 进入下一轮 / again 没记住 / stop 退出学习 / tally 熟悉度计数 */
 export type ReviewAction = StudyReviewAction
@@ -25,6 +25,18 @@ function startOfDay(ts: number): number {
   const d = new Date(ts)
   d.setHours(0, 0, 0, 0)
   return d.getTime()
+}
+
+function mergePlanItems(plan: StudyPlan, listId: string, updates: StudyWordItem[]): StudyPlan {
+  if (updates.length === 0) return plan
+  const byKey = new Map(updates.map(item => [listId + '/' + item.word, item]))
+  return {
+    ...plan,
+    items: plan.items.map(item => {
+      const update = byKey.get(item.listId + '/' + item.word)
+      return update ? { ...item, ...update, tallyCounts: item.tallyCounts } : item
+    }),
+  }
 }
 
 /** 云端不可达时的占位，节奏与服务端 REVIEW_INTERVALS 保持一致 */
@@ -70,8 +82,9 @@ export function useStudyPlan() {
 
   const refresh = useCallback(async () => {
     try {
-      const res  = await apiFetch('/api/study/plan')
-      const data = await res.json() as StudyPlan
+      const data = await queryApi<StudyPlan>('/api/study/plan', {}, {
+        staleTime: 15_000, tags: ['study-plan'],
+      })
       if (data && Array.isArray(data.items)) setPlan(data)
       setOffline(false)
     } catch {
@@ -95,7 +108,7 @@ export function useStudyPlan() {
     if (reply.offline) return { ok: false as const, error: '云端服务不可用' }
     if (!reply.data?.ok) return { ok: false as const, error: reply.data?.error ?? '标记失败' }
     // startedAt / stage 变了，学习页要看到新排期，作废词条缓存
-    invalidateWords(listId)
+    invalidateApiCache(['list-words:' + listId, 'study-plan', 'achievements', 'history'])
     await refresh()
     return { ok: true as const, started: reply.data.started, skipped: reply.data.skipped }
   }, [refresh])
@@ -107,7 +120,7 @@ export function useStudyPlan() {
     action: ReviewAction,
     options?: ReviewOptions,
   ) => {
-    const reply = await postJson<{ ok: boolean; error?: string }>(
+    const reply = await postJson<{ ok: boolean; updated?: number; updatedWords?: string[]; items?: StudyWordItem[]; error?: string }>(
       listPath(listId) + '/review', {
         words,
         action,
@@ -118,9 +131,39 @@ export function useStudyPlan() {
     )
     if (reply.offline) return { ok: false as const, error: '云端服务不可用' }
     if (!reply.data?.ok) return { ok: false as const, error: reply.data?.error ?? '打卡失败' }
-    // done / again 会改 stage 与排期，作废词条缓存，学习页 setReloadToken 才能拿到新数据
-    invalidateWords(listId)
-    await refresh()
+    // 计划项优先采用本次响应；服务端 item 不含周期 tally 聚合，合并时保留本地计数。
+    if (Array.isArray(reply.data.items)) {
+      setPlan(current => mergePlanItems(current, listId, reply.data!.items!))
+    }
+    invalidateApiCache(['list-words:' + listId, 'study-plan', 'achievements', 'history'])
+    if (action === 'tally') {
+      const kind = options?.successKind
+      const scope = options?.scope ?? 'day'
+      const updated = Math.max(0, Math.min(words.length, Number(reply.data.updated) || 0))
+      if (kind && updated > 0) {
+        const updatedWords = new Set(reply.data.updatedWords ?? (reply.data.items ?? []).slice(0, updated).map(item => item.word))
+        setPlan(current => ({
+          ...current,
+          items: current.items.map(item => {
+            if (item.listId !== listId || !updatedWords.has(item.word)) return item
+            const tallyCounts = item.tallyCounts ?? {
+              day: { spelling: 0, reading: 0, meaning: 0 },
+              week: { spelling: 0, reading: 0, meaning: 0 },
+            }
+            return {
+              ...item,
+              tallyCounts: {
+                ...tallyCounts,
+                [scope]: { ...tallyCounts[scope], [kind]: tallyCounts[scope][kind] + 1 },
+              },
+            }
+          }),
+        }))
+      }
+      return { ok: true as const }
+    }
+    // done / again 改变排期：先立即提交响应中的词条，再后台对账，不阻塞按钮解锁。
+    void refresh()
     return { ok: true as const }
   }, [refresh])
 
@@ -131,14 +174,37 @@ export function useStudyPlan() {
     successKind: TallyKind,
     scope?: StudyMarkScope,
   ) => {
-    const reply = await postJson<{ ok: boolean; undone?: number; error?: string }>(
+    const reply = await postJson<{ ok: boolean; undone?: number; undoneWords?: string[]; items?: StudyWordItem[]; error?: string }>(
       listPath(listId) + '/tally-undo', { words, successKind, scope }
     )
     if (reply.offline) return { ok: false as const, error: '云端服务不可用' }
     if (!reply.data?.ok) return { ok: false as const, error: reply.data?.error ?? '撤销失败' }
-    invalidateWords(listId)
-    await refresh()
-    return { ok: true as const, undone: reply.data.undone ?? 0 }
+    const undone = reply.data.undone ?? 0
+    const scopeKey = scope ?? 'day'
+    if (undone > 0) {
+      setPlan(current => {
+        const returnedWords = new Set(reply.data?.undoneWords ?? (reply.data?.items ?? []).slice(0, undone).map(item => item.word))
+        return {
+          ...current,
+          items: current.items.map(item => {
+            if (item.listId !== listId || !returnedWords.has(item.word)) return item
+            const tallyCounts = item.tallyCounts ?? {
+              day: { spelling: 0, reading: 0, meaning: 0 },
+              week: { spelling: 0, reading: 0, meaning: 0 },
+            }
+            return {
+              ...item,
+              tallyCounts: {
+                ...tallyCounts,
+                [scopeKey]: { ...tallyCounts[scopeKey], [successKind]: Math.max(0, tallyCounts[scopeKey][successKind] - 1) },
+              },
+            }
+          }),
+        }
+      })
+    }
+    invalidateApiCache(['list-words:' + listId, 'study-plan', 'achievements', 'history'])
+    return { ok: true as const, undone }
   }, [refresh])
 
   /** 兼容性的纯标记原语：不改变复习轮次；当前“会拼”复习不走这里。 */
@@ -153,6 +219,7 @@ export function useStudyPlan() {
     )
     if (reply.offline) return { ok: false as const, error: '云端服务不可用' }
     if (!reply.data?.ok) return { ok: false as const, error: reply.data?.error ?? '标记失败' }
+    invalidateApiCache(['list-words:' + listId, 'study-plan', 'achievements', 'history'])
     await refresh()
     return { ok: true as const }
   }, [refresh])

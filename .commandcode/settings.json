@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(ls -la .commandcode/ 2>/dev/null; echo \"---hooks---\"; find . -maxdepth 3 -name \"hooks.json\" -o -maxdepth 3 -name \"*.toml\" -path \"*codex*\" 2>/dev/null | head -20; echo \"---home---\"; ls -la ~/.commandcode/ 2>/dev/null; ls -la ~/.codex/ 2>/dev/null)",
+      "Shell(echo \"=== git hooks ===\"; ls -la .git/hooks/ | grep -v sample; echo \"=== husky ===\"; ls -la .husky 2>/dev/null; echo \"=== CI ===\"; ls -la .github/workflows 2>/dev/null; echo \"=== codex hooks dir scripts grep test ===\"; grep -rn \"npm run\\|test:server\\|npm test\\|vitest\" ~/.codex/hooks/ 2>/dev/null | head; echo \"=== hooks.js head ===\"; head -40 ~/.codex/hooks/post-tool-use.js)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}

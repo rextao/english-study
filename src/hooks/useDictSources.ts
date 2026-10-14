@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import { apiFetch } from '../utils/apiBase'
+import { queryApi } from '../utils/apiCache'
 
 export interface DictSources {
   /** 服务端能不能联外网（DICT_NO_NETWORK=1 时为 false） */
@@ -158,9 +158,9 @@ export function useDictSources() {
     let alive = true
     void (async () => {
       try {
-        const res = await apiFetch('/api/dict/sources')
-        if (!res.ok) return
-        const body: unknown = await res.json()
+        const body: unknown = await queryApi('/api/dict/sources', {}, {
+          staleTime: 60_000, tags: ['dict-sources'],
+        })
         if (!alive || body === null || typeof body !== 'object') return
         setSources(toSources(body as JsonBody))
       } catch {

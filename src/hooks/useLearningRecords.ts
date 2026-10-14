@@ -8,6 +8,7 @@ import type {
 } from '../types/vocab'
 
 import { apiFetch } from '../utils/apiBase'
+import { invalidateApiCache, queryApi } from '../utils/apiCache'
 
 export type LearningRecordFilterAction = 'all' | Extract<StudyMarkAction, 'spelling' | 'done' | 'again'>
 
@@ -48,8 +49,11 @@ export function useLearningAchievements(libraryId: string) {
       setError(null)
       try {
         const query = new URLSearchParams({ libraryId })
-        const response = await apiFetch(`/api/study/achievements?${query}`, { signal: controller.signal })
-        const body = await readJson<LearningAchievementsResponse>(response, '学习成果读取失败')
+        const body = await queryApi<LearningAchievementsResponse>('/api/study/achievements?' + query, {
+          signal: controller.signal,
+        }, {
+          staleTime: 60_000, tags: ['achievements', 'achievements:' + libraryId],
+        })
         if (!Array.isArray(body.items)) throw new Error('学习成果数据格式不正确')
         setItems(body.items)
       } catch (loadError) {
@@ -98,8 +102,9 @@ export function useLearningRecords(filters: HistoryFilters, enabled: boolean) {
         limit: String(limit),
         offset: String(offset),
       })
-      const response = await apiFetch(`/api/study/history?${query}`)
-      const body = await readJson<LearningHistoryResponse>(response, '学习记录读取失败')
+      const body = await queryApi<LearningHistoryResponse>('/api/study/history?' + query, {}, {
+        staleTime: 15_000, tags: ['history', 'history:' + filters.libraryId],
+      })
       if (!Array.isArray(body.items) || typeof body.total !== 'number') throw new Error('学习记录数据格式不正确')
       if (requestRef.current !== requestId) return
       setItems(current => append ? [...current, ...body.items] : body.items)
@@ -131,6 +136,7 @@ export function useLearningRecords(filters: HistoryFilters, enabled: boolean) {
     try {
       const response = await apiFetch(url, { method: 'DELETE' })
       await readJson<unknown>(response, fallback)
+      invalidateApiCache(['achievements', 'history', 'study-plan'])
       // 交给 effect 使用最新筛选条件刷新，避免删除期间切换筛选时旧请求覆盖新结果。
       reloadLimitRef.current = Math.max(PAGE_SIZE, itemCountRef.current)
       setVersion(current => current + 1)
@@ -158,6 +164,7 @@ export function useLearningRecords(filters: HistoryFilters, enabled: boolean) {
         body: JSON.stringify(body),
       })
       await readJson<unknown>(response, fallback)
+      invalidateApiCache(['achievements', 'history', 'study-plan'])
       reloadLimitRef.current = Math.max(PAGE_SIZE, itemCountRef.current)
       setVersion(current => current + 1)
       return true

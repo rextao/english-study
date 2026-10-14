@@ -7,7 +7,10 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "dev": "wrangler dev & vite",
+    "dev": "npx wrangler dev & vite",
+    "db:local:init": "npx wrangler d1 execute english-study-sync --local --file=worker/schema.sql",
+    "db:local:migrate": "npx wrangler d1 execute english-study-sync --local --file=worker/migrations/001-dict-cache-status.sql",
+    "db:local:import": "npx wrangler d1 execute english-study-sync --local --file=migration.sql",
     "test:server": "node worker/test/api.test.mjs",
     "migrate:to-d1": "node scripts/migrate-to-d1.mjs",
     "build": "tsc -b && vite build",
@@ -25,6 +28,7 @@
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.5.2",
     "typescript": "~5.8.3",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "wrangler": "^4.150.0"
   }
 }

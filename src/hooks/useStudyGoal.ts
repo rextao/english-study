@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { apiFetch } from '../utils/apiBase'
+import { invalidateApiCache, queryApi } from '../utils/apiCache'
 const GOAL_URL = '/api/study/goal'
 
 /**
@@ -17,8 +18,9 @@ export function useStudyGoal() {
 
     async function load() {
       try {
-        const res  = await apiFetch(GOAL_URL)
-        const data = (await res.json()) as { libraryId?: string }
+        const data = await queryApi<{ libraryId?: string }>(GOAL_URL, {}, {
+          staleTime: 5 * 60_000, tags: ['study-goal'],
+        })
         if (!alive) return
         if (typeof data?.libraryId === 'string') setLibraryId(data.libraryId)
       } catch {
@@ -36,11 +38,13 @@ export function useStudyGoal() {
   const setGoal = useCallback(async (next: string) => {
     setLibraryId(next)
     try {
-      await apiFetch(GOAL_URL, {
+      const response = await apiFetch(GOAL_URL, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ libraryId: next }),
       })
+      if (!response.ok) throw new Error('目标保存失败')
+      invalidateApiCache('study-goal')
       setOffline(false)
     } catch {
       setOffline(true)

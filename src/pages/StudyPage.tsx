@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PageHeader } from '../components/PageHeader'
 import { StudyGoal } from '../components/StudyGoal'
-import { Button, Checkbox, Input, Modal, Popconfirm, Select } from '../ui'
+import { Button, Checkbox, ENGLISH_WORD_INPUT_PROPS, Input, Modal, Popconfirm, Select } from '../ui'
 import type { SelectOption } from '../ui'
 import type { StudyListApi } from '../hooks/useStudyList'
 import type { StudyPlanApi, TallyKind } from '../hooks/useStudyPlan'
@@ -687,7 +687,6 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
         setNotice(result.undone > 0
           ? displayText + ' 已撤销一次' + TALLY_LABEL[undoKind] + '（本周期内）。'
           : displayText + ' 本周期内没有可撤销的' + TALLY_LABEL[undoKind] + '记录。')
-        if (item.listId === listId) setReloadToken(t => t + 1)
         return
       }
       const tallyKind = action === 'spelling' || action === 'reading' || action === 'meaning'
@@ -710,7 +709,8 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
       else if (action === 'meaning') setNotice(displayText + ' 已记一次知意（不影响复习轮次）。')
       else if (action === 'next') setNotice(displayText + ' 已进入下一轮复习。')
       else setNotice(displayText + ' 已标记为没记住，明天重新复习。')
-      if (item.listId === listId) setReloadToken(t => t + 1)
+      // 熟悉度计数只影响计划按钮，plan hook 已按成功响应就地更新，不重拉词条与批次。
+      if (!tallyKind && item.listId === listId) setReloadToken(t => t + 1)
     } finally {
       setWordBusy(prev => {
         const next = { ...prev }
@@ -930,6 +930,7 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
             />
           </div>
           <Input
+            {...ENGLISH_WORD_INPUT_PROPS}
             block
             allowClear
             value={cardSearch}

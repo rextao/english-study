@@ -19,6 +19,12 @@ name = "english-study"
 main = "./worker/src/index.js"
 compatibility_date = "2026-10-08"
 
+[dev]
+# 本地开发端口。默认的 8787 被本机另一个常驻服务占着（mfcli-proxy 监听 127.0.0.1:8787），
+# 用默认端口启动会报 "Address already in use (os error 48)"，所以固定到 8788。
+# 改这里的话，vite.config.ts 里 /api 的代理目标要同步改。
+port = 8788
+
 [assets]
 directory = "./dist"
 # 暴露给 Worker 的静态资源 fetcher：worker/src/index.js 用 env.ASSETS 兜底非 /api/* 请求

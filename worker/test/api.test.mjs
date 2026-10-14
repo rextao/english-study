@@ -1003,10 +1003,15 @@ check('历史表完整性检查可用', r.status === 200 && r.body?.ok === true 
 
 await waitForPrefetch()
 
+// status 列由写入方给出：生产环境的词条都经过 normalizeEntry，本来就带 status，
+// 这里显式写上，跟真实写入的形状一致（旧数据没有 status，靠迁移脚本回填）。
 writeDictCache(db(), {
-  melon: { word: 'melon', phonetic: 'ˈmelən', translation: '瓜', meanings: [], cachedAt: Date.now() },
+  melon: {
+    word: 'melon', phonetic: 'ˈmelən', translation: '瓜', meanings: [],
+    cachedAt: Date.now(), status: 'ok',
+  },
   lemon: {
-    word: 'lemon', cachedAt: Date.now(),
+    word: 'lemon', cachedAt: Date.now(), status: 'partial',
     meanings: [{ partOfSpeech: 'noun', definitions: ['a yellow citrus fruit'], examples: ['a slice of lemon'] }],
   },
 })
@@ -1535,6 +1540,73 @@ r = await call('GET', '/api/dict?word=mango')
 check('配置密钥后查词恢复正常',
   r.body?.translation === '你今天好吗？'
   && fetchCalls.some(call => call.url === 'http://baidu.mock/translate'), r.body)
+
+// ── dict_cache.status 列 + 抓不齐的重试冷却 ────────────────────────────────
+
+console.log('')
+console.log('词典缓存列与重试冷却')
+
+use(baiduCtx)
+
+r = await call('GET', '/api/dict?word=untranslatable')
+const partialRow = await db().first('SELECT status FROM dict_cache WHERE word = ?', 'untranslatable')
+check('没抓齐的词在 status 列记 partial',
+  r.body?.status === 'partial' && partialRow?.status === 'partial', { body: r.body?.status, row: partialRow })
+
+const kiwiRow = await db().first('SELECT status FROM dict_cache WHERE word = ?', 'kiwi')
+check('抓齐的词在 status 列记 ok', kiwiRow?.status === 'ok', kiwiRow)
+
+// 抓不齐的词以前每次被看到都重打一遍外部接口，冷却期内应当直接用缓存
+fetchCalls.length = 0
+r = await call('GET', '/api/dict?word=untranslatable')
+check('抓不齐的词在冷却期内不再打外部接口',
+  fetchCalls.length === 0 && r.body?.status === 'partial', { calls: fetchCalls.length, body: r.body })
+
+fetchCalls.length = 0
+r = await call('GET', '/api/dict?word=untranslatable&refresh=1')
+check('refresh=1 无视冷却强制重抓',
+  fetchCalls.some(call => call.url.includes('dictionaryapi.dev'))
+  && fetchCalls.some(call => call.url === 'http://baidu.mock/translate'), fetchCalls.length)
+
+use(noKeyCtx)
+
+// 百度密钥没配是确定性失败：重试结果必然一样，别反复打免费词典
+await call('GET', '/api/dict?word=pear')
+fetchCalls.length = 0
+r = await call('GET', '/api/dict?word=pear')
+check('百度密钥未配置时不反复重试',
+  fetchCalls.length === 0
+  && r.body?.errors?.some(error => error.source === 'baidu' && error.code === 'not_configured'),
+  { calls: fetchCalls.length, body: r.body })
+
+// 密钥补上之后失败原因就没了，同一个词应当立刻重新翻译，而不是等冷却结束
+noKeyCtx.env.BAIDU_TRANSLATE_API_KEY = 'test-key-not-real'
+noKeyCtx.env.BAIDU_TRANSLATE_APP_ID = 'test-app-id-not-real'
+noKeyCtx.env.BAIDU_TRANSLATE_API_URL = 'http://baidu.mock/translate'
+fetchCalls.length = 0
+r = await call('GET', '/api/dict?word=pear')
+check('百度密钥补上后同一个词立刻重试翻译',
+  fetchCalls.some(call => call.url === 'http://baidu.mock/translate') && !!r.body?.translation, r.body)
+
+// ── 迁移脚本：给已有库补 status 列并回填 ──────────────────────────────────
+
+const migrationSql = fs.readFileSync(path.join(__dirname, '../migrations/001-dict-cache-status.sql'), 'utf8')
+const migDb = createShimDb(path.join(dataDir, 'mig-' + Math.random().toString(36).slice(2) + '.sqlite'))
+migDb.__sqlite.exec('CREATE TABLE dict_cache (word TEXT PRIMARY KEY, entry_json TEXT NOT NULL) STRICT')
+const insertLegacy = migDb.__sqlite.prepare('INSERT INTO dict_cache (word, entry_json) VALUES (?, ?)')
+insertLegacy.run('melon', JSON.stringify({ word: 'melon', phonetic: 'ˈmelən', translation: '瓜', senses: [], cachedAt: 1 }))
+insertLegacy.run('lemon', JSON.stringify({ word: 'lemon', senses: [{ id: 'noun#0', pos: 'noun', definition: 'x' }], cachedAt: 1 }))
+insertLegacy.run('oldok', JSON.stringify({ word: 'oldok', cachedAt: 1, status: 'ok' }))
+insertLegacy.run('oldpartial', JSON.stringify({ word: 'oldpartial', phonetic: 'x', translation: 'y', cachedAt: 1, status: 'partial' }))
+migDb.__sqlite.exec(migrationSql)
+const migrated = Object.fromEntries(
+  migDb.__sqlite.prepare('SELECT word, status FROM dict_cache').all().map(row => [row.word, row.status]))
+check('迁移回填：有中文+音标的旧词条算抓齐', migrated.melon === 'ok', migrated)
+check('迁移回填：缺中文的旧词条算没抓齐', migrated.lemon === 'partial', migrated)
+check('迁移回填：词条自带 status 时以它为准',
+  migrated.oldok === 'ok' && migrated.oldpartial === 'partial', migrated)
+check('迁移建出 status 索引',
+  migDb.__sqlite.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_dict_cache_status'").get() !== undefined)
 
 globalThis.fetch = oldFetch
 

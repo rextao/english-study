@@ -1,7 +1,17 @@
 import type { InputHTMLAttributes, KeyboardEvent, ReactNode, TextareaHTMLAttributes } from 'react'
 import type { ComponentSize } from './Button'
 
-export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size' | 'prefix'> {
+/** 英文单词输入框共用的手机端键盘提示：优先弹英文键盘，并关掉首字母大写 / 自动纠错，
+    回车键显示「搜索」而不是换行。用法：<Input {...ENGLISH_WORD_INPUT_PROPS} /> */
+export const ENGLISH_WORD_INPUT_PROPS = {
+  lang: 'en',
+  inputMode: 'latin',
+  autoCapitalize: 'none',
+  autoCorrect: 'off',
+  enterKeyHint: 'search',
+} as const
+
+export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size' | 'prefix' | 'inputMode'> {
   size?: ComponentSize
   block?: boolean
   prefix?: ReactNode
@@ -9,6 +19,8 @@ export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   allowClear?: boolean
   onClear?: () => void
   onPressEnter?: (event: KeyboardEvent<HTMLInputElement>) => void
+  /** 手机端键盘类型；英文输入框传 'latin'（React 的 DOM 类型还没收录，浏览器原样透传） */
+  inputMode?: InputHTMLAttributes<HTMLInputElement>['inputMode'] | 'latin'
 }
 
 export function Input({
@@ -21,6 +33,7 @@ export function Input({
   className,
   onKeyDown,
   value,
+  inputMode,
   ...rest
 }: InputProps) {
   const wrapperClass = [
@@ -38,6 +51,8 @@ export function Input({
       <input
         className="ui-input__inner"
         value={value}
+        // React 的 DOM 类型还没收录 'latin'，收口成它认识的联合类型再交给原生 input
+        inputMode={inputMode as InputHTMLAttributes<HTMLInputElement>['inputMode']}
         onKeyDown={(event) => {
           if (event.key === 'Enter') onPressEnter?.(event)
           onKeyDown?.(event)

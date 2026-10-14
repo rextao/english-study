@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { LearningRecordEvent, LearningRecordGroup, VocabLibraryInfo } from '../types/vocab'
 import { useLearningRecords } from '../hooks/useLearningRecords'
 import type { LearningRecordFilterAction } from '../hooks/useLearningRecords'
-import { Button, Checkbox, Input, Modal, Popconfirm, Select, Tag } from '../ui'
+import { Button, Checkbox, ENGLISH_WORD_INPUT_PROPS, Input, Modal, Popconfirm, Select, Tag } from '../ui'
 import './LearningRecordsPage.css'
 
 const ALL_LIBRARIES = ''
@@ -11,7 +11,10 @@ const ALL_ACTIONS: LearningRecordFilterAction = 'all'
 interface LearningRecordsPageProps {
   libraries: VocabLibraryInfo[]
   getLabelById: (id: string) => string
-  onBack: () => void
+  /** 独立页面（#/records）的返回入口；嵌进设置页时不需要 */
+  onBack?: () => void
+  /** 嵌入设置页的「学习记录」分区：不画 .page 外壳和页头，由设置页提供版式 */
+  embedded?: boolean
 }
 
 const ACTION_OPTIONS: Array<{ value: LearningRecordFilterAction; label: string }> = [
@@ -32,7 +35,9 @@ function formatDate(at: number) {
   }).format(new Date(at))
 }
 
-export function LearningRecordsPage({ libraries, getLabelById, onBack }: LearningRecordsPageProps) {
+export function LearningRecordsPage({ libraries, getLabelById, onBack, embedded }: LearningRecordsPageProps) {
+  // 列表默认不展示：先让用户明确知道删除不可找回，确认后再拉数据（离开分区组件卸载，回来重新收起）
+  const [revealed, setRevealed] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const [searchWord, setSearchWord] = useState('')
   const [libraryId, setLibraryId] = useState(ALL_LIBRARIES)
@@ -50,7 +55,8 @@ export function LearningRecordsPage({ libraries, getLabelById, onBack }: Learnin
   }, [libraries, libraryId])
 
   const filters = useMemo(() => ({ libraryId, word: searchWord, action }), [action, libraryId, searchWord])
-  const records = useLearningRecords(filters, true)
+  // 确认前不发请求，列表连数据都不会拉
+  const records = useLearningRecords(filters, revealed)
   const detailGroup = records.items.find(group => group.word === detailWord) ?? null
   const allVisibleSelected = records.items.length > 0
     && records.items.every(group => selectedWords.has(group.word))
@@ -107,16 +113,39 @@ export function LearningRecordsPage({ libraries, getLabelById, onBack }: Learnin
     }
   }
 
-  return (
-    <div className="page page--wide learning-records-page">
-      <header className="learning-records-page__header">
-        <h1>学习记录管理</h1>
-        <span className="learning-records-page__eyebrow">记录管理 · DATA MANAGEMENT</span>
-        <div className="learning-records-page__scope">
-          <span>背过</span><span>记住</span><span>没记住</span>
+  if (!revealed) {
+    return (
+      <div className={'learning-records-page' + (embedded ? ' learning-records-page--embedded' : ' page page--wide')}>
+        {!embedded && (
+          <header className="learning-records-page__header">
+            <h1>学习记录管理</h1>
+            <span className="learning-records-page__eyebrow">记录管理 · DATA MANAGEMENT</span>
+            <Button className="learning-records-page__back" size="small" onClick={onBack}>返回学习成果</Button>
+          </header>
+        )}
+        <div className="callout callout--error learning-records-page__gate">
+          <div className="learning-records-page__gate-text">
+            <strong>删除学习记录不可撤销</strong>
+            <p>这里的「删除已选」和「全部删除」是物理删除：记录会从数据库里彻底移除，没有备份可以还原，也找不回来。学习列表和复习排期不受影响。确认后才会读取并展示记录列表。</p>
+          </div>
+          <Button type="primary" onClick={() => setRevealed(true)}>我已知晓，显示记录</Button>
         </div>
-        <Button className="learning-records-page__back" size="small" onClick={onBack}>返回学习成果</Button>
-      </header>
+      </div>
+    )
+  }
+
+  return (
+    <div className={'learning-records-page' + (embedded ? ' learning-records-page--embedded' : ' page page--wide')}>
+      {!embedded && (
+        <header className="learning-records-page__header">
+          <h1>学习记录管理</h1>
+          <span className="learning-records-page__eyebrow">记录管理 · DATA MANAGEMENT</span>
+          <div className="learning-records-page__scope">
+            <span>背过</span><span>记住</span><span>没记住</span>
+          </div>
+          <Button className="learning-records-page__back" size="small" onClick={onBack}>返回学习成果</Button>
+        </header>
+      )}
 
       <div className="learning-records-page__bulk-bar">
         <div className="learning-records-page__bulk-status">
@@ -125,7 +154,7 @@ export function LearningRecordsPage({ libraries, getLabelById, onBack }: Learnin
         </div>
         <div className="learning-records-page__bulk-actions">
           <Popconfirm title={`永久删除选中的 ${selectedWords.size} 个单词记录？`}
-            description={<>系统会先自动备份数据库，删除后页面内不可撤销。<br />学习列表和复习排期不会受到影响。</>}
+            description={<>这是物理删除，记录会从数据库里彻底移除，无法找回。<br />学习列表和复习排期不会受到影响。</>}
             okText="确认物理删除" danger placement="bottomRight"
             disabled={records.mutating || selectedWords.size === 0}
             onConfirm={() => { void handlePurgeSelected() }}>
@@ -133,7 +162,7 @@ export function LearningRecordsPage({ libraries, getLabelById, onBack }: Learnin
               disabled={records.mutating || selectedWords.size === 0}>删除已选</Button>
           </Popconfirm>
           <Popconfirm title="永久删除全部学习记录？"
-            description={<>这会删除所有单词的学习历史，不受当前搜索和筛选条件影响。<br />系统会先自动备份数据库，页面内不可撤销；学习列表和复习排期不受影响。</>}
+            description={<>这会物理删除所有单词的学习历史，不受当前搜索和筛选条件影响，无法找回。<br />学习列表和复习排期不受影响。</>}
             okText="确认全部删除" danger placement="bottomRight" disabled={records.mutating}
             onConfirm={() => { void handlePurgeAll() }}>
             <Button type="text" size="small" danger disabled={records.mutating}>全部删除</Button>
@@ -142,7 +171,7 @@ export function LearningRecordsPage({ libraries, getLabelById, onBack }: Learnin
       </div>
 
       <div className="card card--pad learning-records-page__filters">
-        <Input block value={searchInput} placeholder="搜索单词" aria-label="搜索学习记录中的单词"
+        <Input {...ENGLISH_WORD_INPUT_PROPS} block value={searchInput} placeholder="搜索单词" aria-label="搜索学习记录中的单词"
           allowClear onClear={() => setSearchInput('')} onChange={event => setSearchInput(event.target.value)} />
         <Select value={libraryId} options={libraryOptions} onChange={setLibraryId} aria-label="按词库筛选学习记录" />
         <Select value={action} options={ACTION_OPTIONS}
