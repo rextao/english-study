@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import type { StudyListApi } from '../hooks/useStudyList'
 import { useDictBatch } from '../hooks/useDictBatch'
 import type { StudyWordItem } from '../types/vocab'
+import type { VocabLibraryInfo } from '../types/vocab'
 import { PageHeader } from '../components/PageHeader'
 import { formatTranslationOptions, selectedTranslationOptions } from '../utils/translations'
 import { Button, Checkbox, Input, Popconfirm, Tag } from '../ui'
+import { primaryVocabIdForWord } from '../utils/vocabOrder'
 import './ListsPage.css'
 
 const DEFAULT_LIST_ID = 'default'
@@ -13,6 +15,15 @@ function displayTextOf(item: StudyWordItem): string {
   return item.type === 'sentence' && item.displayText?.trim()
     ? item.displayText.trim()
     : item.word
+}
+
+/** 熟悉度小标签：会拼 / 会读 / 知意，0 次的一并列出但压成更淡的字色 */
+function tallyChipsOf(item: StudyWordItem) {
+  return [
+    { key: 'spelling', label: '会拼', count: item.spellingCount ?? 0 },
+    { key: 'reading', label: '会读', count: item.readingCount ?? 0 },
+    { key: 'meaning', label: '知意', count: item.rememberedCount ?? 0 },
+  ]
 }
 
 /** 词条加入时间 → 自然日串，形如 2026-09-15（本地时区） */
@@ -32,13 +43,14 @@ function batchTitle(key: string): string {
 }
 
 interface ListsPageProps {
+  libraries: VocabLibraryInfo[]
   getLabelById: (id: string) => string
   study: StudyListApi
   /** 点「新增 / 重命名列表」跳到设置页的「学习列表」分区统一管理 */
   onManageLists: () => void
 }
 
-export function ListsPage({ getLabelById, study, onManageLists }: ListsPageProps) {
+export function ListsPage({ libraries, getLabelById, study, onManageLists }: ListsPageProps) {
   const {
     lists, loading, deleteList,
     fetchListWords, removeItem, removeItems, fetchBatches, renameBatch,
@@ -198,6 +210,7 @@ export function ListsPage({ getLabelById, study, onManageLists }: ListsPageProps
     const entry = dict.getEntry(item.word)
     const translation = selectedTranslation(item)
     const phonetic = item.phonetic || entry?.phonetic
+    const tallies = tallyChipsOf(item)
     // 词 + 音标；多选模式下把它塞进勾选框的 label，点词本身也能勾上
     const head = (
       <>
@@ -221,10 +234,13 @@ export function ListsPage({ getLabelById, study, onManageLists }: ListsPageProps
           ) : (
             <span className="word-row__head">{head}</span>
           )}
-          {item.type === 'sentence' && <Tag>句子</Tag>}
-          {item.sourceIds.map(id => (
-            <Tag key={id} color="blue">{getLabelById(id)}</Tag>
-          ))}
+          {/* 标签（句子 / 词库）固定在首行最右侧，不与单词或音标互相挤压 */}
+          <span className="word-row__tags">
+            {item.type === 'sentence' && <Tag>句子</Tag>}
+            {primaryVocabIdForWord(item.word, item.sourceIds, libraries) && (
+              <Tag color="blue">{getLabelById(primaryVocabIdForWord(item.word, item.sourceIds, libraries)!)}</Tag>
+            )}
+          </span>
           {/* 多选模式下藏掉单条的 ×，免得和勾选框抢操作 */}
           {!selectMode && (
             <Popconfirm
@@ -253,10 +269,17 @@ export function ListsPage({ getLabelById, study, onManageLists }: ListsPageProps
             <span className="word-row__translation">{translation}</span>
           )}
           <span
-            className="word-row__stats"
-            aria-label={'知意 ' + (item.rememberedCount ?? 0) + ' 次，会拼 ' + (item.spellingCount ?? 0) + ' 次，会读 ' + (item.readingCount ?? 0) + ' 次'}
+            className="word-row__tallies"
+            aria-label={tallies.map(t => t.label + ' ' + t.count + ' 次').join('，')}
           >
-            知意 {item.rememberedCount ?? 0} · 会拼 {item.spellingCount ?? 0} · 会读 {item.readingCount ?? 0}
+            {tallies.map(t => (
+              <span
+                key={t.key}
+                className={'word-row__tally' + (t.count === 0 ? ' word-row__tally--zero' : '')}
+              >
+                {t.label} {t.count}
+              </span>
+            ))}
           </span>
         </div>
       </li>

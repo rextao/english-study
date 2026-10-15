@@ -3,6 +3,7 @@ import type { LearningRecordEvent, VocabLibraryInfo } from '../types/vocab'
 import { useLearningRecords } from '../hooks/useLearningRecords'
 import type { LearningRecordFilterAction } from '../hooks/useLearningRecords'
 import { Button, ENGLISH_WORD_INPUT_PROPS, Input, Modal, Popconfirm, Select, Tag } from '../ui'
+import { primaryVocabIdForWord } from '../utils/vocabOrder'
 import './LearningRecordsModal.css'
 
 const ALL_LIBRARIES = ''
@@ -106,7 +107,7 @@ export function LearningRecordsModal({ open, libraries, getLabelById, onClose, o
                 <div className="learning-records__group-main">
                   <strong className="learning-records__word">{group.word}</strong>
                   <div className="learning-records__tags">
-                    {group.sourceIds.map(sourceId => <Tag key={sourceId} color="blue">{getLabelById(sourceId)}</Tag>)}
+                    {primaryVocabIdForWord(group.word, group.sourceIds, libraries) && <Tag color="blue">{getLabelById(primaryVocabIdForWord(group.word, group.sourceIds, libraries)!)}</Tag>}
                   </div>
                 </div>
                 <div className="learning-records__summary" aria-label={`${group.word} 的统计`}>

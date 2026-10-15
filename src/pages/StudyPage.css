@@ -203,7 +203,10 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  flex-shrink: 0;
+  /* 窄屏放不下时整组收缩并换行，避免顶出卡片造成横向滚动 */
+  flex-wrap: wrap;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 /* 按天 / 按周切换，宽度固定住免得选项文字长短抖动 */
@@ -355,35 +358,46 @@
 .review-row:last-child { box-shadow: none; }
 
 .review-row__word {
+  flex: 0 0 auto;
   min-width: 0;
   overflow-wrap: anywhere;
   font-weight: 600;
 }
 
 .review-row__content {
-  display: grid;
-  grid-template-columns: minmax(150px, 1fr) minmax(120px, .75fr) minmax(220px, 2fr);
-  align-items: center;
-  gap: 10px;
+  /* Web 端：单词和音标优先同一行，音标放不下时整体换到下一行；翻译始终再起一行 */
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 3px 10px;
   flex: 1;
   min-width: 0;
 }
 
 .review-row__phonetic {
+  flex: 0 0 auto;
   min-width: 0;
-  overflow: hidden;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   color: var(--color-text-muted);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
   font-family: Georgia, 'Times New Roman', serif;
 }
 
 .review-row__translation {
+  flex: 1 0 100%;
   min-width: 0;
-  overflow: hidden;
+  overflow-wrap: anywhere;
   color: var(--color-text);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+}
+
+/* 句子音标是整句注音，可能长到两三百像素；桌面端也让它换行完整显示，别用省略号截掉 */
+.review-row--sentence .review-row__phonetic {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .review-row__ops {

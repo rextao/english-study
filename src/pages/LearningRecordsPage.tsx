@@ -3,6 +3,7 @@ import type { LearningRecordEvent, LearningRecordGroup, VocabLibraryInfo } from 
 import { useLearningRecords } from '../hooks/useLearningRecords'
 import type { LearningRecordFilterAction } from '../hooks/useLearningRecords'
 import { Button, Checkbox, ENGLISH_WORD_INPUT_PROPS, Input, Modal, Popconfirm, Select, Tag } from '../ui'
+import { primaryVocabIdForWord } from '../utils/vocabOrder'
 import './LearningRecordsPage.css'
 
 const ALL_LIBRARIES = ''
@@ -125,8 +126,8 @@ export function LearningRecordsPage({ libraries, getLabelById, onBack, embedded 
         )}
         <div className="callout callout--error learning-records-page__gate">
           <div className="learning-records-page__gate-text">
-            <strong>删除学习记录不可撤销</strong>
-            <p>这里的「删除已选」和「全部删除」是物理删除：记录会从数据库里彻底移除，没有备份可以还原，也找不回来。学习列表和复习排期不受影响。确认后才会读取并展示记录列表。</p>
+            <strong>删除记录不可找回</strong>
+            <p>「删除已选」和「全部删除」是物理删除，记录会从数据库彻底移除，没有备份可还原。不影响学习列表和复习排期。</p>
           </div>
           <Button type="primary" onClick={() => setRevealed(true)}>我已知晓，显示记录</Button>
         </div>
@@ -219,7 +220,7 @@ export function LearningRecordsPage({ libraries, getLabelById, onBack, embedded 
                 <td className="learning-records-page__word"><strong>{group.word}</strong></td>
                 <td className="learning-records-page__libs" data-label="词库"><div className="learning-records-page__tags">
                   {group.sourceIds.length > 0
-                    ? group.sourceIds.map(sourceId => <Tag key={sourceId} color="blue">{getLabelById(sourceId)}</Tag>)
+                     ? (() => { const id = primaryVocabIdForWord(group.word, group.sourceIds, libraries); return id ? <Tag color="blue">{getLabelById(id)}</Tag> : null })()
                     : <span className="learning-records-page__none">未归属词库</span>}
                 </div></td>
                 <td className="learning-records-page__number" data-label="背过">{group.spellingCount}</td>

@@ -55,6 +55,9 @@
     position: static;
     flex: none;
     flex-direction: row;
+    /* 父级 align-items: flex-start 会让它按内容宽度撑开，窄屏必须显式占满 */
+    width: 100%;
+    max-width: 100%;
     padding: 3px;
     border-radius: var(--radius);
     background: var(--color-surface-hover);

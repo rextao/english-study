@@ -13,6 +13,7 @@ import type {
 import { fetchCards, openCardWindow, renderCardsInto } from '../utils/flashcards'
 import type { CardRequest, CardWindow } from '../utils/flashcards'
 import { formatTranslationOptions, selectedTranslationOptions } from '../utils/translations'
+import { primaryVocabIdForWord } from '../utils/vocabOrder'
 import './StudyPage.css'
 
 const DAY = 86400000
@@ -498,7 +499,7 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
       phonetic: item.phonetic,
       translation: item.translation,
       sourceIds,
-      libraryLabels: sourceIds.map(getPrintLabelById),
+      libraryLabels: primaryVocabIdForWord(item.word, sourceIds, libraries) ? [getPrintLabelById(primaryVocabIdForWord(item.word, sourceIds, libraries)!)] : [],
       fromLibrary: sourceIds.length > 0,
     }
   }
@@ -1082,9 +1083,9 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
                     className={'review-row' + (item.type === 'sentence' ? ' review-row--sentence' : '')}
                   >
                     <div className="review-row__content">
-                      <span className="review-row__word">{displayTextOf(item)}</span>
-                      <span className="review-row__phonetic">{item.phonetic || entry?.phonetic || '—'}</span>
-                      <span className="review-row__translation">{translation}</span>
+                      <div className="review-row__word">{displayTextOf(item)}</div>
+                      <div className="review-row__phonetic">{item.phonetic || entry?.phonetic || '—'}</div>
+                      <div className="review-row__translation">{translation}</div>
                     </div>
                     <span className="review-row__ops">
                       {(['spelling', 'reading', 'meaning'] as const).map(kind => {

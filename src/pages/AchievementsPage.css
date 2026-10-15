@@ -146,6 +146,16 @@
   }
   .achievements-filter .field-label { display: none; }
   .achievements-filter__select { flex: 1; width: auto; min-width: 160px; }
+  /* 下拉收到 32px，和下面那排 chip 同高，这条工具条上只留一种高度。
+     App.css 在 640px 以下把表单控件顶到 16px 是为了防 iOS 聚焦缩放，但 Select 的控件
+     是 <button role="combobox">，原生缩放规则管不到按钮，16px 在这里只会让下拉比周围
+     一圈字都大一号。加 .achievements-page 前缀压过 App.css 里同权重的 16px 规则
+     （它排在本文件之后，不加前缀会被它按源码顺序盖掉） */
+  .achievements-page .achievements-filter__select .ui-select__control {
+    padding: 5px 10px;
+    font-size: 14px;
+    line-height: 20px;
+  }
   .achievements-filter__result { margin-left: auto; }
 
   .achievements-sort {
@@ -156,25 +166,45 @@
     flex-basis: 100%;
   }
   /* 排序做成一排安静的 chip：默认灰底、当前项蓝底 + 方向箭头。
-     不再用五个等宽描边按钮——那条像分段控件的边线是这条工具条上最重的元素 */
-  .achievements-sort .ui-tag {
-    padding: 5px 10px;
+     不再用五个描边按钮——那条像分段控件的边线是这条工具条上最重的元素。
+     这里必须写 .ui-btn：排序项渲染的是 <Button size="small">（.ui-btn--small），
+     不是 <Tag>，之前按 .ui-tag 写，选择器一直没命中，所以手机上仍是描边按钮。
+     Button 自带的 :hover / :focus-visible 是 0,3,0 权重、比这里高，得逐个盖掉，
+     否则一悬停又冒出描边，选中项还会变成深蓝底配深蓝字 */
+  .achievements-sort .ui-btn,
+  .achievements-sort .ui-btn:hover:not(:disabled) {
+    gap: 4px;
+    padding: 5px 11px;
+    border-color: transparent;
+    border-radius: var(--radius-full);
+    background: var(--color-surface-hover);
+    color: var(--color-text-muted);
+    box-shadow: none;
     font-size: 12px;
-    line-height: 18px;
+    line-height: 20px;
   }
-  .achievements-sort .ui-tag--blue { font-weight: 600; }
-  .achievements-sort__label {
-    flex-shrink: 0;
-    color: var(--color-text-subtle);
-    font-size: 12px;
+  .achievements-sort .ui-btn--default:hover:not(:disabled) {
+    background: var(--color-border-strong);
+    color: var(--color-text);
   }
+  .achievements-sort .ui-btn--primary,
+  .achievements-sort .ui-btn--primary:hover:not(:disabled) {
+    background: var(--color-tag-bg);
+    color: var(--color-tag-text);
+    font-weight: 600;
+  }
+  .achievements-sort .ui-btn--primary:hover:not(:disabled) { background: #dbe6ff; }
+  /* 上面的 box-shadow: none 会盖掉 Button 的聚焦光圈，这里补回来。
+     多带一个 :not(:disabled) 是为了压过上面那条 :hover:not(:disabled)——
+     键盘聚焦时鼠标恰好停在同一个 chip 上，光圈不该被悬停样式吃掉 */
+  .achievements-sort .ui-btn:focus-visible:not(:disabled) { box-shadow: var(--ui-focus-ring); }
   .achievements-sort__arrow {
     font-size: 10px;
     line-height: 1;
     opacity: .7;
   }
   /* 没选中的维度只留一个很淡的 ↕，提示「这里也能点」 */
-  .achievements-sort .ui-tag--default .achievements-sort__arrow { opacity: .4; }
+  .achievements-sort .ui-btn--default .achievements-sort__arrow { opacity: .4; }
 
   /* 外层白卡拆掉，改成「一个词一张卡」：卡片自带圆角边框，卡片之间留 10px 呼吸 */
   .achievements-page .achievements-table-wrap {

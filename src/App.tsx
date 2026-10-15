@@ -111,6 +111,7 @@ export default function App() {
         )}
         {tab === 'lists' && (
           <ListsPage
+            libraries={libraries}
             getLabelById={getLabelById}
             study={study}
             onManageLists={goToListSettings}

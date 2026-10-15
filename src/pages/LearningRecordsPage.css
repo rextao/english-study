@@ -211,65 +211,135 @@
 .learning-records-page__select-all { display: none; }
 
 @media (max-width: 720px) {
+  /* 这一块里凡是覆盖 .card / .card--pad 的属性都带上 .learning-records-page 前缀：
+     打包后 App.css 排在本文件之后，同权重会被 .card 的边框、内边距和投影压掉 */
   .learning-records-page__header { align-items: flex-start; flex-wrap: wrap; padding: 16px; }
   .learning-records-page__eyebrow { width: 100%; order: -1; }
   .learning-records-page__back { margin-left: 0; }
-  .learning-records-page__filters { grid-template-columns: 1fr; }
-  .learning-records-page__bulk-bar { max-width: 100%; }
-  .learning-records-page__select-all { display: flex; align-items: center; padding: 10px 14px 0; }
 
-  /* 主表转紧凑卡片：勾选 + 单词同一行，词库标签独占一行，三个次数横排，操作整行铺底 */
-  .learning-records-page__table-wrap { overflow: visible; padding: 4px; }
-  .learning-records-page__table { min-width: 0; }
-  .learning-records-page__table thead { display: none; }
-  .learning-records-page__table,
-  .learning-records-page__table tbody { display: block; }
-  .learning-records-page__table tbody tr {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px 10px;
-    margin-bottom: 10px;
-    padding: 12px 14px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-xs);
-  }
-  .learning-records-page__table tbody tr:last-child { margin-bottom: 0; }
-  .learning-records-page__table td {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+  /* 筛选模块去边框，变成纯工具条：和学习成果页一样，卡片外壳收成一行控件 */
+  .learning-records-page .learning-records-page__filters {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
     padding: 0;
     border: none;
+    background: none;
+    box-shadow: none;
+  }
+  .learning-records-page__bulk-bar {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 6px 8px;
+    margin-bottom: 10px;
+  }
+  .learning-records-page__select-all { display: flex; align-items: center; padding: 0 0 10px; }
+
+  /* 主表转卡片，版式照搬学习成果页：外层白卡拆掉，一个词一张卡，卡与卡之间 10px 呼吸 */
+  .learning-records-page .learning-records-page__table-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    overflow: visible;
+  }
+  .learning-records-page__table { display: block; min-width: 0; }
+  .learning-records-page__table thead { display: none; }
+  .learning-records-page__table tbody { display: flex; flex-direction: column; gap: 10px; }
+
+  /* 卡内 12 列网格：勾选 1 列 + 单词 7 列 + 词库标签 4 列（贴右上角，和学习成果页一致），
+     三个次数各占 4 列拼成统计条，操作整行铺底 */
+  .learning-records-page__table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    row-gap: 10px;
+    padding: 12px 14px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-xs);
+  }
+  .learning-records-page__table tbody tr:hover {
+    background: var(--color-surface);
+    border-color: var(--color-border-strong);
+  }
+  .learning-records-page__table td { display: flex; align-items: center; padding: 0; border: none; }
+
+  .learning-records-page__table .learning-records-page__select {
+    grid-column: 1 / span 1;
+    width: auto;
+    padding-right: 0;
+  }
+  .learning-records-page__word {
+    grid-column: 2 / span 7;
+    min-width: 0;
+    padding-right: 10px;
+    font-size: 16px;
+    font-weight: 650;
+    line-height: 1.4;
+    letter-spacing: -.01em;
+  }
+  .learning-records-page__word strong { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+
+  /* 词库标签贴右上角，不带「词库」小标签——和学习成果页一样只留标签本身 */
+  .learning-records-page__table .learning-records-page__libs {
+    grid-column: 10 / span 3;
+    align-self: start;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+  .learning-records-page__table .learning-records-page__libs .learning-records-page__tags {
+    justify-content: flex-end;
+  }
+
+  /* 次数拼成一条统计条：大数字在上、小标签在下，格与格之间一条发丝分割线 */
+  .learning-records-page__table .learning-records-page__number {
+    grid-column: span 4;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    width: auto;
+    min-width: 0;
+    padding: 7px 2px 6px;
+    background: var(--color-surface-sunken);
+    border-left: 1px solid var(--color-border);
+    font-size: 17px;
+    font-weight: 650;
+    line-height: 1.15;
+  }
+  .learning-records-page__libs + .learning-records-page__number {
+    border-left: none;
+    border-top-left-radius: var(--radius-sm);
+    border-bottom-left-radius: var(--radius-sm);
+  }
+  /* 操作行是卡里最后一个单元格，它前面那格收右边角 */
+  .learning-records-page__table .learning-records-page__number:nth-last-child(2) {
+    border-top-right-radius: var(--radius-sm);
+    border-bottom-right-radius: var(--radius-sm);
   }
   .learning-records-page__table td[data-label]::before {
     content: attr(data-label);
-    flex-shrink: 0;
+    order: 2;
+    margin-top: 1px;
     color: var(--color-text-subtle);
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 500;
+    line-height: 1.2;
   }
-  .learning-records-page__select { width: auto; padding-right: 0; }
-  .learning-records-page__word { flex: 1; min-width: 0; font-size: 15px; display: flex; }
-  .learning-records-page__word strong {
-    min-width: 0;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .learning-records-page__libs { flex-basis: 100%; }
-  .learning-records-page__table .learning-records-page__number {
-    flex: 1;
-    min-width: 0;
+  /* 词库格的「词库」小标签去掉：标签本身已经说明是什么，学习成果页也是只留标签。
+     多带一个 [data-label] 把权重抬到上面那条规则之上，不依赖先后顺序 */
+  .learning-records-page__table td.learning-records-page__libs[data-label]::before { content: none; }
+
+  .learning-records-page__table .learning-records-page__actions {
+    grid-column: 1 / -1;
     width: auto;
-    justify-content: center;
-  }
-  .learning-records-page__actions {
-    width: 100%;
     justify-content: flex-start;
-    padding-top: 8px;
+    padding-top: 10px;
     border-top: 1px solid var(--color-border);
   }
 

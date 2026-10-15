@@ -122,9 +122,6 @@ export function SettingsPage(props: SettingsPageProps) {
       )}
       {section === 'records' && (
         <section className="settings-section">
-          <div className="settings-section__head">
-            <p className="hint">学习记录是按单词累计的背过 / 记住 / 没记住次数，移出学习列表或删除列表都不会影响它。在这里筛选、查看明细、清空或物理删除记录；删除不可撤销，但不会改变学习列表和复习排期。</p>
-          </div>
           <LearningRecordsPage embedded libraries={libraries} getLabelById={getLabelById} />
         </section>
       )}

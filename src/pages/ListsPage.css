@@ -135,6 +135,13 @@
 
 .word-batch { margin-bottom: 18px; }
 
+/* 展开后的词条向右缩进，并用左侧竖线连接到分组标题，避免和其他分组混在一起 */
+.word-batch > .word-rows {
+  margin: 0 -12px 0 20px;
+  padding-left: 10px;
+  border-left: 2px solid var(--color-border);
+}
+
 /* 分组头部可点击：点标题折叠 / 展开该分组；加一条底色让分组标题和词条一眼分得开 */
 .word-batch__head {
   display: flex;
@@ -220,52 +227,96 @@
 
 .word-row__main {
   display: flex;
-  align-items: center;
+  /* 移除按钮贴首行右上角，词换行时也跟着往下走 */
+  align-items: flex-start;
   gap: 8px;
+  min-width: 0;
 }
 
 .word-row__detail {
   display: flex;
   align-items: baseline;
-  gap: 12px;
+  /* 翻译与熟悉度数据组同处第二行，空间不足时整组数据换到下一行 */
+  flex-wrap: wrap;
+  gap: 4px 12px;
   min-width: 0;
 }
 
 .word-row__translation {
   flex: 1;
   min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--color-text-muted);
   font-size: 13px;
   line-height: 1.5;
 }
 
-/* 词 + 音标同一基线，占满剩余宽度，把标签和按钮挤到右边 */
+/* 词 + 音标：优先按内容宽度占位，剩余空间让给右侧标签，装不下才换行 */
 .word-row__head {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 2px 8px;
 }
 
 .word-row__text {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 500;
+  /* 长句子 / 长单词一律换行完整显示，不再截断 */
+  overflow-wrap: anywhere;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -.005em;
 }
 
 .word-row__phonetic {
-  flex-shrink: 0;
+  /* 允许收缩换行：句子音标可能长到几百像素 */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--color-text-subtle);
 }
 
+/* 句子 / 词库标签贴首行最右侧，标签本身不被压缩 */
+.word-row__tags {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+  min-width: max-content;
+  margin-left: auto;
+  gap: 6px;
+}
+
+/* 会拼 / 会读 / 知意：只作为弱提示的小字，不抢词条的视觉重心 */
+.word-row__tallies {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+  gap: 5px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--color-text-subtle);
+}
+
+/* 单个「会拼 2」不许被拆开断行，整组写不下时在标签之间换行 */
+.word-row__tally {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 0 次再淡一档：看得见但几乎不占视觉重量 */
+.word-row__tally--zero { opacity: .5; }
+
 /* 多选模式下词本身就是勾选框的 label，字号 / 颜色要压过 ui-checkbox 的默认值 */
 .word-row .ui-checkbox.word-row__check {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   font-size: 14px;
   color: var(--color-text);
@@ -274,21 +325,17 @@
 .word-row__check .ui-checkbox__label {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 2px 8px;
   min-width: 0;
 }
 
 .word-row .ui-tag { flex-shrink: 0; }
 
-/* 学习累计放在词条右下角，仅作为弱提示文字 */
-.word-row__stats {
-  flex-shrink: 0;
-  margin-left: auto;
-  font-size: 10px;
-  line-height: 1.4;
-  color: var(--color-text-subtle);
-  white-space: nowrap;
-}
+/* 词条里所有文字都能换行，杜绝任何横向截断 */
+.word-row__text,
+.word-row__phonetic,
+.word-row__translation { word-break: break-word; }
 
 /* 圆形小移除按钮，覆盖 ui-btn 的默认内边距 */
 .word-row .ui-popconfirm { flex-shrink: 0; }
@@ -346,13 +393,17 @@
     min-width: 0;
   }
   .word-rows { margin: 0; }
+  .word-batch > .word-rows {
+    margin-left: 10px;
+    padding-left: 8px;
+  }
   .word-row,
   .word-row__main,
   .word-row__detail { min-width: 0; }
+  /* 手机端保持自然换行，只有空间不足时才让内容落到下一行 */
+  .word-row { padding: 10px 12px; }
+  /* 首行实在挤不下（长句子 + 多个标签）就让标签整组落到下一行右端 */
+  .word-row__main { flex-wrap: wrap; }
   .ui-btn.word-row__remove { opacity: 1; }
   .lists-toast { bottom: 16px; }
-  /* 手机端：把词库标签（如 KET）推到右侧，避免挤在左侧 */
-  .word-row .ui-tag {
-    margin-left: auto;
-  }
 }

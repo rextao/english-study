@@ -4,6 +4,7 @@ import type { LearningAchievement, VocabLibraryInfo } from '../types/vocab'
 import { useLearningAchievements } from '../hooks/useLearningRecords'
 import { PageHeader } from '../components/PageHeader'
 import { Button, Select, Tag } from '../ui'
+import { primaryVocabIdForWord } from '../utils/vocabOrder'
 import './AchievementsPage.css'
 
 const ALL_LIBRARIES = ''
@@ -189,7 +190,7 @@ export function AchievementsPage({ libraries, getLabelById }: AchievementsPagePr
                    <strong className="achievements-table__word">{item.word}</strong>
                  </td>
                  <td className="achievements-table__libs"><div className="achievements-table__tags">
-                   {item.sourceIds.map(id => <Tag key={id} color="blue">{getLabelById(id)}</Tag>)}
+                  {primaryVocabIdForWord(item.word, item.sourceIds, libraries) && <Tag color="blue">{getLabelById(primaryVocabIdForWord(item.word, item.sourceIds, libraries)!)}</Tag>}
                  </div></td>
                  <CountCell label="会拼" value={item.spellingCount} />
                  <CountCell label="会读" value={item.readingCount} />

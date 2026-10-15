@@ -8,7 +8,7 @@ Each vocabulary file is a `.json` file following this schema.
 {
   "id": "unique-id-for-this-wordlist",
   "name": "Human-readable name",
-  "level": "A1 | A2 | B1 | B2 | C1 | C2 | mixed",
+  "level": "Pre-A1 | A1 | A2 | B1 | B2 | C1 | C2 | mixed",
   "source": "Where this list comes from",
   "description": "Optional longer description",
   "words": [

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createWorker } from 'tesseract.js'
 import { useVocabMatch } from '../hooks/useSearch'
 import { useDictPrefetch } from '../hooks/useDictPrefetch'
 import type { StudyListApi, ImportItem } from '../hooks/useStudyList'
@@ -24,7 +25,34 @@ const MAX_PICKED_TRANSLATIONS = 12
 /** 与服务端 MAX_CUSTOM_TRANSLATIONS 一致：一个词最多 6 条自定义词义 */
 const MAX_CUSTOM_TRANSLATIONS = 6
 
+/**
+ * 过滤英文模型在中文/混合图片上的“英文幻觉”。
+ * 仅检查字母会把中文笔画误判成大量拉丁字符，因此还要结合行置信度、字符比例和重复度。
+ */
+function englishOcrText(lines: Array<{ text: string; confidence: number }>): string {
+  return lines
+    .filter(line => {
+      const text = line.text.trim()
+      const letters = text.match(/[A-Za-z]/g) ?? []
+      const compact = text.replace(/\s/g, '')
+      const punctuation = compact.match(/[^A-Za-z0-9'’.,!?;:%()\-]/g) ?? []
+      const uniqueLetters = new Set(letters.map(letter => letter.toLowerCase())).size
+      const oneLetterWords = text.split(/\s+/).filter(word => /^[A-Za-z]$/.test(word)).length
+      return line.confidence >= 55
+        && letters.length >= 2
+        && letters.length / Math.max(compact.length, 1) >= .45
+        && punctuation.length / Math.max(compact.length, 1) <= .25
+        && uniqueLetters / letters.length >= .2
+        && oneLetterWords <= 3
+        && !/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(text)
+    })
+    .map(line => line.text.trim())
+    .join('\n')
+    .trim()
+}
+
 import { apiFetch } from '../utils/apiBase'
+import { primaryVocabId } from '../utils/vocabOrder'
 
 type RowState = 'keep' | 'filtered' | 'dup-text' | 'dup-list'
 
@@ -171,9 +199,51 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
   const [pickerSaving, setPickerSaving] = useState(false)
   const [pickerCustoms, setPickerCustoms] = useState<Map<string, string[]>>(new Map())
   const [pickerCustomDraft, setPickerCustomDraft] = useState<Map<string, string>>(new Map())
+  const [ocrBusy, setOcrBusy] = useState(false)
+  const [ocrStatus, setOcrStatus] = useState('')
+  const [ocrError, setOcrError] = useState('')
+  const cameraInputRef = useRef<HTMLInputElement>(null)
 
   // 导入接口立即返回；中文已在查询阶段确定，这里只盯后台补音标的进度。
   const prefetch = useDictPrefetch()
+
+  /** 手机端拍照后用 Tesseract.js 识别文字，并追加回填到批量导入框。 */
+  async function handleOcrPhoto(file: File | undefined) {
+    if (!file) return
+    setOcrBusy(true)
+    setOcrStatus('正在准备识别…')
+    setOcrError('')
+    try {
+      const worker = await createWorker('eng', 1, {
+        logger: message => {
+          if (message.status === 'recognizing text') {
+            setOcrStatus('正在识别文字 ' + Math.round(message.progress * 100) + '%')
+          }
+        },
+      })
+      try {
+        const { data } = await worker.recognize(file)
+        const ocrData = data as unknown as { text: string; lines?: Array<{ text: string; confidence: number }> }
+        const lines = ocrData.lines ?? ocrData.text.split(/\r?\n/).map(text => ({ text, confidence: 100 }))
+        const recognized = englishOcrText(lines)
+        if (!recognized) {
+          setOcrError('没有识别到英文文字，非英文内容已忽略')
+          return
+        }
+        setText(previous => previous.trim() ? previous.trimEnd() + '\n' + recognized : recognized)
+        setResult(null)
+        setOcrStatus('识别完成')
+      } finally {
+        await worker.terminate()
+      }
+    } catch {
+      setOcrError('拍照识别失败，请检查网络后重试')
+      setOcrStatus('')
+    } finally {
+      setOcrBusy(false)
+      if (cameraInputRef.current) cameraInputRef.current.value = ''
+    }
+  }
 
   // 目标列表已有的词条，用于预览时标出「列表已有」
   useEffect(() => {
@@ -588,12 +658,16 @@ const targetControls = (
           <div className="import-section">
             <div className="import-label-row">
               <label className="field-label" htmlFor="import-textarea">粘贴内容</label>
-              {text && (
-                <Button type="link" size="small" onClick={() => { setText(''); setResult(null) }}>
-                  清空
-                </Button>
-              )}
+              <div className="import-text-actions">
+                <input ref={cameraInputRef} className="import-camera__input" type="file" accept="image/*" capture="environment"
+                  onChange={e => { void handleOcrPhoto(e.target.files?.[0]) }} aria-label="拍照提取文字" />
+                <Button className="import-camera__button" size="small" loading={ocrBusy}
+                  onClick={() => cameraInputRef.current?.click()}>拍照提取文字</Button>
+                {text && <Button type="link" size="small" onClick={() => { setText(''); setResult(null) }}>清空</Button>}
+              </div>
             </div>
+            {ocrStatus && <p className="import-camera__status" role="status">{ocrStatus}</p>}
+            {ocrError && <p className="import-camera__error" role="alert">{ocrError}</p>}
             <TextArea
               id="import-textarea"
               placeholder={'apple\nbanana\nHow are you doing today?\n...'}
@@ -647,11 +721,11 @@ const targetControls = (
                   <li key={i} className={'import-row import-row--' + row.state}>
                     <span className="import-row__text">{row.raw}</span>
                     {row.type === 'sentence' && <Tag color="default">句子</Tag>}
-                    {row.hitIds.map(id => (
-                      <Tag key={id} color="blue">
-                        {row.type === 'sentence' ? '含 ' + getLabelById(id) : getLabelById(id)}
+                    {primaryVocabId(row.hitIds) && (
+                      <Tag color="blue">
+                        {row.type === 'sentence' ? '含 ' + getLabelById(primaryVocabId(row.hitIds)!) : getLabelById(primaryVocabId(row.hitIds)!)}
                       </Tag>
-                    ))}
+                    )}
                     <span className={'import-state import-state--' + row.state}>{STATE_LABEL[row.state]}</span>
                   </li>
                 ))}

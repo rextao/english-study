@@ -5,6 +5,7 @@ import type { DictionaryEntry, StudyList } from '../types/vocab'
 import type { DictionaryStatus } from '../hooks/useDictionary'
 import type { StudyStatus } from '../hooks/useStudy'
 import { selectedTranslationOptions, translationOptions, translationPosLabel } from '../utils/translations'
+import { primaryVocabId } from '../utils/vocabOrder'
 import './WordCard.css'
 
 interface WordCardProps {
@@ -221,11 +222,11 @@ export function WordCard({
       )}
 
       {/* 词库标签紧跟在词下面，命中词库才显示；这里只展示，改名统一去词库页 */}
-      {sourceIds.length > 0 && (
+      {primaryVocabId(sourceIds) && (
         <div className="word-card__tags">
-          {sourceIds.map((id) => (
-            <Tag key={id} color="blue" title="词库标签，改名请去「词库」页">{getLabelById(id)}</Tag>
-          ))}
+          <Tag color="blue" title="词库标签，改名请去「词库」页">
+            {getLabelById(primaryVocabId(sourceIds)!)}
+          </Tag>
         </div>
       )}
 

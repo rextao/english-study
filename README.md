@@ -173,7 +173,9 @@ npx wrangler secret put BAIDU_TRANSLATE_APP_ID
 }
 ```
 
-现有词库：`vocab/ket.json`（剑桥 A2 Key，1661 条词条）。
+现有词库：`vocab/cambridge-pre-a1-starters-2025.json`、`vocab/cambridge-a1-movers-2025.json`、`vocab/cambridge-a2-flyers-2025.json`、`vocab/ket.json`。
+
+词库固定展示顺序为 Starters、Movers、Flyers、KET。一个单词可以同时命中多个词库，但界面标签只显示其中优先级最高的一个；词条数据仍保留完整的 `sourceIds`，以便按词库筛选。
 
 新增一个词库：
 

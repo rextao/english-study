@@ -47,6 +47,7 @@ src/pages/ImportPage.tsx       批量导入：多行文本 → 归一化 / 去�
 src/pages/ListsPage.tsx        学习列表：切换 / 新建 / 重命名 / 删除；词条平铺一行一个；useDictBatch 取音标和中文词义；
                                「批次」checkbox → 按加入日期分成批次展示，批次可就地重命名（自定义名 + 只读日期 Tag）；
                                「多选」开关 → 每行勾选框 + 全选 + 批量删除（二次确认）
+                               词条首行 = 词 + 音标（左）+ 句子 / 词库 Tag 与「会拼 / 会读 / 知意」浅色小字（右），中文释义单独一行
 src/pages/LibrariesPage.tsx    词库标签页（已并进设置页）：只显示 name + file + 显示标签 / 打印标签改名 / 重置默认值；
                                embedded=true 时不渲染页头，主体抽成 content 变量
 src/pages/StudyPage.tsx        英语学习页：StudyGoal + 挑词弹窗（Modal，勾词 → 打印卡片 + plan.startWords）
@@ -61,7 +62,8 @@ src/pages/SettingsPage.tsx     设置页（tab=settings）：顶部「词库配�
 src/pages/AchievementsPage.tsx     学习成果页（tab=achievements）：目标达成度统计
 src/pages/LearningRecordsPage.tsx  学习记录页：学习 / 打卡日志明细 + 筛选 + 批量删除；
                                默认 embedded 进设置页「学习记录」分区（不画 .page 外壳和页头），
-                               也仍挂在 #/records 上独立成页（导航里没有，从成果页进，带 onBack 和页头）
+                               也仍挂在 #/records 上独立成页（导航里没有，从成果页进，带 onBack 和页头）；
+                               默认先只显示物理删除不可找回的红字提示（revealed=false 时不发请求），确认后才拉列表
 
 src/components/Nav.tsx         顶部导航：普通 tab = 查词 / 学习列表 / 学习成果（列表角标 = totalItems）
                                + 右侧「英语学习」流光胶囊（角标 = plan.dueCount）+ 齿轮图标按钮（设置）；
@@ -200,7 +202,7 @@ PrintBatch       { id, printedAt, kind: 'start'|'review', scope?, title, wordCou
 
 `phonetic` 和 `translation` 是加入学习列表时保存的音标、中文翻译快照，旧数据可以没有；`translationIds` 是加入时选择的中文词义 id 子集。`senseIds` 是兼容旧数据的英文释义 id 子集。中文释义**全集**永远存在词典缓存里。`customTranslations` 是用户手填的自定义中文词义（没有词性、没有 id），上限 6 条 / 单条 60 字（`MAX_CUSTOM_TRANSLATIONS` / `MAX_CUSTOM_TRANSLATION_LEN`，前后端常量同名同值）。
 
-`markCount` / `reviewCount` / `spellingCount` / `readingCount` / `rememberedCount` / `forgottenCount` = 去规范化的累计次数，**界面上一律不显示**，落盘供后续统计使用。打标日志本身（时间 / 动作 / 粒度 / 轮次）**只写 D1 事件表**：撤销已改成事件软删，镜像同步不上。`markCount` 记总打标次数；`reviewCount` 只数实际 done/again 复习操作（done = 进入下一轮）；`spellingCount` / `readingCount` / `rememberedCount` / `forgottenCount` 分别统计会拼、会读、知意和没记住，**四者完全独立**。会拼 / 会读 / 知意走 action=`tally`（`successKind` 必传），只加对应计数，**不推进轮次、不改排期**，可重复点击各算一次；done 只推进轮次不加熟悉度计数。`lastDoneAt` 记最近一次 done 打卡时间，是轮次排期的锚点。`processedReviewKeys` 最多保留最近 80 个复习任务键，用于网络重试和重复点击幂等。
+`markCount` / `reviewCount` / `spellingCount` / `readingCount` / `rememberedCount` / `forgottenCount` = 去规范化的累计次数，落盘供后续统计使用；只有学习列表词条首行右侧把 `spellingCount` / `readingCount` / `rememberedCount` 显示成「会拼 / 会读 / 知意」的浅色小字（0 次再淡一档），其余界面不显示这些计数。打标日志本身（时间 / 动作 / 粒度 / 轮次）**只写 D1 事件表**：撤销已改成事件软删，镜像同步不上。`markCount` 记总打标次数；`reviewCount` 只数实际 done/again 复习操作（done = 进入下一轮）；`spellingCount` / `readingCount` / `rememberedCount` / `forgottenCount` 分别统计会拼、会读、知意和没记住，**四者完全独立**。会拼 / 会读 / 知意走 action=`tally`（`successKind` 必传），只加对应计数，**不推进轮次、不改排期**，可重复点击各算一次；done 只推进轮次不加熟悉度计数。`lastDoneAt` 记最近一次 done 打卡时间，是轮次排期的锚点。`processedReviewKeys` 最多保留最近 80 个复习任务键，用于网络重试和重复点击幂等。
 
 打印批次里**只存 `listId` + `word`**，每个词的 `state` / `stage` / `nextDueAt` 以及批次上的 `dueCount` / `markableCount` / `missingCount` 都是读接口时从学习列表现算的（`enrichBatch`）——同一个词的进度只有学习列表一个来源，不会两处打架。打印之后被移出列表的词，批次里标 `missing`，整批打卡时跳过它。
 

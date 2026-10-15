@@ -60,6 +60,14 @@
   min-height: 22px;
 }
 
+.import-text-actions { display: flex; align-items: center; gap: 8px; }
+.import-camera__input { display: none; }
+.import-camera__button { display: none; }
+.import-camera__status,
+.import-camera__error { margin: 6px 0 0; font-size: 12px; }
+.import-camera__status { color: var(--color-text-subtle); }
+.import-camera__error { color: var(--color-danger, #b42318); }
+
 /* ---------------- 词库筛选标签行 ---------------- */
 
 .import-filter {
@@ -170,6 +178,7 @@
 .import-translation-picker__buttons { display: flex; gap: 8px; }
 
 @media (max-width: 640px) {
+  .import-camera__button { display: inline-flex; }
   .import-target { width: 100%; }
   .import-target__select { flex: 1; min-width: 0; }
   .import-actions__msg { min-width: 0; }

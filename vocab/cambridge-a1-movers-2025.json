@@ -1,0 +1,2382 @@
+{
+  "id": "cambridge-a1-movers-2025",
+  "name": "Movers(A1)",
+  "level": "A1",
+  "source": "Cambridge English (2025)",
+  "description": "Cambridge A1 Movers vocabulary list.",
+  "words": [
+    {
+      "word": "above",
+      "pos": [
+        "prep"
+      ],
+      "examples": []
+    },
+    {
+      "word": "address",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "afraid",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "after",
+      "pos": [
+        "prep"
+      ],
+      "examples": []
+    },
+    {
+      "word": "age",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "along",
+      "pos": [
+        "prep"
+      ],
+      "examples": []
+    },
+    {
+      "word": "always",
+      "pos": [
+        "adv"
+      ],
+      "examples": []
+    },
+    {
+      "word": "app",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "around",
+      "pos": [
+        "prep"
+      ],
+      "examples": []
+    },
+    {
+      "word": "asleep",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "at",
+      "pos": [
+        "prep"
+      ],
+      "examples": []
+    },
+    {
+      "word": "aunt",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "awake",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "bad",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "badly",
+      "pos": [
+        "adv"
+      ],
+      "examples": []
+    },
+    {
+      "word": "balcony",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "band (music)",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "basement",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "bat",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "be called",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "beard",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "because",
+      "pos": [
+        "conj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "before",
+      "pos": [
+        "prep"
+      ],
+      "examples": []
+    },
+    {
+      "word": "below",
+      "pos": [
+        "prep"
+      ],
+      "examples": []
+    },
+    {
+      "word": "blanket",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "blond(e)",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "boring",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "bottle",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "bowl",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "brave",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "break",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "bring",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "build",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "building",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "bus station",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "bus stop",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "busy",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "buy",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "by",
+      "pos": [
+        "prep"
+      ],
+      "examples": []
+    },
+    {
+      "word": "cage",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "call",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "car park",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "careful",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "carefully",
+      "pos": [
+        "adv"
+      ],
+      "examples": []
+    },
+    {
+      "word": "carry",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "catch (e.g. a bus)",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "CD",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "centre (US center)",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "change",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Charlie",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "cheese",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "cinema",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "circle",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "circus",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "city",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "US center)",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Clare",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "clever",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "climb",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "cloud",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "cloudy",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "clown",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "coat",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "coffee",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "come on",
+      "pos": [
+        "excl"
+      ],
+      "examples": []
+    },
+    {
+      "word": "comic",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "comic book",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "cough",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "for ability)",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "country",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "countryside",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "cry",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "cup",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "curly",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Daisy",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "dangerous",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "daughter",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "dentist",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "difference",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "different",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "difficult",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "doctor",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "dolphin",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "dress up",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "drive",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "driver",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "drop",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "DVD",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "earache",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "easy",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "e-book",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "elevator (UK lift)",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "every",
+      "pos": [
+        "det"
+      ],
+      "examples": []
+    },
+    {
+      "word": "everyone",
+      "pos": [
+        "pron"
+      ],
+      "examples": []
+    },
+    {
+      "word": "everything",
+      "pos": [
+        "pron"
+      ],
+      "examples": []
+    },
+    {
+      "word": "exciting",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "excuse me",
+      "pos": [
+        "dis"
+      ],
+      "examples": []
+    },
+    {
+      "word": "fair",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "fall",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "famous",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "farm",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "farmer",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "fat",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "feed",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "field",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "film (US movie) star",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "fish",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "fix",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "fly",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "forest",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Fred",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Friday",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "frightened",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "funfair",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "get dressed",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "get off",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "get on",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "get undressed",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "get up",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "glass",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "go shopping",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "goal",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "granddaughter",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "grandparent",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "grandson",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "grass",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "ground",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "grow",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "grown-up",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "have (got) to",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "headache",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "helmet",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "help",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "hide",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "holiday",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "homework",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "hop",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "hospital",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "hot",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "how",
+      "pos": [
+        "adv"
+      ],
+      "examples": []
+    },
+    {
+      "word": "huge",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "hundred",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "hungry",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "hurt",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "ice",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "ice skates",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "ice skating",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "idea",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "ill",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "internet",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "into",
+      "pos": [
+        "prep"
+      ],
+      "examples": []
+    },
+    {
+      "word": "invite",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "island",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Jack",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Jane",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Jim",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Julia",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "jungle",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "kangaroo",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "kick",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "kind",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "kitten",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "lake",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "laptop",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "leaf/leaves",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "library",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "lift (US elevator)",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Lily",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "lion",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "little",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "look for",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "lose",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "loud",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "loudly",
+      "pos": [
+        "adv"
+      ],
+      "examples": []
+    },
+    {
+      "word": "machine",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "map",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "market",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Mary",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "matter",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "mean",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "message",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "milkshake",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "mistake",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "model",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Monday",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "moon",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "mountain",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "moustache",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "move",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "movie (UK film)",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "must",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "naughty",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "neck",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "need",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "net",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "never",
+      "pos": [
+        "adv"
+      ],
+      "examples": []
+    },
+    {
+      "word": "noise",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "noodles",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "nothing",
+      "pos": [
+        "pron"
+      ],
+      "examples": []
+    },
+    {
+      "word": "nurse",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "o'clock",
+      "pos": [
+        "adv"
+      ],
+      "examples": []
+    },
+    {
+      "word": "often",
+      "pos": [
+        "adv"
+      ],
+      "examples": []
+    },
+    {
+      "word": "only",
+      "pos": [
+        "adv"
+      ],
+      "examples": []
+    },
+    {
+      "word": "opposite",
+      "pos": [
+        "prep"
+      ],
+      "examples": []
+    },
+    {
+      "word": "out",
+      "pos": [
+        "adv"
+      ],
+      "examples": []
+    },
+    {
+      "word": "out of",
+      "pos": [
+        "prep"
+      ],
+      "examples": []
+    },
+    {
+      "word": "pair",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "pancake",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "panda",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "parent",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "parrot",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "party",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "pasta",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Paul",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "penguin",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Peter",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "picnic",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "pirate",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "place",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "plate",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "player",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "pool",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "pop star",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "practice",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "practise",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "present",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "pretty",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "puppy",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "put on",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "quick",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "quickly",
+      "pos": [
+        "adv"
+      ],
+      "examples": []
+    },
+    {
+      "word": "quiet",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "quietly",
+      "pos": [
+        "adv"
+      ],
+      "examples": []
+    },
+    {
+      "word": "rabbit",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "rainbow",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "ride",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "river",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "road",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "rock",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "roller skates",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "roller skating",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "roof",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "safe",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "salad",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Sally",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "sandwich",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Saturday",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "sauce",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "scarf",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "score",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "seat",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "send",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "shall",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "shape",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "shark",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "shop",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "shopping",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "shoulder",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "shout",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "shower",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "sick",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "skip",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "sky",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "slow",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "slowly",
+      "pos": [
+        "adv"
+      ],
+      "examples": []
+    },
+    {
+      "word": "snail",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "someone",
+      "pos": [
+        "pron"
+      ],
+      "examples": []
+    },
+    {
+      "word": "something",
+      "pos": [
+        "pron"
+      ],
+      "examples": []
+    },
+    {
+      "word": "sometimes",
+      "pos": [
+        "adv"
+      ],
+      "examples": []
+    },
+    {
+      "word": "son",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "soup",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "stair(s)",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "star",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "station",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "stomach",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "stomach-ache",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "straight",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "strong",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Sunday",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "sunny",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "supermarket",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "surprised",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "sweater",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "sweet",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "swim",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "swimming pool",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "swimsuit",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "take",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "tall",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "tea",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "teach",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "temperature",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "terrible",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "then",
+      "pos": [
+        "adv"
+      ],
+      "examples": []
+    },
+    {
+      "word": "thin",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "think",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "thirsty",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Thursday",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "ticket",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "tired",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "tooth/teeth",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "toothache",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "toothbrush",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "toothpaste",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "towel",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "town",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "tractor",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "travel",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "treasure",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "trip",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "T uesday",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "uncle",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "vegetable",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Vicky",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "village",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "wait",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "wake (up)",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "walk",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "water",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "waterfall",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "wave",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "weak",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "weather",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "website",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Wednesday",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "week",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "weekend",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "wet",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "whale",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "where",
+      "pos": [
+        "pron"
+      ],
+      "examples": []
+    },
+    {
+      "word": "which",
+      "pos": [
+        "pron"
+      ],
+      "examples": []
+    },
+    {
+      "word": "who",
+      "pos": [
+        "pron"
+      ],
+      "examples": []
+    },
+    {
+      "word": "why",
+      "pos": [
+        "int"
+      ],
+      "examples": []
+    },
+    {
+      "word": "wind",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "windy",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "world",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    },
+    {
+      "word": "would",
+      "pos": [
+        "v"
+      ],
+      "examples": []
+    },
+    {
+      "word": "wrong",
+      "pos": [
+        "adj"
+      ],
+      "examples": []
+    },
+    {
+      "word": "Zoe",
+      "pos": [
+        "n"
+      ],
+      "examples": []
+    }
+  ]
+}

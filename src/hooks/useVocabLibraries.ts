@@ -3,6 +3,7 @@ import type { VocabLibrary, VocabLibraryInfo } from '../types/vocab'
 
 import { apiFetch } from '../utils/apiBase'
 import { invalidateApiCache, queryApi } from '../utils/apiCache'
+import { compareVocabIds, DEFAULT_VOCAB_LABELS } from '../utils/vocabOrder'
 const LABELS_URL = '/api/vocab-labels'
 const PRINT_LABELS_URL = '/api/vocab-print-labels'
 /** 云端不可达时的兜底；服务可用时也镜像一份，下次离线还能看到自定义标签 */
@@ -42,7 +43,7 @@ function loadBundledLibraries(): VocabLibraryInfo[] {
       ...mod.default,
       file: file.startsWith('/') ? file.slice(1) : file,
     }))
-    .sort((a, b) => a.id.localeCompare(b.id))
+    .sort((a, b) => compareVocabIds(a.id, b.id))
 }
 
 export type VocabLibrariesApi = ReturnType<typeof useVocabLibraries>
@@ -110,10 +111,10 @@ export function useVocabLibraries() {
   }, [reloadLabels])
 
   /** 没改过标签就回落到词库 id */
-  const getLabelById   = useCallback((id: string) => labels[id] ?? id, [labels])
+  const getLabelById   = useCallback((id: string) => labels[id] ?? DEFAULT_VOCAB_LABELS[id] ?? id, [labels])
   const hasCustomLabel = useCallback((id: string) => labels[id] != null, [labels])
   const getPrintLabelById = useCallback(
-    (id: string) => printLabels[id] ?? labels[id] ?? id,
+    (id: string) => printLabels[id] ?? labels[id] ?? DEFAULT_VOCAB_LABELS[id] ?? id,
     [labels, printLabels],
   )
   const hasCustomPrintLabel = useCallback((id: string) => printLabels[id] != null, [printLabels])
