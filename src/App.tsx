@@ -12,6 +12,7 @@ import type { SettingsSection } from './pages/SettingsPage'
 import { StudyPage } from './pages/StudyPage'
 import { AchievementsPage } from './pages/AchievementsPage'
 import { LearningRecordsPage } from './pages/LearningRecordsPage'
+import { GoalPage } from './pages/GoalPage'
 import './App.css'
 
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(module => ({ default: module.SettingsPage })))
@@ -141,7 +142,6 @@ export default function App() {
             libraries={libraries}
             study={study}
             plan={plan}
-            getLabelById={getLabelById}
             getPrintLabelById={getPrintLabelById}
           />
         )}
@@ -150,6 +150,13 @@ export default function App() {
             libraries={libraries}
             getLabelById={getLabelById}
             study={study}
+          />
+        )}
+        {tab === 'goal' && (
+          <GoalPage
+            libraries={libraries}
+            getLabelById={getLabelById}
+            plan={plan}
           />
         )}
         {tab === 'records' && (

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PageHeader } from '../components/PageHeader'
-import { StudyGoal } from '../components/StudyGoal'
 import { Button, Checkbox, ENGLISH_WORD_INPUT_PROPS, Input, Modal, Popconfirm, Select } from '../ui'
 import type { SelectOption } from '../ui'
 import type { StudyListApi } from '../hooks/useStudyList'
@@ -189,11 +188,10 @@ interface StudyPageProps {
   libraries: VocabLibraryInfo[]
   study: StudyListApi
   plan: StudyPlanApi
-  getLabelById: (id: string) => string
   getPrintLabelById: (id: string) => string
 }
 
-export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelById }: StudyPageProps) {
+export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPageProps) {
   const { lists, fetchListWords, fetchBatches } = study
   const planData = plan.plan
   const prints   = usePrintBatches()
@@ -761,12 +759,6 @@ export function StudyPage({ libraries, study, plan, getLabelById, getPrintLabelB
           <span className="study-toast__text">{toast.text}</span>
         </div>
       )}
-
-      <StudyGoal
-        libraries={libraries}
-        items={planData.items}
-        getLabelById={getLabelById}
-      />
 
       <section className="card card--pad study-start">
         <div className="study-start__head">

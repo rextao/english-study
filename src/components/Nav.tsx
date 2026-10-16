@@ -2,13 +2,14 @@ import './Nav.css'
 import { Dropdown } from '../ui'
 import type { MenuItemType } from '../ui'
 
-export type TabKey = 'search' | 'lists' | 'settings' | 'achievements' | 'records' | 'study'
+export type TabKey = 'search' | 'lists' | 'settings' | 'achievements' | 'records' | 'study' | 'goal'
 
 // extra = 手机端收进折叠菜单的 tab（查词始终留在导航栏上）
 const TABS: { key: TabKey; label: string; extra?: boolean }[] = [
   { key: 'search', label: '查词' },
   { key: 'lists',  label: '学习列表', extra: true },
   { key: 'achievements', label: '学习成果', extra: true },
+  { key: 'goal', label: '目标', extra: true },
 ]
 
 /** 手机端折叠菜单的「更多」图标：三道短横线，和齿轮同尺寸的圆形按钮 */
@@ -44,15 +45,16 @@ interface NavProps {
 export function Nav({ active, onChange, totalItems, dueToday }: NavProps) {
   const visibleActive = active === 'records' ? 'achievements' : active
 
-  // 手机端折叠菜单里装着学习列表 / 学习成果 / 设置，落在这三个页面上时「更多」按钮要高亮
-  const moreActive = active === 'lists' || active === 'achievements' || active === 'settings' || active === 'records'
+  // 手机端折叠菜单里装着学习列表 / 学习成果 / 目标 / 设置，落在这些页面上时「更多」按钮要高亮
+  const moreActive = active === 'lists' || active === 'achievements' || active === 'goal' || active === 'settings' || active === 'records'
   const moreItems: MenuItemType[] = [
     {
       key: 'lists', label: '学习列表',
       extra: totalItems > 0 ? <span className="nav__menu-badge">{totalItems}</span> : undefined,
-    },
-    { key: 'achievements', label: '学习成果' },
-    { key: 'settings', label: '设置', icon: gearIcon },
+     },
+     { key: 'achievements', label: '学习成果' },
+     { key: 'goal', label: '目标' },
+     { key: 'settings', label: '设置', icon: gearIcon },
   ]
 
   return (
@@ -72,7 +74,7 @@ export function Nav({ active, onChange, totalItems, dueToday }: NavProps) {
                 type="button"
                 className={'nav__tab' + (tab.extra ? ' nav__tab--extra' : '')
                   + (visibleActive === tab.key ? ' nav__tab--active' : '')}
-                aria-current={active === tab.key ? 'page' : undefined}
+                 aria-current={visibleActive === tab.key ? 'page' : undefined}
                 onClick={() => onChange(tab.key)}
               >
                 {tab.label}
@@ -111,7 +113,7 @@ export function Nav({ active, onChange, totalItems, dueToday }: NavProps) {
             {gearIcon}
           </button>
 
-          {/* 手机端折叠菜单：学习列表 / 学习成果 / 设置 都收这里；桌面端隐藏 */}
+           {/* 手机端折叠菜单：学习列表 / 学习成果 / 目标 / 设置 都收这里；桌面端隐藏 */}
           <div className="nav__more">
             <Dropdown
               menu={{ items: moreItems, onClick: info => onChange(info.key as TabKey) }}

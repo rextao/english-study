@@ -1,0 +1,733 @@
+/* 目标页的第一块是长期路线图，和词库目标的绿色达成模块区分开。 */
+.goal-milestone {
+  padding: 24px;
+  border: 1px solid #dbe5ff;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(145deg, #f7f9ff 0%, var(--color-surface) 52%);
+  box-shadow: var(--shadow-sm);
+}
+
+.goal-milestone__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.goal-milestone__intro { min-width: 0; }
+
+.goal-milestone__eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.goal-milestone__intro h2,
+.goal-page__section-head h2 {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.goal-milestone__intro p,
+.goal-page__section-head p {
+  margin-top: 6px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.goal-milestone__summary {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: 0 2px;
+}
+
+.goal-milestone__summary strong {
+  color: var(--color-primary-dark);
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.goal-milestone__summary small {
+  margin-left: 2px;
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+.goal-milestone__summary span {
+  margin-top: 6px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.goal-milestone__overview {
+  display: grid;
+  grid-template-columns: minmax(240px, .9fr) minmax(300px, 1.1fr);
+  gap: 18px;
+  margin-top: 22px;
+  padding: 16px;
+  border: 1px solid rgba(37, 99, 235, .12);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, .72);
+}
+
+.goal-milestone__current,
+.goal-milestone__progress {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.goal-milestone__label {
+  display: block;
+  color: var(--color-text-subtle);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+.goal-milestone__current strong {
+  margin-top: 3px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.goal-milestone__current > span:last-child {
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.goal-milestone__progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.goal-milestone__progress-head b {
+  color: var(--color-primary-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+.goal-milestone__progress-bar {
+  height: 9px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: #e9efff;
+}
+
+.goal-milestone__progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #93c5fd, #2563eb);
+  transition: width .3s ease;
+}
+
+.goal-milestone__progress-hint {
+  margin-top: 6px;
+  color: var(--color-text-subtle);
+  font-size: 11px;
+}
+
+/* 总览时间轴：用真实日期比例定位阶段和节点，颜色只承担阶段区分。 */
+.goal-timeline-overview {
+  margin-top: 22px;
+  padding: 16px 16px 12px;
+  border: 1px solid rgba(37, 99, 235, .12);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, .72);
+}
+
+.goal-timeline-overview__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.goal-timeline-overview__head h3 {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.goal-timeline-overview__today-label {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.goal-timeline-overview__scroll {
+  overflow-x: auto;
+  margin: 0 -4px;
+  padding: 0 4px 2px;
+  scrollbar-color: #c8d5f7 transparent;
+}
+
+.goal-timeline-overview__canvas {
+  position: relative;
+  min-width: 660px;
+  height: 164px;
+  margin-top: 17px;
+}
+
+.goal-timeline-overview__phases {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 35px;
+}
+
+.goal-timeline-overview__grades {
+  position: absolute;
+  top: 43px;
+  right: 0;
+  left: 0;
+  height: 22px;
+}
+
+.goal-timeline-overview__phase {
+  position: absolute;
+  display: flex;
+  min-width: 96px;
+  height: 35px;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 11px;
+  border-radius: 8px;
+  color: #fff;
+  line-height: 1.2;
+  overflow: hidden;
+}
+
+.goal-timeline-overview__phase--0 {
+  background: linear-gradient(100deg, #5b8def, #79a4f5);
+}
+
+.goal-timeline-overview__phase--1 {
+  background: linear-gradient(100deg, #8b7be8, #ad8be9);
+}
+
+/* 后续增加阶段时仍有备用色，不必修改时间轴布局。 */
+.goal-timeline-overview__phase--2 { background: linear-gradient(100deg, #e09a57, #efb36f); }
+.goal-timeline-overview__phase--3 { background: linear-gradient(100deg, #42a98b, #6bc4a8); }
+.goal-timeline-overview__phase--4 { background: linear-gradient(100deg, #d46c94, #e894b2); }
+
+.goal-timeline-overview__phase span {
+  font-size: 10px;
+  opacity: .82;
+}
+
+.goal-timeline-overview__phase strong {
+  margin-top: 1px;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.goal-timeline-overview__grade {
+  position: absolute;
+  display: flex;
+  min-width: 70px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, .76);
+  border-radius: 6px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.goal-timeline-overview__grade--0 { background: #e8f0ff; }
+.goal-timeline-overview__grade--1 { background: #eeeafd; }
+.goal-timeline-overview__grade--2 { background: #fff0dc; }
+
+.goal-timeline-overview__axis {
+  position: absolute;
+  top: 82px;
+  right: 0;
+  left: 0;
+  height: 73px;
+}
+
+.goal-timeline-overview__axis-line {
+  position: absolute;
+  top: 14px;
+  right: 0;
+  left: 0;
+  height: 2px;
+  border-radius: var(--radius-full);
+  background: #d7def1;
+}
+
+.goal-timeline-overview__today {
+  position: absolute;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translateX(-50%);
+  color: #c2413e;
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.goal-timeline-overview__today-dot {
+  width: 10px;
+  height: 10px;
+  margin: 9px 0 4px;
+  border: 2px solid var(--color-surface);
+  border-radius: 50%;
+  background: #ef6d69;
+  box-shadow: 0 0 0 2px rgba(239, 109, 105, .22);
+}
+
+.goal-timeline-overview__goal {
+  position: absolute;
+  top: -47px;
+  display: flex;
+  min-width: 84px;
+  flex-direction: column;
+  align-items: flex-end;
+  transform: translateX(-100%);
+  color: #936200;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.goal-timeline-overview__goal-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 29px;
+  height: 29px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #f2b84b;
+  box-shadow: 0 0 0 2px #f5dfad, var(--shadow-xs);
+  color: #fff;
+}
+
+.goal-timeline-overview__goal strong { margin-top: 6px; }
+
+.goal-timeline-overview__node {
+  position: absolute;
+  top: 0;
+  display: flex;
+  width: 80px;
+  min-height: 66px;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 3px;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font-family: inherit;
+  text-align: center;
+  transform: translateX(-50%);
+  cursor: pointer;
+}
+
+.goal-timeline-overview__node:focus-visible {
+  outline: none;
+  border-radius: var(--radius);
+  box-shadow: var(--ui-focus-ring);
+}
+
+.goal-timeline-overview__node-dot {
+  width: 12px;
+  height: 12px;
+  margin-top: 9px;
+  border: 3px solid var(--color-surface);
+  border-radius: 50%;
+  background: #aab4cc;
+  box-shadow: 0 0 0 1px #9ca8c2;
+}
+
+.goal-timeline-overview__node--completed .goal-timeline-overview__node-dot {
+  background: #34d399;
+  box-shadow: 0 0 0 1px #20aa78;
+}
+
+.goal-timeline-overview__node--current .goal-timeline-overview__node-dot {
+  background: var(--color-primary);
+  box-shadow: 0 0 0 3px #dbe6ff;
+}
+
+.goal-timeline-overview__node-label {
+  margin-top: 8px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.goal-timeline-overview__node--current .goal-timeline-overview__node-label {
+  color: var(--color-primary-dark);
+}
+
+.goal-timeline-overview__node--selected .goal-timeline-overview__node-label,
+.goal-timeline-overview__node:hover .goal-timeline-overview__node-label {
+  color: var(--color-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.goal-timeline-overview__node--start {
+  align-items: flex-start;
+  transform: none;
+  text-align: left;
+}
+
+.goal-timeline-overview__node--end {
+  align-items: flex-end;
+  transform: translateX(-100%);
+  text-align: right;
+}
+
+.goal-milestone__phases {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 24px;
+}
+
+.goal-phase {
+  min-width: 0;
+  padding: 18px 18px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, .82);
+}
+
+.goal-phase__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.goal-phase__title-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.goal-phase__number {
+  flex-shrink: 0;
+  padding: 3px 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-dark);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.goal-phase h3 {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.goal-phase__header p {
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.goal-phase__status {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-hover);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.goal-phase__status--current {
+  background: #eaf2ff;
+  color: var(--color-primary-dark);
+}
+
+.goal-phase__status--completed {
+  background: #edf9f3;
+  color: var(--ui-success-text);
+}
+
+.goal-phase__status--transition { background: #fff8e8; color: #946200; }
+
+/* 桌面端按周期横向铺开，节点圆点和连线组成阶段时间轴。 */
+.goal-timeline {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.goal-timeline::before {
+  content: '';
+  position: absolute;
+  top: 15px;
+  right: 9%;
+  left: 9%;
+  height: 1px;
+  background: var(--color-border-strong);
+}
+
+.goal-node {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 7px 2px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.goal-node:focus-visible {
+  outline: none;
+  border-radius: var(--radius);
+  box-shadow: var(--ui-focus-ring);
+}
+
+.goal-node__dot {
+  display: block;
+  width: 11px;
+  height: 11px;
+  border: 3px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--color-border-strong);
+  box-shadow: 0 0 0 1px var(--color-border-strong);
+}
+
+.goal-node--completed .goal-node__dot {
+  background: #34d399;
+  box-shadow: 0 0 0 1px #20aa78;
+}
+
+.goal-node--current .goal-node__dot {
+  width: 13px;
+  height: 13px;
+  background: var(--color-primary);
+  box-shadow: 0 0 0 3px #dbe6ff;
+}
+
+.goal-node--selected .goal-node__body {
+  border-color: #b5caff;
+  background: #f7f9ff;
+  box-shadow: var(--shadow-xs);
+}
+
+.goal-node__body {
+  display: flex;
+  width: 100%;
+  min-height: 112px;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-top: 10px;
+  padding: 11px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  text-align: left;
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+
+.goal-node:hover .goal-node__body {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-sunken);
+}
+
+.goal-node--selected:hover .goal-node__body { border-color: #b5caff; background: #f7f9ff; }
+
+.goal-node__label {
+  color: var(--color-primary-dark);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.goal-node--completed .goal-node__label { color: var(--ui-success-text); }
+
+.goal-node__body strong {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.goal-node__note {
+  margin-top: 3px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.goal-node__status {
+  margin-top: auto;
+  padding-top: 7px;
+  color: var(--color-text-subtle);
+  font-size: 11px;
+}
+
+.goal-node--completed .goal-node__status { color: var(--ui-success-text); }
+.goal-node--current .goal-node__status { color: var(--color-primary-dark); font-weight: 600; }
+
+.goal-milestone__selected {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 18px;
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px dashed #b5caff;
+  border-radius: var(--radius);
+  background: #fbfcff;
+}
+
+.goal-milestone__selected > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.goal-milestone__selected strong { font-size: 13px; }
+
+.goal-milestone__selected p,
+.goal-milestone__selected-hint {
+  align-self: end;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.goal-milestone__selected-hint {
+  grid-column: 2;
+  color: var(--color-text-subtle);
+}
+
+.goal-page__target { margin-top: 30px; }
+
+.goal-page__section-head { margin-bottom: 14px; }
+
+.goal-page__notice { margin-bottom: 12px; }
+
+.goal-page__loading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 720px) {
+  .goal-milestone { padding: 18px 16px; }
+  .goal-milestone__header { gap: 14px; }
+  .goal-milestone__summary { align-items: flex-start; }
+  .goal-milestone__summary strong { font-size: 32px; }
+  .goal-milestone__overview { grid-template-columns: 1fr; gap: 14px; margin-top: 18px; }
+  .goal-milestone__current > span:last-child { white-space: normal; }
+  .goal-timeline-overview { margin-top: 18px; padding: 14px 12px 10px; }
+  .goal-timeline-overview__head { display: block; }
+  .goal-timeline-overview__today-label { display: block; margin-top: 5px; }
+  .goal-timeline-overview__canvas { min-width: 660px; margin-top: 15px; }
+  .goal-phase { padding: 15px 12px 13px; }
+  .goal-phase__header { gap: 10px; }
+  .goal-phase__title-wrap { gap: 7px; }
+  .goal-phase__number { padding-right: 6px; padding-left: 6px; }
+
+  /* 手机端改为纵向时间线，周期节点更适合单手滚动和点击。 */
+  .goal-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 14px;
+    padding: 2px 0 2px 2px;
+  }
+
+  .goal-timeline::before {
+    top: 14px;
+    right: auto;
+    bottom: 14px;
+    left: 7px;
+    width: 1px;
+    height: auto;
+  }
+
+  .goal-node {
+    display: grid;
+    grid-template-columns: 13px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    padding: 0;
+    text-align: left;
+  }
+
+  .goal-node__dot,
+  .goal-node--current .goal-node__dot {
+    width: 11px;
+    height: 11px;
+    margin-top: 14px;
+  }
+
+  .goal-node__body {
+    min-height: 0;
+    margin: 5px 0;
+    padding: 9px 10px;
+  }
+
+  .goal-node__status { padding-top: 5px; }
+
+  .goal-milestone__selected {
+    display: block;
+    margin-top: 14px;
+  }
+
+  .goal-milestone__selected p { margin-top: 8px; }
+  .goal-milestone__selected-hint { display: block; margin-top: 3px; }
+}
+
+@media (max-width: 420px) {
+  .goal-milestone__header { display: block; }
+  .goal-milestone__summary { margin-top: 15px; }
+  .goal-phase__header { align-items: flex-start; flex-direction: column; }
+  .goal-phase__status { align-self: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goal-milestone__progress-bar span,
+  .goal-node__body { transition: none; }
+}

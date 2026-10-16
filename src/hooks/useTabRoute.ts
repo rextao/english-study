@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { TabKey } from '../components/Nav'
 
-const TAB_KEYS: TabKey[] = ['search', 'lists', 'settings', 'achievements', 'records', 'study']
+const TAB_KEYS: TabKey[] = ['search', 'lists', 'settings', 'achievements', 'records', 'study', 'goal']
 const DEFAULT_TAB: TabKey = 'search'
 
 /** 老书签兼容：批量导入并进了查词页，词库页并进了设置页 */
