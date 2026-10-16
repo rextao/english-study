@@ -12,6 +12,7 @@
     "db:local:migrate": "npx wrangler d1 execute english-study-sync --local --file=worker/migrations/001-dict-cache-status.sql",
     "db:local:import": "npx wrangler d1 execute english-study-sync --local --file=migration.sql",
     "test:server": "node worker/test/api.test.mjs",
+    "docs:check": "node scripts/check-docs.mjs",
     "migrate:to-d1": "node scripts/migrate-to-d1.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview",

@@ -60,7 +60,10 @@
   min-height: 22px;
 }
 
-.import-text-actions { display: flex; align-items: center; gap: 8px; }
+.import-text-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.import-random-controls { display: flex; align-items: center; gap: 6px; }
+.import-random-controls__library { min-width: 110px; }
+.import-random-controls__count { min-width: 72px; }
 .import-camera__input { display: none; }
 .import-camera__button { display: none; }
 .import-camera__status,
@@ -93,6 +96,7 @@
 .import-filter__count { opacity: .65; }
 
 .import-check { margin-top: 2px; }
+.import-filter__options { display: flex; flex-wrap: wrap; gap: 8px 16px; }
 
 /* ---------------- 导入按钮与结果 ---------------- */
 
@@ -181,6 +185,8 @@
   .import-camera__button { display: inline-flex; }
   .import-target { width: 100%; }
   .import-target__select { flex: 1; min-width: 0; }
+  .import-random-controls { width: 100%; }
+  .import-random-controls__library { flex: 1; min-width: 0; }
   .import-actions__msg { min-width: 0; }
   .import-translation-picker__footer { align-items: flex-end; flex-direction: column; }
 }

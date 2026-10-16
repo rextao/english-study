@@ -57,7 +57,8 @@ npx wrangler d1 execute english-study-sync --local --file=prod-dump.sql
 | `npm run db:local:migrate` | 给**已存在**的本地 D1 补结构变更（建表语句补不上已有表的新列；跑一次即可） |
 | `npm run db:local:import` | 把 `migration.sql` 灌进本地 D1（从历史 sqlite 快照造样例数据用） |
 | `npm run build` | 类型检查 + 打包到 `dist/` |
-| `npm run test:server` | 服务端测试，292 项，跑在临时目录的 node:sqlite shim 上、不联网，不会动你的数据 |
+| `npm run test:server` | 服务端测试，跑在临时目录的 node:sqlite shim 上、不联网，不会动你的数据 |
+| `npm run docs:check` | 检查项目文档入口、关键路径和本机绝对路径引用 |
 | `npm run migrate:to-d1` | 把本地历史 sqlite 生成 migration.sql（已迁移过就不用再跑） |
 | `npm run deploy` | 构建 + `wrangler deploy`（Worker + 静态资源一起发） |
 

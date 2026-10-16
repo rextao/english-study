@@ -113,6 +113,7 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
 
   const current   = lists.find(l => l.id === selectedId)
   const isDefault = selectedId === DEFAULT_LIST_ID
+  const currentWordCount = words.filter(item => item.type === 'word').length
 
   const visibleWords = useMemo(() => {
     const k = keyword.trim().toLowerCase()
@@ -342,7 +343,7 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
               onClick={() => setSelectedId(list.id)}
             >
               {list.name}
-              <span className="lists-tab__count">{list.wordCount}</span>
+              <span className="lists-tab__count">{list.wordCount} 个词</span>
             </button>
           ))}
         </div>
@@ -365,7 +366,7 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
             {current.name}
             {isDefault && <Tag color="blue">默认</Tag>}
             <span className="lists-toolbar__count">
-              {keyword.trim() ? visibleWords.length + ' / ' + words.length + ' 条' : words.length + ' 条'}
+              {currentWordCount + ' · ' + current.wordCount}
             </span>
           </h2>
 

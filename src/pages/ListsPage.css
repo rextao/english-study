@@ -63,6 +63,7 @@
   font-weight: 600;
   line-height: 17px;
   text-align: center;
+  white-space: nowrap;
 }
 
 .lists-tab--active .lists-tab__count { background: var(--color-primary); color: #fff; }
@@ -177,6 +178,8 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text);
+  user-select: text;
+  cursor: text;
 }
 
 .word-batch__count {

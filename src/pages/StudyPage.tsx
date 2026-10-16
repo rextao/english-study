@@ -323,6 +323,19 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
     if (!query) return printableWords
     return printableWords.filter(item => keyOf(displayTextOf(item)).includes(query))
   }, [printableWords, cardSearch])
+  /** 自由打印也按学习列表里的批次分组，搜索时只保留命中的词。 */
+  const printableWordGroups = useMemo(() => {
+    const groups = new Map<string, StudyWordItem[]>()
+    for (const item of filteredPrintableWords) {
+      const key = item.batchKey || batchKeyOf(item.addedAt)
+      const bucket = groups.get(key)
+      if (bucket) bucket.push(item)
+      else groups.set(key, [item])
+    }
+    return Array.from(groups.entries()).sort(
+      (a, b) => Math.max(...b[1].map(w => w.addedAt)) - Math.max(...a[1].map(w => w.addedAt)),
+    )
+  }, [filteredPrintableWords])
 
   const layoutInfo    = LAYOUTS.find(l => l.value === layout) ?? LAYOUTS[0]
   const perPage       = layoutInfo.cols * layoutInfo.rows
@@ -472,6 +485,13 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
 
   function selectFilteredCards() {
     setCardDraft(prev => Array.from(new Set(prev.concat(filteredPrintableWords.map(item => item.word)))))
+  }
+
+  function toggleCardGroupWords(items: StudyWordItem[]) {
+    const words = items.map(item => item.word)
+    setCardDraft(prev => words.every(word => prev.includes(word))
+      ? prev.filter(word => !words.includes(word))
+      : prev.concat(words.filter(word => !prev.includes(word))))
   }
 
   function selectPrintBatch(batchId: string) {
@@ -942,18 +962,41 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
           {filteredPrintableWords.length === 0 ? (
             <p className="empty empty--inline">没有匹配的单词或句子。</p>
           ) : (
-            <div className="pick-grid">
-              {filteredPrintableWords.map(item => (
-                <Checkbox
-                  key={item.word}
-                  className="pick-grid__item"
-                  checked={cardDraftSet.has(item.word)}
-                  onChange={() => toggleCardDraft(item.word)}
-                >
-                  {displayTextOf(item)}
-                </Checkbox>
-              ))}
-            </div>
+            printableWordGroups.map(([key, items]) => {
+              const isDate = /^\d{4}-\d{2}-\d{2}$/.test(key)
+              const customLabel = batchNames[key] || (isDate ? '' : '自定义分组')
+              const dayTs = isDate ? batchKeyTsOf(key) : Math.max(...items.map(w => w.addedAt))
+              return (
+                <div key={key} className="pick-modal__group">
+                  <div className="pick-modal__group-title">
+                    <span>{customLabel || groupDayLabel(dayTs, planData.today)}</span>
+                    {customLabel && (
+                      <span className="pick-modal__group-day">{groupDayLabel(dayTs, planData.today)}</span>
+                    )}
+                    <span className="pick-modal__group-count">打印 · {items.length} 个词</span>
+                    <Checkbox
+                      className="pick-modal__group-all"
+                      checked={items.length > 0 && items.every(item => cardDraftSet.has(item.word))}
+                      onChange={() => toggleCardGroupWords(items)}
+                    >
+                      全选
+                    </Checkbox>
+                  </div>
+                  <div className="pick-grid">
+                    {items.map(item => (
+                      <Checkbox
+                        key={item.word}
+                        className="pick-grid__item"
+                        checked={cardDraftSet.has(item.word)}
+                        onChange={() => toggleCardDraft(item.word)}
+                      >
+                        {displayTextOf(item)}
+                      </Checkbox>
+                    ))}
+                  </div>
+                </div>
+              )
+            })
           )}
         </Modal>
       </section>

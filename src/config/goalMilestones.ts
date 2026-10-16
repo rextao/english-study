@@ -41,6 +41,21 @@ export interface GoalFinalTargetConfig {
   note: string
 }
 
+export interface GoalWordTargetConfig {
+  label: string
+  count: number
+  description: string
+}
+
+/** 各周期的累计单词目标，供目标详情模块展示。 */
+export const GOAL_WORD_TARGET_CONFIG: GoalWordTargetConfig[] = [
+  { label: '周期 1', count: 670, description: 'Movers 前段核心词 + 第一阶段 Starters 的 350 词' },
+  { label: '周期 2', count: 830, description: '掌握 Movers 后半 160 词' },
+  { label: '周期 3', count: 1260, description: '掌握 Flyers 前半 180 词' },
+  { label: '周期 4', count: 1460, description: '+200 KET 核心词' },
+  { label: '周期 5', count: 2000, description: '+160 KET 进阶核心词' },
+]
+
 export const GOAL_MILESTONE_CONFIG: GoalPhaseConfig[] = [
   {
     id: 'foundation',
@@ -69,7 +84,7 @@ export const GOAL_MILESTONE_CONFIG: GoalPhaseConfig[] = [
         label: '周期 3',
         period: '2027 年 9 月 – 2028 年 1 月',
         start: '2027-09-01',
-        end: '2028-02-01',
+        end: '2028-03-01',
         note: '二年级上学期',
       },
     ],

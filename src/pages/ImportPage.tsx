@@ -24,6 +24,9 @@ const SEARCH_BATCH_SIZE = 200
 const MAX_PICKED_TRANSLATIONS = 12
 /** 与服务端 MAX_CUSTOM_TRANSLATIONS 一致：一个词最多 6 条自定义词义 */
 const MAX_CUSTOM_TRANSLATIONS = 6
+const RANDOM_COUNT_OPTIONS: SelectOption[] = [5, 10, 20, 50, 100].map(count => ({
+  value: String(count), label: count + ' 个',
+}))
 
 /**
  * 过滤英文模型在中文/混合图片上的“英文幻觉”。
@@ -161,6 +164,24 @@ const STATE_LABEL: Record<RowState, string> = {
   'dup-list': '列表已有',
 }
 
+/**
+ * 过滤开关开启时，删除数字和中文，但保留英文句子及常用标点。
+ * 例如「1. but conj. 但是，不过。」会变成「but conj.」。
+ */
+function filterEnglishText(input: string): string {
+  return input
+    .split(/\r?\n/)
+    .map(line => line
+      .replace(/[0-9０-９\u3400-\u9fff]/g, '')
+      .replace(/[^A-Za-z'’.,!?;:()\-\s]/g, ' ')
+      .replace(/^\s*[.,!?;:]+(?=\s)/, '')
+      .replace(/[ \t]+/g, ' ')
+      .trim(),
+    )
+    .filter(Boolean)
+    .join('\n')
+}
+
 interface ImportPageProps {
   libraries: VocabLibrary[]
   getLabelById: (id: string) => string
@@ -177,7 +198,10 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
 
   const [text, setText]                 = useState('')
   const [filterLibId, setFilterLibId]   = useState<string>(NO_FILTER)
+  const [filterNonWords, setFilterNonWords] = useState(true)
   const [keepSentences, setKeepSentences] = useState(false)
+  const [randomLibraryId, setRandomLibraryId] = useState('')
+  const [randomCount, setRandomCount] = useState('10')
   const [targetList, setTargetList]     = useState('default')
   const [importing, setImporting]       = useState(false)
   const [result, setResult]             = useState<{ added: number; skipped: number; queued: number; suspect: number } | null>(null)
@@ -203,6 +227,12 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
   const [ocrStatus, setOcrStatus] = useState('')
   const [ocrError, setOcrError] = useState('')
   const cameraInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (libraries.length > 0 && !libraries.some(library => library.id === randomLibraryId)) {
+      setRandomLibraryId(libraries[0].id)
+    }
+  }, [libraries, randomLibraryId])
 
   // 导入接口立即返回；中文已在查询阶段确定，这里只盯后台补音标的进度。
   const prefetch = useDictPrefetch()
@@ -230,7 +260,10 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
           setOcrError('没有识别到英文文字，非英文内容已忽略')
           return
         }
-        setText(previous => previous.trim() ? previous.trimEnd() + '\n' + recognized : recognized)
+        setText(previous => {
+          const next = previous.trim() ? previous.trimEnd() + '\n' + recognized : recognized
+          return filterNonWords ? filterEnglishText(next) : next
+        })
         setResult(null)
         setOcrStatus('识别完成')
       } finally {
@@ -243,6 +276,32 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
       setOcrBusy(false)
       if (cameraInputRef.current) cameraInputRef.current.value = ''
     }
+  }
+
+  /** 从选定词库随机抽词，并追加到输入框；已存在于输入框或目标列表的词不会重复添加。 */
+  function addRandomWords() {
+    const library = libraries.find(item => item.id === randomLibraryId)
+    if (!library) return
+    const count = Number(randomCount)
+    const existingKeys = new Set(text.split(/\r?\n/).map(normalize).filter(Boolean))
+    const listKeys = new Set([...existing].map(normalize))
+    const candidates = library.words.filter(word => {
+      const key = normalize(word.word)
+      return !existingKeys.has(key) && !listKeys.has(key)
+    })
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      const item = candidates[i]
+      candidates[i] = candidates[j]
+      candidates[j] = item
+    }
+    const selected = candidates.slice(0, count).map(item => item.word)
+    if (selected.length === 0) return
+    setText(previous => {
+      const next = previous.trim() ? previous.trimEnd() + '\n' + selected.join('\n') : selected.join('\n')
+      return filterNonWords ? filterEnglishText(next) : next
+    })
+    setResult(null)
   }
 
   // 目标列表已有的词条，用于预览时标出「列表已有」
@@ -644,21 +703,56 @@ const targetControls = (
                 })}
               </div>
             </div>
-            {filterActive && (
+            <div className="import-filter__options">
               <Checkbox
                 className="import-check"
-                checked={keepSentences}
-                onChange={e => setKeepSentences(e.target.checked)}
+                checked={filterNonWords}
+                onChange={e => {
+                  const checked = e.target.checked
+                  setFilterNonWords(checked)
+                  if (checked) setText(previous => filterEnglishText(previous))
+                  setResult(null)
+                }}
               >
-                句子不参与筛选，始终保留
+                过滤非单词（数字、中文）
               </Checkbox>
-            )}
+              {filterActive && (
+                <Checkbox
+                  className="import-check"
+                  checked={keepSentences}
+                  onChange={e => setKeepSentences(e.target.checked)}
+                >
+                  句子不参与筛选，始终保留
+                </Checkbox>
+              )}
+            </div>
           </div>
 
           <div className="import-section">
             <div className="import-label-row">
               <label className="field-label" htmlFor="import-textarea">粘贴内容</label>
               <div className="import-text-actions">
+                <div className="import-random-controls">
+                  <Select
+                    aria-label="随机单词词库"
+                    size="small"
+                    block={false}
+                    className="import-random-controls__library"
+                    value={randomLibraryId}
+                    options={libraries.map(library => ({ value: library.id, label: getLabelById(library.id) }))}
+                    onChange={setRandomLibraryId}
+                  />
+                  <Select
+                    aria-label="随机单词数量"
+                    size="small"
+                    block={false}
+                    className="import-random-controls__count"
+                    value={randomCount}
+                    options={RANDOM_COUNT_OPTIONS}
+                    onChange={setRandomCount}
+                  />
+                  <Button size="small" disabled={!randomLibraryId} onClick={addRandomWords}>随机单词</Button>
+                </div>
                 <input ref={cameraInputRef} className="import-camera__input" type="file" accept="image/*" capture="environment"
                   onChange={e => { void handleOcrPhoto(e.target.files?.[0]) }} aria-label="拍照提取文字" />
                 <Button className="import-camera__button" size="small" loading={ocrBusy}
@@ -672,7 +766,10 @@ const targetControls = (
               id="import-textarea"
               placeholder={'apple\nbanana\nHow are you doing today?\n...'}
               value={text}
-              onChange={e => { setText(e.target.value); setResult(null) }}
+              onChange={e => {
+                setText(filterNonWords ? filterEnglishText(e.target.value) : e.target.value)
+                setResult(null)
+              }}
               rows={14}
               spellCheck={false}
             />

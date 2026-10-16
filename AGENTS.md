@@ -1,6 +1,6 @@
 # AGENTS.md — 项目地图（给 AI 读）
 
-读完这一份就能直接动手改代码，不必再全量扫源码。面向人的使用说明在 `README.md`；两份分工：README 讲「怎么用」，这份讲「怎么改」。
+读完这一份就能直接动手改代码，不必再全量扫源码。面向人的使用说明在 `README.md`；两份分工：README 讲「怎么用」，这份讲「怎么改」。详细架构和动态文档维护规则在 `docs/README.md`，只在任务相关时按需读取。
 
 ## 协作方式（给 AI：优先并行子 agent）
 
@@ -17,12 +17,12 @@
 
 ## 硬约束（动手前先看）
 
-- **Node 24**：每条 node / npm 命令前先 `export PATH=/Users/rextao/.nvm/versions/node/v24.18.0/bin:$PATH`（系统默认 node 23 跑不了测试——`node:sqlite` 需要 24）。
+- **Node 24**：运行 node / npm 命令前确认 `node --version` 为 24.x；项目用 `.nvmrc` 固定版本，系统默认版本不满足时先切换到 Node 24（`node:sqlite` 需要 24）。
 - **AI 锁定区不可改动**：用户用 `<!-- AI_LOCK_START -->` / `<!-- AI_LOCK_END -->` 包起来的文字，任何情况下都不要修改、删除、挪位置或改写——重排格式、批量替换、翻译、润色、压缩文档时也必须原样保留，两条标记注释本身也不要动。非要动那块区域时先问用户。
 - **零新增运行时依赖**：Worker 只用全局（`fetch` / `crypto.randomUUID` / `TextEncoder`），测试只用 `node:sqlite`；`npm i` 在沙箱里无外网会失败，也不要引 express / wrangler 之外的运行时依赖。
 - **UI 禁原生控件**：页面里不要出现 `<select>`、`<textarea>`、`type='checkbox'`，统一用 `src/ui` 里的 `Select` / `TextArea` / `Checkbox`。
 - **TS 严格**：`tsconfig.app.json` 开了 `strict` + `noUnusedLocals` + `noUnusedParameters` + `noFallthroughCasesInSwitch`（**没开** `noUncheckedIndexedAccess`）。
-- **验证命令**：`npm run build`（= `tsc -b && vite build`）必须 exit 0；动过 `worker/` 再跑 `npm run test:server`（282 项断言，跑在临时目录的 node:sqlite shim 上，不碰真实数据）。
+- **验证命令**：`npm run build`（= `tsc -b && vite build`）必须 exit 0；动过 `worker/` 再跑 `npm run test:server`（跑在临时目录的 node:sqlite shim 上，不碰真实数据）。文档结构检查使用 `npm run docs:check`。
 - **密钥不进 git**：`API_TOKEN` / 百度翻译密钥只能通过 `npx wrangler secret put <NAME>` 配成 Worker secret；沙箱连不了外网，部署 / 建表 / 迁数据 / 配密钥由用户在本机执行。
 - **D1 写路径**：学习列表 / 词条与学习进度使用定向 SQL 和行级 INSERT / UPDATE / DELETE；不要在请求路径整库 load 或重写。全库读取仅留在测试断言辅助中。小型配置仍可用 kv JSON；打印记录目前有 60 条上限，若单批次规模明显增长，再评估拆成关系表。
 
@@ -60,6 +60,7 @@ src/pages/SettingsPage.tsx     设置页（tab=settings）：顶部「词库配�
                                不可用的步骤灰色标「跳过」并给原因（密钥未配 = Worker secret 没配）；
                                词库配置 = LibrariesPage embedded，学习记录 = LearningRecordsPage embedded
 src/pages/AchievementsPage.tsx     学习成果页（tab=achievements）：目标达成度统计
+src/pages/GoalPage.tsx             目标页（若仍由路由或旧入口引用，先确认调用方再修改或删除）
 src/pages/LearningRecordsPage.tsx  学习记录页：学习 / 打卡日志明细 + 筛选 + 批量删除；
                                默认 embedded 进设置页「学习记录」分区（不画 .page 外壳和页头），
                                也仍挂在 #/records 上独立成页（导航里没有，从成果页进，带 onBack 和页头）；
@@ -402,7 +403,7 @@ GET /api/dict → ensureEntry(word, force) → resolveEntry(word, force) → { e
 ## 部署与迁移（用户在本机执行；沙箱连不了外网）
 
 ```bash
-export PATH=/Users/rextao/.nvm/versions/node/v24.18.0/bin:$PATH
+node --version  # 必须为 24.x；项目版本见 .nvmrc
 npm run build                                  # tsc -b && vite build
 
 # 首次 / schema 变更：建表（会 DROP 废弃的 sync_snapshot）
@@ -437,9 +438,9 @@ npm run db:local:import                        # 可选：把 migration.sql 灌�
 ## 验证清单
 
 ```bash
-export PATH=/Users/rextao/.nvm/versions/node/v24.18.0/bin:$PATH
+node --version  # 必须为 24.x；项目版本见 .nvmrc
 npm run build          # tsc -b && vite build，必须 exit 0
-npm run test:server    # 动过 worker/ 就跑，期望「282 passed, 0 failed」
+npm run test:server    # 动过 worker/ 就跑；测试不得联网，也不得修改真实数据
 ```
 
 改完后自查：有没有新增原生 `<select>` / `<textarea>` / `checkbox`；有没有绕过 `apiFetch` 的裸 `fetch`；有没有新引依赖；有没有把 `nextDueAt` / `state` 这类派生字段写进表；归一化规则是不是几处都改了；`DICT_NO_NETWORK=1`（断网）时功能是不是照样能跑。
