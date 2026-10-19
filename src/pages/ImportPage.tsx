@@ -21,6 +21,11 @@ const ANY_LIB   = '__any__'
 const PREVIEW_LIMIT = 200
 /** 与服务端单次批量查询上限一致；超过时自动分批，用户仍只操作一次。 */
 const SEARCH_BATCH_SIZE = 200
+/** 单批查询最长等待时间，避免外部词典一直 pending 时按钮永久转圈。 */
+const SEARCH_REQUEST_TIMEOUT_MS = 90_000
+/** 网络错误、超时和服务端临时错误自动重试一次；客户端错误不重试。 */
+const SEARCH_REQUEST_MAX_RETRIES = 1
+const SEARCH_REQUEST_RETRY_DELAY_MS = 600
 const MAX_PICKED_TRANSLATIONS = 12
 /** 与服务端 MAX_CUSTOM_TRANSLATIONS 一致：一个词最多 6 条自定义词义 */
 const MAX_CUSTOM_TRANSLATIONS = 6
@@ -84,6 +89,15 @@ interface BatchSearchResult {
   ok: boolean
   entry?: DictionaryEntry
   error?: { message?: string }
+}
+
+interface QueryProgress {
+  phase: 'preparing' | 'querying' | 'retrying'
+  batch: number
+  batches: number
+  done: number
+  total: number
+  retry?: number
 }
 
 /** 与服务端保持一致的归一化规则：去首尾空白 + 压缩空白 + 小写 */
@@ -178,7 +192,8 @@ function filterEnglishText(input: string): string {
       .replace(/[ \t]+/g, ' ')
       .trim(),
     )
-    .filter(Boolean)
+    // 不删除空行：受控 TextArea 在行尾按 Enter 时会先产生一个空行，
+    // 这里删掉它会立刻把光标所在的换行改回去，导致用户无法继续输入下一行。
     .join('\n')
 }
 
@@ -204,6 +219,7 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
   const [randomCount, setRandomCount] = useState('10')
   const [targetList, setTargetList]     = useState('default')
   const [importing, setImporting]       = useState(false)
+  const [queryProgress, setQueryProgress] = useState<QueryProgress | null>(null)
   const [result, setResult]             = useState<{ added: number; skipped: number; queued: number; suspect: number } | null>(null)
   const [error, setError]               = useState('')
   const [existing, setExisting]         = useState<Set<string>>(new Set())
@@ -384,23 +400,80 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
   }, [rows])
 
   /** 批量执行与首页一致的完整查词链路；单项失败不会阻塞其他项目。 */
-  async function loadTranslationEntries(targetRows: Row[]) {
+  async function loadTranslationEntries(
+    targetRows: Row[],
+    onProgress?: (progress: QueryProgress) => void,
+  ) {
     const words = targetRows.map(row => row.type === 'sentence' ? row.raw : row.key)
     const next = new Map<string, DictionaryEntry>()
     const errors = new Map<string, string>()
+    const batches = Math.max(1, Math.ceil(words.length / SEARCH_BATCH_SIZE))
     for (let start = 0; start < words.length; start += SEARCH_BATCH_SIZE) {
-      const response = await apiFetch('/api/dict/search-batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ words: words.slice(start, start + SEARCH_BATCH_SIZE) }),
-      })
-      if (!response.ok) throw new Error('词义批量查询失败')
-      const batch = await response.json() as { results?: BatchSearchResult[] }
-      for (const result of batch.results ?? []) {
+      const requestWords = words.slice(start, start + SEARCH_BATCH_SIZE)
+      const batchIndex = Math.floor(start / SEARCH_BATCH_SIZE) + 1
+      let response: Response | null = null
+      let finalFailure = ''
+
+      for (let attempt = 0; attempt <= SEARCH_REQUEST_MAX_RETRIES; attempt++) {
+        onProgress?.({
+          phase: attempt === 0 ? 'querying' : 'retrying',
+          batch: batchIndex,
+          batches,
+          done: start,
+          total: words.length,
+          retry: attempt,
+        })
+        const controller = new AbortController()
+        const timeout = window.setTimeout(() => controller.abort(), SEARCH_REQUEST_TIMEOUT_MS)
+        try {
+          response = await apiFetch('/api/dict/search-batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ words: requestWords }),
+            signal: controller.signal,
+          })
+          if (response.ok) break
+          // 408 / 429 / 5xx 属于可能恢复的临时错误；400、401 等直接报错，避免无意义重试。
+          if (attempt < SEARCH_REQUEST_MAX_RETRIES
+            && (response.status === 408 || response.status === 429 || response.status >= 500)) {
+            await new Promise(resolve => window.setTimeout(resolve, SEARCH_REQUEST_RETRY_DELAY_MS))
+            continue
+          }
+          break
+        } catch {
+          const timedOut = controller.signal.aborted
+          finalFailure = timedOut
+            ? '第 ' + batchIndex + ' 批查询超过 90 秒'
+            : '第 ' + batchIndex + ' 批查询连接失败，请检查网络或 Worker 状态'
+          if (attempt >= SEARCH_REQUEST_MAX_RETRIES) throw new Error(finalFailure)
+          await new Promise(resolve => window.setTimeout(resolve, SEARCH_REQUEST_RETRY_DELAY_MS))
+        } finally {
+          window.clearTimeout(timeout)
+        }
+      }
+
+      if (!response || !response.ok) {
+        let detail = ''
+        const status = response?.status
+        try {
+          const body = await response?.json() as { error?: string; message?: string } | undefined
+          detail = body?.error || body?.message || ''
+        } catch { /* 非 JSON 错误响应 */ }
+        throw new Error(finalFailure || ('第 ' + batchIndex + ' 批查询失败（HTTP ' + status + '）') + (detail ? '：' + detail : ''))
+      }
+      const batchResult = await response.json() as { results?: BatchSearchResult[] }
+      for (const result of batchResult.results ?? []) {
         const key = normalize(result.word)
         if (result.entry) next.set(key, result.entry)
         if (!result.ok) errors.set(key, result.error?.message || '未获取到中文翻译')
       }
+      onProgress?.({
+        phase: 'querying',
+        batch: batchIndex,
+        batches,
+        done: Math.min(start + requestWords.length, words.length),
+        total: words.length,
+      })
     }
     return { entries: next, errors }
   }
@@ -490,16 +563,27 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
   async function handleImport() {
     if (stats.keep === 0) return
     setImporting(true)
+    setQueryProgress({ phase: 'preparing', batch: 0, batches: 1, done: 0, total: stats.keep })
     setResult(null)
     setError('')
     try {
       const targetRows = rows.filter(r => r.state === 'keep')
-      const { entries, errors } = await loadTranslationEntries(targetRows)
+      const { entries, errors } = await loadTranslationEntries(targetRows, setQueryProgress)
       openTranslationPicker(targetRows, entries, errors)
-    } catch {
-      setError('词义查询失败，请确认云端服务可用')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '词义查询失败，请确认云端服务可用')
+    } finally {
+      setImporting(false)
+      setQueryProgress(null)
     }
-    setImporting(false)
+  }
+
+  function queryProgressText(progress: QueryProgress): string {
+    if (progress.phase === 'preparing') return '正在整理 ' + progress.total + ' 条输入...'
+    if (progress.phase === 'retrying') {
+      return '第 ' + progress.batch + ' / ' + progress.batches + ' 批响应较慢，正在自动重试（' + (progress.retry ?? 1) + '/1）'
+    }
+    return '正在查询第 ' + progress.batch + ' / ' + progress.batches + ' 批，已完成 ' + progress.done + ' / ' + progress.total + ' 条'
   }
 
   async function confirmImport() {
@@ -787,8 +871,17 @@ const targetControls = (
               loading={importing}
               onClick={handleImport}
             >
-              {importing ? '查询中...' : '查询 ' + stats.keep + ' 条'}
+              {importing
+                ? '查询中 ' + (queryProgress ? queryProgress.done + '/' + queryProgress.total : '...')
+                : '查询 ' + stats.keep + ' 条'}
             </Button>
+            {importing && queryProgress && (
+              <div className="import-query-status" role="status" aria-live="polite">
+                <span className="ui-spin" aria-hidden="true" />
+                <span className="import-query-status__text">{queryProgressText(queryProgress)}</span>
+                <span className="import-query-status__hint">单批最长等待 90 秒，网络或服务端临时失败会自动重试 1 次</span>
+              </div>
+            )}
             {result && (
               <div className="callout callout--success import-actions__msg">
                 ✓ 成功导入 <strong>{result.added}</strong> 条，跳过重复 <strong>{result.skipped}</strong> 条

@@ -6,7 +6,7 @@
 - 后端是 `worker/src/` 下的 Cloudflare Worker。
 - Worker 通过 `[assets]` 提供前端构建产物，并处理同源 `/api/*` 请求。
 - D1 是学习列表、学习进度、学习记录、标签、目标、打印批次和词典缓存的唯一运行时数据源。
-- `vocab/*.json` 是构建期打包进前端的只读词库。
+- `vocab/*.json` 是构建期打包进前端的只读词库；`vocab/my_words.csv` 在构建时预处理为 Worker 的个人词典索引。
 
 ## 请求和状态流
 
@@ -18,7 +18,7 @@ React 页面
   -> D1
 ```
 
-词典请求的顺序是云端缓存、`dictionaryapi.dev`、百度翻译；完整结果写回 D1 缓存。所有 API 请求都必须经过 `src/utils/apiBase.ts` 的鉴权封装。
+词典请求的顺序是云端缓存、个人 CSV 词典、`dictionaryapi.dev`、百度翻译；命中个人 CSV 时不调用外部 API，完整结果写回 D1 缓存。所有 API 请求都必须经过 `src/utils/apiBase.ts` 的鉴权封装。
 
 `App.tsx` 是前端共享状态中枢。页面状态应尽量留在页面或对应 hook 中；不要为了一个页面功能把局部状态提升到 `App.tsx`。
 

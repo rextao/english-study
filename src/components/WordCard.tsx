@@ -184,12 +184,14 @@ export function WordCard({
           )}
           {entry.source && (
             <Tag
-              color={entry.source === 'ecdict' ? 'green' : 'blue'}
+              color={entry.source === 'api' ? 'blue' : 'green'}
               title={entry.source === 'ecdict'
                 ? '释义来自本地 ECDICT 词典，查这个词没有联网'
-                : '释义来自外部在线词典接口'}
+                : entry.source === 'my-words'
+                  ? '释义来自 vocab/my_words.csv，查这个词没有联网'
+                  : '释义来自外部在线词典接口'}
             >
-              {entry.source === 'ecdict' ? '本地词典' : '在线词典'}
+              {entry.source === 'ecdict' ? '本地词典' : entry.source === 'my-words' ? '我的词典' : '在线词典'}
             </Tag>
           )}
           {spellingSuspect && <Tag color="gold">可能拼写错误</Tag>}

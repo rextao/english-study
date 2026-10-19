@@ -166,6 +166,13 @@ export function createStudyListsStore(db) {
     return await db.all("SELECT DISTINCT word FROM list_words WHERE phonetic IS NULL OR phonetic = '' OR translation IS NULL OR translation = '' ORDER BY word")
   }
 
+  /** 设置页只展示缺音标的唯一词；同词在多个列表中只出现一次。 */
+  async function wordsMissingPhonetic() {
+    return await db.all(
+      "SELECT word, CASE WHEN MAX(CASE WHEN type = 'word' THEN 1 ELSE 0 END) = 1 THEN 'word' ELSE 'sentence' END AS type, COUNT(DISTINCT list_id) AS listCount FROM list_words WHERE phonetic IS NULL OR TRIM(phonetic) = '' GROUP BY word ORDER BY word",
+    )
+  }
+
   /** 计划页只读在学词，并带出列表名。 */
   async function activePlanRows() {
     const rows = await db.all("SELECT w.*, l.name AS list_name FROM list_words w JOIN lists l ON l.id = w.list_id WHERE w.started_at IS NOT NULL ORDER BY w.list_id, w.position")
@@ -192,6 +199,26 @@ export function createStudyListsStore(db) {
       String(item.translation), String(item.listId), normalizeText(item.word),
     ]))
     return results.reduce((sum, changes) => sum + changes, 0)
+  }
+
+  /** 把后台补到的音标写回缺失快照，不覆盖用户已经保存的音标。 */
+  async function syncPhonetics(items) {
+    const rows = (Array.isArray(items) ? items : []).filter(item => item?.phonetic)
+    if (!rows.length) return 0
+    const results = await db.batch(rows.map(item => [
+      "UPDATE list_words SET phonetic = ? WHERE list_id = ? AND word = ? AND (phonetic IS NULL OR TRIM(phonetic) = '')",
+      String(item.phonetic), String(item.listId), normalizeText(item.word),
+    ]))
+    return results.reduce((sum, changes) => sum + changes, 0)
+  }
+
+  async function itemsMissingPhonetic(word) {
+    const key = normalizeText(word)
+    if (!key) return []
+    return await db.all(
+      "SELECT list_id AS listId, word FROM list_words WHERE word = ? AND (phonetic IS NULL OR TRIM(phonetic) = '')",
+      key,
+    )
   }
 
   /**
@@ -292,6 +319,22 @@ export function createStudyListsStore(db) {
     await db.batch(statements)
   }
 
+  /** 成果页人工修正后同步列表里的熟悉度镜像；不动复习排期。 */
+  async function adjustTallyStats(listId, word, kind, delta) {
+    const column = kind === 'spelling'
+      ? 'spelling_count'
+      : kind === 'reading'
+        ? 'reading_count'
+        : kind === 'meaning'
+          ? 'remembered_count'
+          : null
+    if (!column || !listId || !normalizeText(word)) return 0
+    return await db.run(
+      'UPDATE list_words SET mark_count = MAX(0, mark_count + ?), ' + column + ' = MAX(0, ' + column + ' + ?) WHERE list_id = ? AND word = ?',
+      Number(delta), Number(delta), String(listId), normalizeText(word),
+    )
+  }
+
   /**
    * 事件被 purge 后，列表里冗余的累计计数 / 复习时间也要一起回退，否则统计会和事件表对不上。
    * 排期锚点（startedAt / stage / lastDoneAt）和幂等键保持不变，维持当前进度。
@@ -311,8 +354,9 @@ export function createStudyListsStore(db) {
 
   return {
     resetStats, selectWords, listName, listMeta, nameExists, insertList, renameList, deleteList,
-    insertWords, updateWordContent, removeWords, updateBatchNames, saveWordProgress,
+    insertWords, updateWordContent, removeWords, updateBatchNames, saveWordProgress, adjustTallyStats,
     listSummaries, listWords, batchNames, listIdsForWord, wordsNeedingRepair,
+    wordsMissingPhonetic, itemsMissingPhonetic, syncPhonetics,
     activePlanRows, itemsMissingTranslation, syncTranslations,
   }
 }

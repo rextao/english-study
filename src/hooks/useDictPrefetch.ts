@@ -107,10 +107,9 @@ export function useDictPrefetch(onFinish?: () => void) {
   /** 别人（比如导入接口）已经排好队了，这里只接着看进度 */
   const watch = useCallback(() => { setError(''); setWatching(true) }, [])
 
-  /** 扫一遍缺音标 / 缺释义的词并重新抓；不传 words = 扫所有学习列表 */
-  const repair = useCallback(async (words?: string[]): Promise<RepairResult> => {
+  async function repairAt(path: string, words?: string[]): Promise<RepairResult> {
     setError('')
-    const body = await callServer('/api/dict/repair', {
+    const body = await callServer(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(words ? { words } : {}),
@@ -131,7 +130,13 @@ export function useDictPrefetch(onFinish?: () => void) {
     // 一个词都没排队说明本来就是齐的，不用再轮询
     if (queued > 0 || !next.finished) setWatching(true)
     return { ok: true, scanned: numOf(body.scanned) ?? 0, queued }
-  }, [])
+  }
 
-  return { state, error, busy: watching, repair, watch }
+  /** 扫一遍缺音标 / 缺释义的词并重新抓；不传 words = 扫所有学习列表 */
+  const repair = useCallback((words?: string[]) => repairAt('/api/dict/repair', words), [])
+
+  /** 只补音标并写回学习列表，不触发中文翻译。 */
+  const repairPhonetics = useCallback((words?: string[]) => repairAt('/api/dict/repair-phonetics', words), [])
+
+  return { state, error, busy: watching, repair, repairPhonetics, watch }
 }

@@ -7,8 +7,18 @@ export interface DictSources {
   network: boolean
   /** 词典缓存统计 */
   cache: CacheStats
+  /** 构建时打包的个人 CSV 词典 */
+  personal?: PersonalSource
   /** 外部接口的链路状态，按调用顺序 */
   external: ExternalSource[]
+}
+
+export interface PersonalSource {
+  id: string
+  name: string
+  file: string
+  count: number
+  available: boolean
 }
 
 /** 词典缓存统计 */
@@ -64,7 +74,16 @@ function toSources(body: JsonBody): DictSources | null {
   const external = (body.external as unknown[]).map(toExternal).filter((s): s is ExternalSource => s !== null)
   if (external.length === 0) return null
   const cache = toCacheStats(body.cache)
-  return { network: body.network, cache, external }
+  const personal = toPersonal(body.personal)
+  return { network: body.network, cache, ...(personal ? { personal } : {}), external }
+}
+
+function toPersonal(body: unknown): PersonalSource | null {
+  if (body === null || typeof body !== 'object') return null
+  const obj = body as JsonBody
+  if (typeof obj.id !== 'string' || typeof obj.name !== 'string' || typeof obj.file !== 'string'
+    || typeof obj.count !== 'number' || !Number.isFinite(obj.count) || typeof obj.available !== 'boolean') return null
+  return { id: obj.id, name: obj.name, file: obj.file, count: obj.count, available: obj.available }
 }
 
 function toCacheStats(body: unknown): CacheStats {
@@ -93,7 +112,7 @@ function toExternal(body: unknown): ExternalSource | null {
 }
 
 /**
- * 把服务端状态排成设置页给用户看的顺序：缓存 → 免费词典 API → 百度翻译。
+ * 把服务端状态排成设置页给用户看的顺序：缓存 → 个人词典 → 免费词典 API → 百度翻译。
  * 查词时就是按这个顺序依次试的，某一步拿到完整释义就不再往后走。
  * （云端没有本地 ECDICT 词典，这一层已随上云移除。）
  */
@@ -109,6 +128,16 @@ function buildChain(s: DictSources): DictChainStep[] {
       needsKey: false,
     },
   ]
+  if (s.personal) {
+    steps.push({
+      id: s.personal.id,
+      name: s.personal.name,
+      desc: '先查构建时打包的 vocab/my_words.csv，命中后直接使用其中的中文词义，不访问外部 API。',
+      available: s.personal.available,
+      reason: s.personal.available ? '' : '个人词典索引不可用',
+      needsKey: false,
+    })
+  }
   const dictionaryapi = externalById.get('dictionaryapi')
   if (dictionaryapi) {
     steps.push({

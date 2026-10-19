@@ -1,0 +1,85 @@
+.phonetic-repair__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.phonetic-repair__head .hint {
+  max-width: 620px;
+  margin-top: 5px;
+}
+
+.phonetic-repair__message {
+  align-items: center;
+  margin-top: 16px;
+}
+
+.phonetic-repair__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.phonetic-repair__empty { margin-top: 16px; }
+
+.phonetic-repair__summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 18px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.phonetic-repair__summary strong {
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.phonetic-repair__list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 10px;
+  max-height: min(58vh, 560px);
+  margin-top: 10px;
+  padding: 10px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface-sunken);
+  list-style: none;
+}
+
+.phonetic-repair__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.phonetic-repair__word {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.phonetic-repair__lists {
+  flex-shrink: 0;
+  color: var(--color-text-subtle);
+  font-size: 11px;
+}
+
+@media (max-width: 640px) {
+  .phonetic-repair__head { align-items: stretch; flex-direction: column; }
+  .phonetic-repair__head .ui-btn { align-self: flex-start; }
+  .phonetic-repair__list { grid-template-columns: minmax(0, 1fr); }
+}

@@ -12,7 +12,7 @@
 
 import { normalizeText } from './text.js'
 import { resolveEntry, resolvePhoneticOnly, isSentence, getCacheEntry } from './dict.js'
-import { syncListTranslation } from './lists.js'
+import { syncListTranslation, syncListPhonetic } from './lists.js'
 import { KV_KEYS } from './kv.js'
 
 /** 外部词典和百度翻译接口都可能有限流，慢点跑避免触发限制 */
@@ -25,7 +25,10 @@ async function readState(app) {
   const state = await app.kv.get(KV_KEYS.prefetch, null)
   if (!state || !Array.isArray(state.queue)) return { ...EMPTY_STATE, queue: [] }
   return {
-    queue: state.queue.filter(word => typeof word === 'string'),
+    queue: state.queue.filter(item => (
+      typeof item === 'string'
+      || (item !== null && typeof item === 'object' && typeof item.word === 'string')
+    )),
     total: Number(state.total) || 0,
     done: Number(state.done) || 0,
     failed: Number(state.failed) || 0,
@@ -85,9 +88,8 @@ export async function runQueue(app) {
           ? await resolvePhoneticOnly(job.word, app)
           : await resolveEntry(job.word, job.force === true, app)
         network = resolved.network
-        if (!job.phoneticOnly) {
-          await syncListTranslation(job.word, resolved.entry, app)
-        }
+        if (job.phoneticOnly) await syncListPhonetic(job.word, resolved.entry, app)
+        else await syncListTranslation(job.word, resolved.entry, app)
       } catch (e) {
         const failedState = await readState(app)
         failedState.failed++
@@ -120,7 +122,8 @@ async function enqueueJobs(app, jobs, { resetWhenIdle = true } = {}) {
   for (const job of jobs) {
     const word = normalizeText(job.word)
     if (!word || known.has(word)) continue
-    if (!await needsFetch(word, job.force === true, app)) continue
+    // 音标专用任务还要把已有词典缓存同步回 list_words，不能被 status=ok 短路。
+    if (!job.phoneticOnly && !await needsFetch(word, job.force === true, app)) continue
     known.add(word)
     state.queue.push({ word, force: job.force === true, phoneticOnly: job.phoneticOnly === true })
     state.total++

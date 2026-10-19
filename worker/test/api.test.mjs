@@ -525,6 +525,29 @@ r = await call('GET', '/api/study/achievements')
 check('撤销后永久事件同步软删，成果页不再计这两次会读',
   !achievementOf(r.body, 'apricot') || achievementOf(r.body, 'apricot')?.readingCount === 0, r.body)
 
+// 学习成果页允许人工修正三类熟悉度总次数；仍通过永久事件账本落盘，并同步列表镜像。
+r = await call('PATCH', '/api/study/achievements/apricot', {
+  kind: 'spelling', delta: 1, requestId: 'achievement-edit-apricot-1',
+})
+check('学习成果人工增加一次会拼', r.body?.ok === true && r.body.changed === 1 && r.body.count === 1, r.body)
+r = await call('GET', '/api/study/achievements')
+check('人工增加后的成果总和可读', achievementOf(r.body, 'apricot')?.spellingCount === 1, r.body)
+r = await call('GET', '/api/lists/' + studyId + '/words')
+check('人工修改同步学习列表次数镜像',
+  r.body.find(item => item.word === 'apricot')?.spellingCount === 1, r.body)
+r = await call('PATCH', '/api/study/achievements/apricot', {
+  kind: 'spelling', delta: 1, requestId: 'achievement-edit-apricot-1',
+})
+check('成果人工修改请求幂等', r.body?.changed === 0 && r.body.count === 1, r.body)
+r = await call('PATCH', '/api/study/achievements/apricot', {
+  kind: 'spelling', delta: -1, requestId: 'achievement-edit-apricot-2',
+})
+check('学习成果人工减少一次会拼', r.body?.ok === true && r.body.changed === 1 && r.body.count === 0, r.body)
+r = await call('PATCH', '/api/study/achievements/apricot', { kind: 'wrong', delta: 1 })
+check('成果人工修改拒绝非法类型', r.status === 400, r.body)
+r = await call('PATCH', '/api/study/achievements/apricot', { kind: 'reading', delta: 2 })
+check('成果人工修改拒绝一次改多次', r.status === 400, r.body)
+
 // 按天 / 按周窗口：周期以外的 tally 撤销不到（now 可以由调用方指定，测试才好造时间）
 r = await call('POST', '/api/lists/' + studyId + '/import', { items: [{ text: 'undo-window' }] })
 check('撤销用例：准备 undo-window', r.body?.added === 1, r.body)
@@ -597,6 +620,22 @@ check('复习计划带本周期熟悉度计数（melon 今天会拼过两次）'
   r.body.items[0].tallyCounts?.day?.spelling === 2
   && r.body.items[0].tallyCounts?.week?.spelling === 2
   && r.body.items[0].tallyCounts?.day?.reading === 0, r.body.items[0])
+
+const previousCycle = startOfWeekMs(Date.now()) - 7 * DAY_MS
+r = await call('GET', '/api/study/plan?dayStart=' + (previousCycle + 2 * DAY_MS) + '&weekStart=' + previousCycle)
+const previousCycleMelon = r.body.items.find(item => item.word === 'melon')
+check('切换到其他日历周期时熟悉度计数从 0 开始',
+  previousCycleMelon?.tallyCounts?.day?.spelling === 0
+  && previousCycleMelon?.tallyCounts?.week?.spelling === 0, {
+    today: r.body.today,
+    previousCycle,
+    item: previousCycleMelon,
+  })
+r = await call('GET', '/api/study/plan?dayStart=' + startOfDayMs(Date.now()) + '&weekStart=' + startOfWeekMs(Date.now()))
+const currentCycleMelon = r.body.items.find(item => item.word === 'melon')
+check('切回当前周期仍只显示当前周期计数',
+  currentCycleMelon?.tallyCounts?.day?.spelling === 2
+  && currentCycleMelon?.tallyCounts?.week?.spelling === 2, currentCycleMelon)
 
 // ── 按周维度的打卡 + 打标日志 ─────────────────────────────────────────────
 
@@ -1037,6 +1076,21 @@ r = await call('GET', '/api/dict/prefetch')
 check('补齐进度可查', r.status === 200 && typeof r.body?.finished === 'boolean', r.body)
 check('进度响应带齐 total/done/failed/pending/running/finished', hasProgressShape(r.body), r.body)
 
+r = await call('GET', '/api/dict/missing-phonetics')
+check('设置页只返回缺音标词条',
+  r.status === 200 && Array.isArray(r.body?.items)
+  && r.body.items.some(item => item.word === 'kiwi' && item.type === 'word'), r.body)
+
+writeDictCache(db(), {
+  ...(await readDictCache(db())),
+  kiwi: { word: 'kiwi', phonetic: '/ˈkiːwiː/', translation: '猕猴桃', senses: [], cachedAt: Date.now(), status: 'ok' },
+})
+r = await call('POST', '/api/dict/repair-phonetics', { words: ['kiwi'] })
+check('音标补齐接口只排队音标任务', r.body?.ok === true && r.body.queued === 1 && hasProgressShape(r.body), r.body)
+await waitForPrefetch()
+r = await call('GET', '/api/lists/' + studyId + '/words')
+check('音标补齐会把缓存音标写回学习列表', r.body.find(item => item.word === 'kiwi')?.phonetic === '/ˈkiːwiː/', r.body)
+
 r = await call('POST', '/api/dict/repair', {})
 check('repair 扫出学习列表里没抓齐的词', r.body?.ok === true && r.body.scanned > 0, r.body)
 check('repair 响应同样带齐进度字段（前端据此显示 x/y）',
@@ -1044,7 +1098,7 @@ check('repair 响应同样带齐进度字段（前端据此显示 x/y）',
 await waitForPrefetch()
 
 r = await call('GET', '/api/cache/stats')
-check('断网时 repair 不会往缓存里塞空壳', r.body?.total === 2, r.body)
+check('断网时 repair 不会往缓存里塞空壳', r.body?.incomplete === 0, r.body)
 
 r = await call('DELETE', '/api/lists/' + studyId)
 check('清理学习进度用的列表', r.body?.ok === true, r.body)
@@ -1298,10 +1352,13 @@ check('清理打印批次测试用的列表', r.body?.ok === true, r.body)
 
 r = await call('GET', '/api/dict/sources')
 check('来源接口报当前不联网', r.body?.network === false, r.body)
-check('来源接口报外部查词链路（无 local 字段）',
+check('来源接口报个人词典和外部查词链路',
   Array.isArray(r.body?.external) && r.body.external.length === 2
   && r.body.external[0].id === 'dictionaryapi' && r.body.external[0].needsKey === false
   && r.body.external[1].id === 'baidu' && r.body.external[1].needsKey === true
+  && r.body.personal?.id === 'my-words'
+  && r.body.personal.file === 'vocab/my_words.csv'
+  && r.body.personal.count === 11164
   && !('local' in r.body), r.body)
 check('来源接口报缓存条数', typeof r.body?.cache?.total === 'number', r.body)
 check('离线模式下外部接口全部不可用',
@@ -1329,7 +1386,7 @@ globalThis.fetch = async (url, options = {}) => {
   fetchCalls.push({ url: target, options })
   if (target.includes('dictionaryapi.dev')) {
     const token = decodeURIComponent(target.split('/').pop())
-    if (token === 'slow') return new Promise(() => {})
+     if (token === 'networkslow') return new Promise(() => {})
     if (token === 'got') {
       return { ok: false, status: 404, async json() { return { title: 'No entry found' } } }
     }
@@ -1393,6 +1450,21 @@ check('百度大模型翻译请求使用 appid/from/to/q 格式',
 const kiwiCache = await readDictCache(db())
 check('百度中文会写入缓存', kiwiCache.kiwi?.translation === '猕猴桃', kiwiCache.kiwi)
 check('拼写状态会持久化到缓存', kiwiCache.kiwi?.spellingStatus === 'valid', kiwiCache.kiwi)
+
+fetchCalls.length = 0
+r = await call('GET', '/api/dict?word=apple')
+check('命中 my_words.csv 时直接返回本地中文词义',
+  r.body?.translation?.includes('苹果')
+  && r.body?.source === 'my-words'
+  && r.body?.phonetic === "'æpl"
+  && !r.body.translation.includes('\\n')
+  && r.body.senses.length >= 2, r.body)
+check('命中 my_words.csv 时不调用任何外部词典 API', fetchCalls.length === 0, fetchCalls)
+
+fetchCalls.length = 0
+r = await call('GET', '/api/dict?word=APPLE&refresh=1')
+check('强制刷新命中 my_words.csv 仍不绕到外部 API',
+  r.body?.source === 'my-words' && fetchCalls.length === 0, { body: r.body, fetchCalls })
 
 fetchCalls.length = 0
 r = await call('GET', '/api/dict?word=got')
@@ -1471,7 +1543,7 @@ check('后台补音标不覆盖加入时保存的中文快照',
   r.body?.find(item => item.word === "i've got a dog")?.translation === '我有一只狗。', r.body)
 
 fetchCalls.length = 0
-r = await call('GET', '/api/dict?word=slow')
+r = await call('GET', '/api/dict?word=networkslow')
 check('免费词典超时后仍能独立完成百度翻译',
   r.body?.translation === '你今天好吗？'
   && r.body?.errors?.some(error => error.source === 'dictionaryapi' && error.code === 'timeout')
@@ -1525,7 +1597,7 @@ const noKeyCtx = makeContext({
 })
 use(noKeyCtx)
 fetchCalls.length = 0
-r = await call('GET', '/api/dict?word=pear')
+r = await call('GET', '/api/dict?word=mango')
 check('未配置百度密钥时中文标 missing 且报 not_configured',
   r.body?.translationStatus === 'missing'
   && r.body?.errors?.some(error => error.source === 'baidu' && error.code === 'not_configured'), r.body)
@@ -1571,9 +1643,9 @@ check('refresh=1 无视冷却强制重抓',
 use(noKeyCtx)
 
 // 百度密钥没配是确定性失败：重试结果必然一样，别反复打免费词典
-await call('GET', '/api/dict?word=pear')
+await call('GET', '/api/dict?word=mango')
 fetchCalls.length = 0
-r = await call('GET', '/api/dict?word=pear')
+r = await call('GET', '/api/dict?word=mango')
 check('百度密钥未配置时不反复重试',
   fetchCalls.length === 0
   && r.body?.errors?.some(error => error.source === 'baidu' && error.code === 'not_configured'),
@@ -1584,7 +1656,7 @@ noKeyCtx.env.BAIDU_TRANSLATE_API_KEY = 'test-key-not-real'
 noKeyCtx.env.BAIDU_TRANSLATE_APP_ID = 'test-app-id-not-real'
 noKeyCtx.env.BAIDU_TRANSLATE_API_URL = 'http://baidu.mock/translate'
 fetchCalls.length = 0
-r = await call('GET', '/api/dict?word=pear')
+r = await call('GET', '/api/dict?word=mango')
 check('百度密钥补上后同一个词立刻重试翻译',
   fetchCalls.some(call => call.url === 'http://baidu.mock/translate') && !!r.body?.translation, r.body)
 

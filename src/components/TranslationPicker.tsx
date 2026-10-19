@@ -68,7 +68,9 @@ export function TranslationPicker({
       <div className="translation-picker">
         <div className="translation-picker__head">
           {entry?.phonetic && <span className="translation-picker__phonetic">{entry.phonetic}</span>}
-          {entry?.source && <Tag color={entry.source === 'ecdict' ? 'green' : 'blue'}>{entry.source === 'ecdict' ? '本地词典' : '在线翻译'}</Tag>}
+          {entry?.source && <Tag color={entry.source === 'api' ? 'blue' : 'green'}>
+            {entry.source === 'ecdict' ? '本地词典' : entry.source === 'my-words' ? '我的词典' : '在线翻译'}
+          </Tag>}
           <span className="translation-picker__count">已选 {picked.length} / {MAX_PICKED}</span>
         </div>
         {translations.length === 0 ? (

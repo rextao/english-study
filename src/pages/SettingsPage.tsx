@@ -6,17 +6,19 @@ import { LibrariesPage } from './LibrariesPage'
 import { LearningRecordsPage } from './LearningRecordsPage'
 import { PageHeader } from '../components/PageHeader'
 import { StudyListManager } from '../components/StudyListManager'
+import { PhoneticRepair } from '../components/PhoneticRepair'
 import { Tag } from '../ui'
 import './SettingsPage.css'
 
-/** 设置页的子分区：词库配置 / 学习列表 / 查询链路 / 学习记录 */
-export type SettingsSection = 'chain' | 'libraries' | 'lists' | 'records'
+/** 设置页的子分区：词库配置 / 学习列表 / 学习记录 / 补充音标 / 查询链路 */
+export type SettingsSection = 'chain' | 'libraries' | 'lists' | 'records' | 'phonetics'
 
 /** 左侧菜单项，顺序即展示顺序 */
 const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: 'libraries', label: '词库配置' },
   { id: 'lists', label: '学习列表' },
   { id: 'records', label: '学习记录' },
+  { id: 'phonetics', label: '补充音标' },
   { id: 'chain', label: '查询链路' },
 ]
 
@@ -68,7 +70,7 @@ export function SettingsPage(props: SettingsPageProps) {
       {section === 'chain' && (
       <section className="settings-section">
         <div className="settings-section__head">
-          <p className="hint">查词时按下面的顺序依次尝试：① 命中就直接返回，一个网络请求都不发；②③ 是同一轮外部请求里互补的两步——dictionaryapi 取音标和英文释义，百度翻译取中文，前者成功也不会跳过后者。灰色的步骤查词时会被跳过。</p>
+          <p className="hint">查词时按下面的顺序依次尝试；命中缓存或个人词典就直接返回，不发外部网络请求。未命中时，免费词典取音标和英文释义，百度翻译取中文，两个外部步骤会互补执行。灰色的步骤查词时会被跳过。</p>
         </div>
         {sources === null ? (
           <div className="callout callout--warn">
@@ -123,6 +125,11 @@ export function SettingsPage(props: SettingsPageProps) {
       {section === 'records' && (
         <section className="settings-section">
           <LearningRecordsPage embedded libraries={libraries} getLabelById={getLabelById} />
+        </section>
+      )}
+      {section === 'phonetics' && (
+        <section className="settings-section">
+          <PhoneticRepair />
         </section>
       )}
         </div>

@@ -112,6 +112,16 @@ const INSERT_EVENT_SQL = `
 const INSERT_EVENT_MEANING_SQL = `
   INSERT OR IGNORE INTO learning_event_meanings (event_id, meaning_key) VALUES (?, ?)
 `
+const ADJUSTABLE_ACTIONS = new Set(['spelling', 'reading', 'meaning'])
+
+function parseJsonValue(value, fallback) {
+  try {
+    const parsed = JSON.parse(String(value ?? ''))
+    return parsed ?? fallback
+  } catch {
+    return fallback
+  }
+}
 
 export function createStudyHistoryStore(db) {
   async function recordInternal(input) {
@@ -152,6 +162,77 @@ export function createStudyHistoryStore(db) {
   async function hasRequest(requestId) {
     if (!requestId) return false
     return Boolean(await db.first('SELECT 1 FROM learning_events WHERE request_id = ? LIMIT 1', requestId))
+  }
+
+  /**
+   * 学习成果页的人工次数修正：每次只调整 1 次，仍然落成/软删一条永久事件，
+   * 这样成果聚合、学习记录和幂等键继续共用同一份账本。
+   */
+  async function adjustAchievementCount({ word, action, delta, requestId }) {
+    const wordKey = normalizeText(word)
+    const amount = Number(delta)
+    if (!wordKey || !ADJUSTABLE_ACTIONS.has(action) || !Number.isInteger(amount) || Math.abs(amount) !== 1) {
+      return { changed: 0, delta: 0, count: 0, listId: null }
+    }
+    const suppliedRequestId = String(requestId ?? '').trim()
+    if (suppliedRequestId && await hasRequest(suppliedRequestId)) {
+      const current = await db.first(
+        'SELECT COUNT(*) AS count FROM learning_events WHERE word_key = ? AND action = ? AND deleted_at IS NULL',
+        wordKey, action,
+      )
+      return { changed: 0, delta: 0, count: Number(current?.count || 0), listId: null }
+    }
+
+    let changed = 0
+    let listId = null
+    if (amount > 0) {
+      // 复制最近一条该词的上下文，人工新增记录仍能归属到一个学习列表。
+      const template = await db.first(
+        'SELECT * FROM learning_events WHERE word_key = ? AND deleted_at IS NULL ORDER BY occurred_at DESC, created_at DESC LIMIT 1',
+        wordKey,
+      )
+      if (!template) return { changed: 0, delta: 0, count: 0, listId: null }
+      listId = template.list_id || null
+      const result = await recordInternal({
+        word: wordKey,
+        item: {
+          word: template.word_snapshot || wordKey,
+          sourceIds: parseJsonValue(template.source_ids_json, []),
+          translationIds: parseJsonValue(template.translation_ids_json, []),
+          senseIds: parseJsonValue(template.sense_ids_json, []),
+          translation: template.meaning_snapshot || '',
+        },
+        action,
+        at: Date.now(),
+        listId: template.list_id,
+        listName: template.list_name_snapshot,
+        requestId: suppliedRequestId || undefined,
+        metadata: { source: 'manual-achievement-adjustment' },
+      })
+      changed = result.inserted ? 1 : 0
+    } else {
+      const row = await db.first(
+        'SELECT id, list_id FROM learning_events WHERE word_key = ? AND action = ? AND deleted_at IS NULL ORDER BY occurred_at DESC, created_at DESC LIMIT 1',
+        wordKey, action,
+      )
+      if (row) {
+        listId = row.list_id || null
+        changed = await db.run(
+          'UPDATE learning_events SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL',
+          Date.now(), row.id,
+        )
+      }
+    }
+    const current = await db.first(
+      'SELECT COUNT(*) AS count FROM learning_events WHERE word_key = ? AND action = ? AND deleted_at IS NULL',
+      wordKey, action,
+    )
+    return {
+      changed: Number(changed),
+      delta: Number(changed) * amount,
+      count: Number(current?.count || 0),
+      listId,
+    }
   }
 
   function eventFilter(options = {}, alias = 'e') {
@@ -282,21 +363,26 @@ export function createStudyHistoryStore(db) {
    * day / week 各一份（day 窗口包含在 week 窗口内）；不把周期内每条事件搬进 Worker。
    * 事件表是唯一来源：撤销软删事件后这里自然回退，列表累计计数也只认这里。
    */
-  async function periodTallyCountsAll({ dayStart, weekStart }) {
+  async function periodTallyCountsAll({ dayStart, dayEnd, weekStart, weekEnd }) {
     const day = new Map()
     const week = new Map()
     const weekFrom = Number(weekStart)
     if (!Number.isFinite(weekFrom)) return { day, week }
     const dayFrom = Number(dayStart)
     const hasDay = Number.isFinite(dayFrom)
+    const weekTo = Number(weekEnd)
+    const dayTo = Number(dayEnd)
+    const hasEnd = Number.isFinite(weekTo)
+    const hasDayEnd = Number.isFinite(dayTo)
     const rows = await db.all(`
       SELECT list_id, word_key, action, COUNT(*) AS week_count,
-        SUM(CASE WHEN occurred_at >= ? THEN 1 ELSE 0 END) AS day_count
+        SUM(CASE WHEN occurred_at >= ? AND occurred_at < ? THEN 1 ELSE 0 END) AS day_count
       FROM learning_events
       WHERE deleted_at IS NULL AND action IN ('spelling', 'reading', 'meaning')
-        AND occurred_at >= ?
+        AND occurred_at >= ? AND occurred_at < ?
       GROUP BY list_id, word_key, action
-    `, hasDay ? dayFrom : weekFrom, weekFrom)
+    `, hasDay ? dayFrom : weekFrom, hasDayEnd ? dayTo : weekFrom + DAY,
+      weekFrom, hasEnd ? weekTo : weekFrom + 7 * DAY)
     for (const row of rows) {
       const wordKey = row.word_key
       if (!wordKey) continue
@@ -391,7 +477,7 @@ export function createStudyHistoryStore(db) {
   }
 
   return {
-    record, hasRequest, achievements, history, deleteEvent, clearWord, purge,
+    record, hasRequest, adjustAchievementCount, achievements, history, deleteEvent, clearWord, purge,
     undoTallyEvent, periodTallyCountsAll, integrityCheck,
   }
 }

@@ -102,6 +102,16 @@ export async function syncListTranslation(word, entry, app) {
   return (await app.listsStore.syncTranslations(updates)) > 0
 }
 
+/** 把词典缓存里的音标同步到学习列表缺失快照，不覆盖用户已有音标。 */
+export async function syncListPhonetic(word, entry, app) {
+  const phonetic = String(entry?.phonetic ?? '').trim()
+  if (!phonetic) return false
+  const target = normalizeText(word)
+  if (!target) return false
+  const items = await app.listsStore.itemsMissingPhonetic(target)
+  return (await app.listsStore.syncPhonetics(items.map(item => ({ ...item, phonetic })))) > 0
+}
+
 // ── 中文快照选择 ────────────────────────────────────────────────────────────
 
 /**

@@ -118,6 +118,31 @@
 .achievements-table__count--remembered { color: #067a4d; font-weight: 600; }
 .achievements-table__count--zero { color: var(--color-text-subtle); font-weight: 500; }
 
+/* 编辑次数时沿用学习页的「维度 次数 / −」小号控件；修改本身由 Popconfirm 二次确认。 */
+.achievements-table__count-editor {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.achievements-table__count-editor .ui-popconfirm { display: inline-flex; }
+.achievements-table__count-editor .ui-btn { border-radius: 0; }
+.achievements-table__count-editor .ui-popconfirm:first-child .ui-btn {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.achievements-table__count-editor .ui-popconfirm:last-child .ui-btn {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  margin-left: -1px;
+  padding-left: 7px;
+  padding-right: 7px;
+  font-weight: 600;
+}
+
+.achievements-table__tally-button {
+  white-space: nowrap;
+}
+
 /* 最近学习：显示的是天数文字（今天 / N 天前），字号比次数小一档 */
 .achievements-table__recent {
   font-size: 13px;

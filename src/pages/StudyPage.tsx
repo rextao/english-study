@@ -426,8 +426,10 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
   const activeItems = (isWeek ? dueByWeek.get(activeWeek) : dueByDay.get(activeDay)) ?? []
   const dict = useDictBatch(activeItems.map(item => item.word))
 
-  // 换了一天 / 一周或切换按天按周时清空搜索，避免旧关键词把新批次的词藏起来
-  useEffect(() => { setReviewSearch('') }, [activeDay, mode])
+  // 切换日 / 周时只更新计数窗口，搜索词保留，方便继续查同一个词。
+  useEffect(() => {
+    void plan.refresh({ dayStart: activeDay, weekStart: activeWeek })
+  }, [activeDay, activeWeek, plan.refresh])
 
   /** 本周期单词模糊搜索：匹配单词、音标或中文词义，大小写与空白不敏感 */
   const visibleItems = useMemo(() => {

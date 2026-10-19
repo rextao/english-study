@@ -153,7 +153,7 @@ npx wrangler secret put BAIDU_TRANSLATE_APP_ID
 | `kv` | 词库标签 / 学习目标 / 打印批次 / 补齐队列状态（整份 JSON 一行） |
 | `dict_cache` | 词典缓存，一个词一行 |
 
-本地仓库里：`vocab/*.json` 是词库本体（构建期打包进前端）；`cache/` 只剩迁移前的历史遗留，不进 git。
+本地仓库里：`vocab/*.json` 是前端词库本体；`vocab/my_words.csv` 是查词优先使用的个人词典，构建时会生成 Worker 使用的索引；`cache/` 只剩迁移前的历史遗留，不进 git。
 本地开发读写的是另一份独立的本地 D1（`.wrangler/state/`，用 `npm run db:local:init` 建表），线上库只有部署后的 Worker 会碰。
 访问令牌存浏览器 localStorage（key `es-api-token`）；词库标签也在浏览器留一份镜像，服务端可用时以服务端为准。
 
@@ -174,7 +174,7 @@ npx wrangler secret put BAIDU_TRANSLATE_APP_ID
 }
 ```
 
-现有词库：`vocab/cambridge-pre-a1-starters-2025.json`、`vocab/cambridge-a1-movers-2025.json`、`vocab/cambridge-a2-flyers-2025.json`、`vocab/ket.json`。
+现有词库：`vocab/cambridge-pre-a1-starters-2025.json`、`vocab/cambridge-a1-movers-2025.json`、`vocab/cambridge-a2-flyers-2025.json`、`vocab/ket.json`。个人 CSV 词典不参与词库筛选，只参与 Worker 查词。
 
 词库固定展示顺序为 Starters、Movers、Flyers、KET。一个单词可以同时命中多个词库，但界面标签只显示其中优先级最高的一个；词条数据仍保留完整的 `sourceIds`，以便按词库筛选。
 
@@ -199,7 +199,8 @@ python3 vocab/parse_a2_key.py
 查一个词的顺序：
 
 1. D1 词典缓存里已经查齐的（`status: ok`）直接用；
-2. dictionaryapi.dev 给单词音标和英文释义全集，百度大模型文本翻译 API 给中文；句子直接交给百度翻译（逐词拼音标）。
+2. 精确命中 `vocab/my_words.csv` 时直接使用其中的音标、中文词义和英文释义，不调用外部 API；
+3. 未命中个人词典时，dictionaryapi.dev 给单词音标和英文释义全集，百度大模型文本翻译 API 给中文；句子直接交给百度翻译（逐词拼音标）。
 
 外部接口有限流，批量补齐走后台队列：并发 2、每次间隔 250ms（Worker 里用 `waitUntil` 驱动，一次请求约 30 秒内跑不完的留在队列里，下次补齐接着跑）。百度密钥是 Worker secret（`BAIDU_TRANSLATE_API_KEY` / `BAIDU_TRANSLATE_APP_ID`），接口地址可用 `BAIDU_TRANSLATE_API_URL` 覆盖。
 一条缓存只有音标 / 释义 / 中文都拿到才标成 `ok`，缺一块标 `partial`，下次查会自动重取。

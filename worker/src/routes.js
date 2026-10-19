@@ -11,6 +11,7 @@
  */
 
 import { normalizeText, capitalizeSentence } from './text.js'
+import { MY_WORDS_COUNT } from './my-words.js'
 import {
   ensureEntry, getCacheEntry, getCacheEntries, cacheStats, batchSearchError,
   mapConcurrent, isSentence, isPhrase, MAX_BATCH_SEARCH_ITEMS, BATCH_SEARCH_CONCURRENCY,
@@ -18,7 +19,7 @@ import {
 import {
   applyReview, withoutMarks, enrichItem, nextDueAt, normalizeScope,
   REVIEW_ACTIONS, TALLY_KINDS, PURE_MARK_ACTIONS, REVIEW_INTERVALS,
-  startOfDay, startOfWeek, pushMark, countOf, hasReviewKey, rememberReviewKey,
+  DAY, startOfDay, startOfWeek, pushMark, countOf, hasReviewKey, rememberReviewKey,
 } from './review.js'
 import {
   syncListTranslation, selectedTranslation, recordStudyEvent,
@@ -270,6 +271,13 @@ export async function handleApi(method, pathname, searchParams, body, app) {
       body: {
         network: !app.config.noNetwork,
         cache: await cacheStats(app),
+        personal: {
+          id: 'my-words',
+          name: '我的词典',
+          file: 'vocab/my_words.csv',
+          count: MY_WORDS_COUNT,
+          available: true,
+        },
         external: [
           {
             id: 'dictionaryapi',
@@ -289,6 +297,36 @@ export async function handleApi(method, pathname, searchParams, body, app) {
           },
         ],
       },
+    }
+  }
+
+  // GET /api/dict/missing-phonetics — 设置页展示所有学习列表里缺音标的词
+  if (method === 'GET' && pathname === '/api/dict/missing-phonetics') {
+    const items = await app.listsStore.wordsMissingPhonetic()
+    return {
+      status: 200,
+      body: {
+        items: items.map(item => ({
+          word: item.word,
+          type: item.type === 'sentence' ? 'sentence' : 'word',
+          listCount: Number(item.listCount) || 0,
+        })),
+      },
+    }
+  }
+
+  // POST /api/dict/repair-phonetics — 只补音标并同步回学习列表快照，不重新翻译中文
+  if (method === 'POST' && pathname === '/api/dict/repair-phonetics') {
+    let words = Array.isArray(body?.words)
+      ? body.words.map(normalizeText).filter(Boolean)
+      : []
+    if (words.length === 0) {
+      words = (await app.listsStore.wordsMissingPhonetic()).map(row => row.word)
+    }
+    const queued = await enqueuePhoneticPrefetch(words, app)
+    return {
+      status: 200,
+      body: Object.assign({ ok: true, scanned: words.length, queued }, await currentPrefetchState(app)),
     }
   }
 
@@ -661,11 +699,17 @@ export async function handleApi(method, pathname, searchParams, body, app) {
   // GET /api/study/plan  — 所有列表里正在学习的词，按下次复习日期排序
   if (method === 'GET' && pathname === '/api/study/plan') {
     const now = Date.now()
-    const dayStart = startOfDay(now, env)
-    const weekStart = startOfWeek(now, env)
+    const rawDayStart = searchParams.get('dayStart')
+    const rawWeekStart = searchParams.get('weekStart')
+    const requestedDay = rawDayStart === null ? NaN : Number(rawDayStart)
+    const requestedWeek = rawWeekStart === null ? NaN : Number(rawWeekStart)
+    const dayStart = Number.isFinite(requestedDay) ? requestedDay : startOfDay(now, env)
+    const weekStart = Number.isFinite(requestedWeek) ? requestedWeek : startOfWeek(now, env)
     const planRows = await app.listsStore.activePlanRows()
     // 本周期会拼 / 会读 / 知意次数：一次聚合查全量，不再逐词往返
-    const tallies = await app.history.periodTallyCountsAll({ dayStart, weekStart })
+    const tallies = await app.history.periodTallyCountsAll({
+      dayStart, dayEnd: dayStart + DAY, weekStart, weekEnd: weekStart + 7 * DAY,
+    })
     const items = []
     for (const { listId, listName, item } of planRows) {
       if (!item.startedAt) continue
@@ -689,6 +733,25 @@ export async function handleApi(method, pathname, searchParams, body, app) {
 
   if (method === 'GET' && pathname === '/api/study/achievements') {
     return { status: 200, body: await app.history.achievements({ libraryId: searchParams.get('libraryId') }) }
+  }
+
+  const achievementMatch = pathname.match(/^\/api\/study\/achievements\/([^/]+)$/)
+  if (method === 'PATCH' && achievementMatch) {
+    const word = normalizeText(decodeURIComponent(achievementMatch[1]))
+    const kind = String(body?.kind || '')
+    const delta = Number(body?.delta)
+    if (!word) return { status: 400, body: { ok: false, error: '缺少单词' } }
+    if (!TALLY_KINDS.has(kind)) return { status: 400, body: { ok: false, error: '无效的次数类型' } }
+    if (!Number.isInteger(delta) || Math.abs(delta) !== 1) {
+      return { status: 400, body: { ok: false, error: '每次只能增加或减少 1 次' } }
+    }
+    const result = await app.history.adjustAchievementCount({
+      word, action: kind, delta, requestId: body?.requestId,
+    })
+    if (result.changed > 0 && result.listId) {
+      await app.listsStore.adjustTallyStats(result.listId, word, kind, result.delta)
+    }
+    return { status: 200, body: { ok: true, ...result } }
   }
 
   if (method === 'GET' && pathname === '/api/study/history') {

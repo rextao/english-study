@@ -109,6 +109,29 @@
 
 .import-actions__msg { flex: 1; min-width: 240px; }
 
+/* 查询不是瞬时操作：把当前批次、已完成数量和自动重试规则直接放在按钮旁，
+   避免用户只看到一个一直旋转的图标而误以为页面卡死。 */
+.import-query-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1 1 100%;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid #dbe5ff;
+  border-radius: var(--radius);
+  background: #f7f9ff;
+  color: var(--color-primary-dark);
+  font-size: 12px;
+}
+
+.import-query-status__text { font-weight: 600; }
+
+.import-query-status__hint {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
 /* ---------------- 预览列表 ---------------- */
 
 .import-preview {
@@ -188,6 +211,8 @@
   .import-random-controls { width: 100%; }
   .import-random-controls__library { flex: 1; min-width: 0; }
   .import-actions__msg { min-width: 0; }
+  .import-query-status { align-items: flex-start; flex-wrap: wrap; }
+  .import-query-status__hint { flex-basis: 100%; padding-left: 19px; }
   .import-translation-picker__footer { align-items: flex-end; flex-direction: column; }
 }
 

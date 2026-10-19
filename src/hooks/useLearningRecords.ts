@@ -38,9 +38,39 @@ async function readJson<T>(response: Response, fallback: string): Promise<T> {
 export function useLearningAchievements(libraryId: string) {
   const [items, setItems] = useState<LearningAchievement[]>([])
   const [loading, setLoading] = useState(true)
+  const [mutating, setMutating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [version, setVersion] = useState(0)
   const reload = useCallback(() => setVersion(current => current + 1), [])
+
+  const adjustCount = useCallback(async (
+    word: string,
+    kind: 'spelling' | 'reading' | 'meaning',
+    delta: 1 | -1,
+  ) => {
+    setMutating(true)
+    setError(null)
+    try {
+      const response = await apiFetch('/api/study/achievements/' + encodeURIComponent(word), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind,
+          delta,
+          requestId: 'achievement-edit|' + word + '|' + kind + '|' + delta + '|' + Date.now() + '|' + Math.random().toString(36).slice(2),
+        }),
+      })
+      await readJson<{ ok: boolean }>(response, '学习成果次数修改失败')
+      invalidateApiCache(['achievements', 'history', 'study-plan'])
+      setVersion(current => current + 1)
+      return true
+    } catch (mutationError) {
+      setError(mutationError instanceof Error ? mutationError.message : '学习成果次数修改失败')
+      return false
+    } finally {
+      setMutating(false)
+    }
+  }, [])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -68,7 +98,7 @@ export function useLearningAchievements(libraryId: string) {
     return () => controller.abort()
   }, [libraryId, version])
 
-  return { items, loading, error, reload }
+  return { items, loading, mutating, error, reload, adjustCount }
 }
 
 const PAGE_SIZE = 20

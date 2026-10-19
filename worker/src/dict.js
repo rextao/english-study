@@ -1,14 +1,15 @@
 /**
- * dict.js — 词典链路（云端版：缓存 → dictionaryapi.dev → 百度翻译）
+ * dict.js — 词典链路（缓存 → my_words.csv → dictionaryapi.dev → 百度翻译）
  *
  * 从 dict-server.mjs 移植。与本地版的差异：
- *  - 没有本地 ECDICT：localEntry / staleAgainstLocal / fillFromLocal 整条岔路删掉，
- *    链路只剩「缓存 → 外部接口」；旧缓存（source 不是 ecdict）本来就是外部结果，无需升级；
+ *  - 个人词典 my_words.csv 在构建时生成 Worker 索引，命中后不访问外部接口；
+ *  - 没有本地 ECDICT：旧缓存（source 是 ecdict）仍可兼容读取；
  *  - 词条缓存不再常驻内存，每次按需读 D1（按词 IN 查询），写走 batch；
  *  - 请求超时用 AbortController（Workers 原生支持）。
  */
 
 import { normalizeText, capitalizeSentence } from './text.js'
+import { cleanMyWordTranslation, getMyWord, myWordSenses } from './my-words.js'
 
 // ── 容量上限（与本地版一致） ────────────────────────────────────────────────
 
@@ -125,7 +126,7 @@ export function normalizeEntry(word, raw, app) {
         id: 'translation#' + translations.length,
         text: value.text,
         ...(value.pos ? { pos: value.pos } : {}),
-        ...(source === 'api' ? { source } : {}),
+        ...(source === 'api' || source === 'my-words' ? { source } : {}),
       })
     }
   }
@@ -219,8 +220,8 @@ export function normalizeEntry(word, raw, app) {
   entry.translationStatus = translationStatus
   entry.spellingStatus = spellingStatus
   if (errors.length > 0) entry.errors = errors
-  // 这条释义是哪个外部接口给的，界面上要标一下（ecdict 来源只存在于迁移过来的旧数据里）
-  if (src.source === 'ecdict' || src.source === 'api') entry.source = src.source
+  // 标记这条释义的来源，界面上显示给用户（ecdict 只存在于迁移过来的旧数据里）
+  if (src.source === 'ecdict' || src.source === 'api' || src.source === 'my-words') entry.source = src.source
   // 句子翻译来源单独记录，避免旧缓存（即使 status=ok）绕过百度翻译。
   if (src.translationSource === 'baidu') entry.translationSource = 'baidu'
   return entry
@@ -402,10 +403,32 @@ async function fetchBaiduTranslation(text, app) {
   }
 }
 
+/**
+ * 直接把 my_words.csv 的本地词典记录转换成缓存词条。
+ * CSV 已经提供中文词义，因此命中后不再调用 Free Dictionary API 或百度翻译。
+ */
+function myWordEntry(word, record, app) {
+  const translation = cleanMyWordTranslation(record.translation)
+  return normalizeEntry(word, {
+    phonetic: record.phonetic,
+    translation,
+    translations: translation ? [{ text: translation, source: 'my-words' }] : [],
+    senses: myWordSenses(record.definition),
+    cachedAt: Date.now(),
+    status: 'ok',
+    phoneticStatus: record.phonetic ? 'complete' : 'missing',
+    translationStatus: 'ok',
+    spellingStatus: 'valid',
+    source: 'my-words',
+  }, app)
+}
+
 /** 抓一次外部接口：单词的音标 + 英文释义（dictionaryapi.dev）+ 中文（百度） */
 export async function fetchDictEntry(word, app) {
   const queryText = String(word ?? '').trim().replace(/\s+/g, ' ')
   const w = normalizeText(word)
+  const local = getMyWord(w)
+  if (local) return myWordEntry(w, local, app)
   if (app.config.noNetwork) return normalizeEntry(w, { status: 'partial' }, app)
 
   let phonetic, translation
@@ -584,6 +607,12 @@ export async function resolveEntry(word, force, app) {
   if (old && old.status === 'ok' && !force && !sentenceNeedsRefresh) {
     return { entry: old, network: false }
   }
+  const local = getMyWord(w)
+  if (local) {
+    // 没有可直接复用的完整缓存时，命中 CSV 就不再访问外部接口。
+    if (old?.source === 'my-words') return { entry: old, network: false }
+    return { entry: await putCache(myWordEntry(w, local, app), app), network: false }
+  }
   if (old && !force && !sentenceNeedsRefresh && inPartialCooldown(old, app)) {
     return { entry: old, network: false }
   }
@@ -607,6 +636,11 @@ export async function resolvePhoneticOnly(word, app) {
   if (!w) throw new Error('missing word')
   const old = await getCacheEntry(w, app)
   if (old?.phonetic && old.phoneticStatus !== 'partial') return { entry: old, network: false }
+  const local = getMyWord(w)
+  if (local) {
+    if (old?.source === 'my-words') return { entry: old, network: false }
+    return { entry: await putCache(myWordEntry(w, local, app), app), network: false }
+  }
 
   if (isSentence(w)) {
     if (app.config.noNetwork) return { entry: old || normalizeEntry(w, { status: 'partial' }, app), network: false }

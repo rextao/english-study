@@ -11,12 +11,13 @@
     "db:local:init": "npx wrangler d1 execute english-study-sync --local --file=worker/schema.sql",
     "db:local:migrate": "npx wrangler d1 execute english-study-sync --local --file=worker/migrations/001-dict-cache-status.sql",
     "db:local:import": "npx wrangler d1 execute english-study-sync --local --file=migration.sql",
-    "test:server": "node worker/test/api.test.mjs",
+    "build:my-words": "node scripts/build-my-words.mjs",
+    "test:server": "npm run build:my-words && node worker/test/api.test.mjs",
     "docs:check": "node scripts/check-docs.mjs",
     "migrate:to-d1": "node scripts/migrate-to-d1.mjs",
-    "build": "tsc -b && vite build",
+    "build": "npm run build:my-words && tsc -b && vite build",
     "preview": "vite preview",
-    "deploy": "npm run build && npx wrangler deploy"
+    "deploy": "npm run build:my-words && npm run build && npx wrangler deploy"
   },
   "dependencies": {
     "pinyin-pro": "^3.29.3",

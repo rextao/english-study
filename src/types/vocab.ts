@@ -1,7 +1,7 @@
 // Dictionary cache
 
-/** 这条词条的释义是哪来的：ecdict = 本地 ECDICT 词典，api = 外部在线接口 */
-export type DictionarySource = 'ecdict' | 'api'
+/** 这条词条的释义来源：个人 CSV、历史 ECDICT 或外部在线接口。 */
+export type DictionarySource = 'ecdict' | 'my-words' | 'api'
 
 /** 缓存里的一条释义；id = 词性 + 井号 + 该词性下的序号，如 noun#0 */
 export interface DictionarySense {

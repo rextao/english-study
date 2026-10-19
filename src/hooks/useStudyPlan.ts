@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { StudyMarkScope, StudyPlan, StudyReviewAction, StudyWordItem } from '../types/vocab'
 
 import { apiFetch } from '../utils/apiBase'
@@ -53,6 +53,11 @@ interface Reply<T> {
   offline: boolean
 }
 
+interface PlanQuery {
+  dayStart?: number
+  weekStart?: number
+}
+
 async function postJson<T>(url: string, body: unknown): Promise<Reply<T>> {
   try {
     const res = await apiFetch(url, {
@@ -77,12 +82,19 @@ export function useStudyPlan() {
   const [plan, setPlan]       = useState<StudyPlan>(EMPTY_PLAN)
   const [loading, setLoading] = useState(true)
   const [offline, setOffline] = useState(false)
+  const queryRef = useRef<PlanQuery>({})
 
   // 挂载时那次拉取不算数据变动；之后每次 refresh 都是打卡 / 开始学习等写操作触发的
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (query?: PlanQuery) => {
+    if (query) queryRef.current = query
+    const params = new URLSearchParams()
+    const currentQuery = queryRef.current
+    if (Number.isFinite(currentQuery.dayStart)) params.set('dayStart', String(currentQuery.dayStart))
+    if (Number.isFinite(currentQuery.weekStart)) params.set('weekStart', String(currentQuery.weekStart))
     try {
-      const data = await queryApi<StudyPlan>('/api/study/plan', {}, {
+      const suffix = params.toString()
+      const data = await queryApi<StudyPlan>('/api/study/plan' + (suffix ? '?' + suffix : ''), {}, {
         staleTime: 15_000, tags: ['study-plan'],
       })
       if (data && Array.isArray(data.items)) setPlan(data)
@@ -137,29 +149,8 @@ export function useStudyPlan() {
     }
     invalidateApiCache(['list-words:' + listId, 'study-plan', 'achievements', 'history'])
     if (action === 'tally') {
-      const kind = options?.successKind
-      const scope = options?.scope ?? 'day'
-      const updated = Math.max(0, Math.min(words.length, Number(reply.data.updated) || 0))
-      if (kind && updated > 0) {
-        const updatedWords = new Set(reply.data.updatedWords ?? (reply.data.items ?? []).slice(0, updated).map(item => item.word))
-        setPlan(current => ({
-          ...current,
-          items: current.items.map(item => {
-            if (item.listId !== listId || !updatedWords.has(item.word)) return item
-            const tallyCounts = item.tallyCounts ?? {
-              day: { spelling: 0, reading: 0, meaning: 0 },
-              week: { spelling: 0, reading: 0, meaning: 0 },
-            }
-            return {
-              ...item,
-              tallyCounts: {
-                ...tallyCounts,
-                [scope]: { ...tallyCounts[scope], [kind]: tallyCounts[scope][kind] + 1 },
-              },
-            }
-          }),
-        }))
-      }
+      // 计数按当前选中的日 / 周窗口重新聚合，避免把上一个周期的本地镜像带进来。
+      void refresh()
       return { ok: true as const }
     }
     // done / again 改变排期：先立即提交响应中的词条，再后台对账，不阻塞按钮解锁。
@@ -180,30 +171,9 @@ export function useStudyPlan() {
     if (reply.offline) return { ok: false as const, error: '云端服务不可用' }
     if (!reply.data?.ok) return { ok: false as const, error: reply.data?.error ?? '撤销失败' }
     const undone = reply.data.undone ?? 0
-    const scopeKey = scope ?? 'day'
-    if (undone > 0) {
-      setPlan(current => {
-        const returnedWords = new Set(reply.data?.undoneWords ?? (reply.data?.items ?? []).slice(0, undone).map(item => item.word))
-        return {
-          ...current,
-          items: current.items.map(item => {
-            if (item.listId !== listId || !returnedWords.has(item.word)) return item
-            const tallyCounts = item.tallyCounts ?? {
-              day: { spelling: 0, reading: 0, meaning: 0 },
-              week: { spelling: 0, reading: 0, meaning: 0 },
-            }
-            return {
-              ...item,
-              tallyCounts: {
-                ...tallyCounts,
-                [scopeKey]: { ...tallyCounts[scopeKey], [successKind]: Math.max(0, tallyCounts[scopeKey][successKind] - 1) },
-              },
-            }
-          }),
-        }
-      })
-    }
+    // 撤销同样重新按当前选中的窗口聚合，避免 day / week 两套镜像互相污染。
     invalidateApiCache(['list-words:' + listId, 'study-plan', 'achievements', 'history'])
+    void refresh()
     return { ok: true as const, undone }
   }, [refresh])
 

@@ -3,7 +3,7 @@ import type { StudyListApi } from '../hooks/useStudyList'
 import type { LearningAchievement, VocabLibraryInfo } from '../types/vocab'
 import { useLearningAchievements } from '../hooks/useLearningRecords'
 import { PageHeader } from '../components/PageHeader'
-import { Button, Select, Tag } from '../ui'
+import { Button, Popconfirm, Select, Tag } from '../ui'
 import { primaryVocabIdForWord } from '../utils/vocabOrder'
 import './AchievementsPage.css'
 
@@ -57,13 +57,63 @@ interface AchievementsPageProps {
 }
 
 /** 次数格：桌面端是表格的一格；手机端是卡片统计条上的一格（大数字在上、小标签在下）。 */
-function CountCell({ label, value, tone }: { label: string; value: number; tone?: 'remembered' }) {
+type AchievementCountKind = 'spelling' | 'reading' | 'meaning'
+
+function CountCell({
+  label, value, tone, kind, editing, mutating, onAdjust,
+}: {
+  label: string
+  value: number
+  tone?: 'remembered'
+  kind: AchievementCountKind
+  editing: boolean
+  mutating: boolean
+  onAdjust: (kind: AchievementCountKind, delta: 1 | -1) => void
+}) {
   const classes = ['achievements-table__count']
   if (tone) classes.push('achievements-table__count--' + tone)
   if (value === 0) classes.push('achievements-table__count--zero')
   return (
-    <td className="achievements-table__number" data-label={label}>
-      <span className={classes.join(' ')}>{value}</span>
+    <td className="achievements-table__number" data-label={editing ? undefined : label}>
+      {editing ? (
+        <span className="achievements-table__count-editor">
+          <Popconfirm
+            title={'增加一次' + label + '？'}
+            description="这会新增一条永久学习记录。"
+            okText="确认修改"
+            cancelText="取消"
+            disabled={mutating}
+            onConfirm={() => onAdjust(kind, 1)}
+          >
+            <Button
+              size="small"
+              className="achievements-table__tally-button"
+              aria-label={'增加一次' + label}
+              disabled={mutating}
+            >
+              {label} {value}
+            </Button>
+          </Popconfirm>
+          <Popconfirm
+            title={'减少一次' + label + '？'}
+            description="这会同步修改永久学习成果，操作不可撤销。"
+            okText="确认修改"
+            cancelText="取消"
+            danger
+            disabled={mutating || value <= 0}
+            onConfirm={() => onAdjust(kind, -1)}
+          >
+            <Button
+              size="small"
+              className="achievements-table__tally-button"
+              aria-label={'减少一次' + label}
+              disabled={mutating || value <= 0}
+            >
+              −
+            </Button>
+          </Popconfirm>
+        </span>
+      ) : <span className={classes.join(' ')}>{value}</span>}
     </td>
   )
 }
@@ -71,10 +121,12 @@ function CountCell({ label, value, tone }: { label: string; value: number; tone?
 export function AchievementsPage({ libraries, getLabelById }: AchievementsPageProps) {
   const [selectedLibrary, setSelectedLibrary] = useState(ALL_LIBRARIES)
   const [sort, setSort] = useState<SortState>({ key: 'word', dir: 'asc' })
+  const [editing, setEditing] = useState(false)
   const achievements = useLearningAchievements(selectedLibrary)
 
   // 「最近学习」是相对时间：一次渲染共用同一个基准，同屏卡片的说法才不会自相矛盾
   const now = Date.now()
+  const countMutating = achievements.mutating || achievements.loading
 
   useEffect(() => {
     if (selectedLibrary && !libraries.some(library => library.id === selectedLibrary)) setSelectedLibrary(ALL_LIBRARIES)
@@ -90,6 +142,10 @@ export function AchievementsPage({ libraries, getLabelById }: AchievementsPagePr
     current.key === key
       ? { key, dir: current.dir === 'asc' ? 'desc' : 'asc' }
       : { key, dir: DEFAULT_DIR[key] })
+
+  function adjustCount(word: string, kind: AchievementCountKind, delta: 1 | -1) {
+    void achievements.adjustCount(word, kind, delta)
+  }
 
   // 排序：最近学习按时间戳（没有记录的排最后）；次数相同退回字母 a-z，保证顺序稳定
   const sortedItems = useMemo(() => {
@@ -135,6 +191,14 @@ export function AchievementsPage({ libraries, getLabelById }: AchievementsPagePr
         <Select id="achievements-library" className="achievements-filter__select" value={selectedLibrary}
           options={options} onChange={setSelectedLibrary} aria-label="按词库筛选学习成果" />
         <span className="achievements-filter__result">共 {achievements.items.length} 个词</span>
+        <Button
+          size="small"
+          type={editing ? 'primary' : 'default'}
+          aria-pressed={editing}
+          onClick={() => setEditing(value => !value)}
+        >
+          {editing ? '完成编辑' : '编辑次数'}
+        </Button>
         {/* 手机端没有表头，排序入口搬到这里：按钮形式，点同一个维度切换正逆序 */}
         <div className="achievements-sort">
           {SORT_KEYS.map(key => {
@@ -192,9 +256,15 @@ export function AchievementsPage({ libraries, getLabelById }: AchievementsPagePr
                  <td className="achievements-table__libs"><div className="achievements-table__tags">
                   {primaryVocabIdForWord(item.word, item.sourceIds, libraries) && <Tag color="blue">{getLabelById(primaryVocabIdForWord(item.word, item.sourceIds, libraries)!)}</Tag>}
                  </div></td>
-                 <CountCell label="会拼" value={item.spellingCount} />
-                 <CountCell label="会读" value={item.readingCount} />
-                 <CountCell label="知意" value={item.rememberedCount} tone="remembered" />
+                  <CountCell label="会拼" kind="spelling" value={item.spellingCount}
+                    editing={editing} mutating={countMutating}
+                    onAdjust={(kind, delta) => adjustCount(item.word, kind, delta)} />
+                  <CountCell label="会读" kind="reading" value={item.readingCount}
+                    editing={editing} mutating={countMutating}
+                    onAdjust={(kind, delta) => adjustCount(item.word, kind, delta)} />
+                  <CountCell label="知意" kind="meaning" value={item.rememberedCount} tone="remembered"
+                    editing={editing} mutating={countMutating}
+                    onAdjust={(kind, delta) => adjustCount(item.word, kind, delta)} />
                  <td className="achievements-table__number" data-label="最近学习">
                    <span className={'achievements-table__recent' +
                      (recentDays === null ? ' achievements-table__recent--none' : '')}>
