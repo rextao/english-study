@@ -30,7 +30,7 @@ import {
   MAX_PRINT_BATCHES, DEFAULT_PRINT_LIMIT, MAX_PRINT_TITLE, PRINT_KINDS,
 } from './lists.js'
 import { progressRow } from './study-lists.js'
-import { enqueuePrefetch, enqueuePhoneticPrefetch, currentPrefetchState } from './prefetch.js'
+import { enqueuePrefetch, enqueuePhoneticPrefetch, enqueueFullPhoneticPrefetch, currentPrefetchState } from './prefetch.js'
 
 /**
  * 列表名：lists 表里有这一行就用行里的名字；没有时只有默认列表兜底，
@@ -323,7 +323,7 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     if (words.length === 0) {
       words = (await app.listsStore.wordsMissingPhonetic()).map(row => row.word)
     }
-    const queued = await enqueuePhoneticPrefetch(words, app)
+    const queued = await enqueueFullPhoneticPrefetch(words, app)
     return {
       status: 200,
       body: Object.assign({ ok: true, scanned: words.length, queued }, await currentPrefetchState(app)),

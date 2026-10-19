@@ -19,6 +19,9 @@ export interface FlashCard {
   senses: string[]
   /** 是否来自词库（sourceIds 非空）；决定卡片上有没有「会拼」格 */
   fromLibrary?: boolean
+  /** 打印页中的分组标题；同组题目会连续输出。 */
+  groupKey?: string
+  groupLabel?: string
 }
 
 /** 要印的一张卡：词 + 这一阶段要背的释义 id */
@@ -36,6 +39,8 @@ export interface CardRequest {
   libraryLabels?: string[]
   /** 是否来自词库（sourceIds 非空）；决定卡片上有没有「会拼」格 */
   fromLibrary?: boolean
+  groupKey?: string
+  groupLabel?: string
 }
 
 export interface FlashcardOptions {
@@ -58,6 +63,16 @@ export interface FlashcardOptions {
   showPinyin?: boolean
   /** 打印页打开时停在哪个模式，默认 normal */
   mode?: 'normal' | 'exam'
+}
+
+/** 非卡片双页打印：A 页出题，B 页按相同题号给出答案。 */
+export interface ABPrintOptions {
+  title?: string
+  /** sentence = 英文句子作为题面；translate = 中文句子作为中译英题面。 */
+  sentencePrompt?: 'sentence' | 'translate'
+  printId?: number
+  /** A/B 页每行列数，目前支持 1 或 2 列。 */
+  cols?: 1 | 2
 }
 
 function escHtml(input: unknown): string {
@@ -255,6 +270,8 @@ export async function fetchCards(
         .filter((label, index, labels) => label.length > 0 && labels.indexOf(label) === index),
       // 调用方没显式传时，用词库标签有无兜底
       fromLibrary: item.fromLibrary ?? (Array.isArray(item.libraryLabels) && item.libraryLabels.length > 0),
+      groupKey: item.groupKey,
+      groupLabel: item.groupLabel,
       senses: pickSenses(entry, item.senseIds),
     }
   })
@@ -746,6 +763,7 @@ export function buildFlashcardsHtml(cards: FlashCard[], options: FlashcardOption
     '<div id="controls">',
     '<h2>单词卡</h2>',
     '<button id="btn-print" onclick="window.print()">打 印</button>',
+    '<button type="button" onclick="window.opener && window.opener.__switchPrintMode && window.opener.__switchPrintMode(Number(document.documentElement.getAttribute(\'data-print-id\')), \'ab\')">A/B 模式</button>',
     '<span class="flip-hint">短边翻转</span>',
     '<span class="mode-switch"><button type="button"' + (mode === 'normal' ? ' class="active"' : '') +
       ' data-mode="normal">普通模式</button><button type="button"' +
@@ -775,6 +793,98 @@ export function buildFlashcardsHtml(cards: FlashCard[], options: FlashcardOption
     '</body>',
     '</html>',
   ].join('\n')
+}
+
+const AB_PRINT_CSS = [
+  '* { box-sizing: border-box; }',
+  'html, body { margin: 0; padding: 0; background: #e9edf2; color: #1f2937; font-family: Arial, "Microsoft YaHei", sans-serif; }',
+  '#ab-controls { position: sticky; top: 0; z-index: 2; display: flex; gap: 12px; align-items: center; padding: 8px 12px; background: #243447; color: #fff; }',
+  '#ab-controls button { border: 0; border-radius: 5px; padding: 7px 18px; background: #27ae60; color: #fff; font-weight: 700; cursor: pointer; }',
+  '#ab-pages { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 8px; }',
+  '.ab-page { width: 210mm; height: 297mm; min-height: 297mm; padding: 2mm 5mm 4mm; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.15); page-break-after: always; display: flex; flex-direction: column; overflow: hidden; --ab-a-font-size: 40px; --ab-b-scale: .7; }',
+  '.ab-page:last-child { page-break-after: auto; }',
+  '.ab-page__body { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(var(--ab-cols, 2), minmax(0, 1fr)); column-gap: 8mm; align-content: center; align-items: start; }',
+  '.ab-page--answer .ab-page__body { align-content: start; }',
+  '.ab-group { grid-column: 1 / -1; display: flex; align-items: center; gap: 4mm; min-height: 10mm; margin-top: 2mm; padding: 1.5mm 2mm 1mm; border-top: 2px solid #64748b; border-bottom: 2px solid #64748b; background: #f8fafc; break-after: avoid; }',
+  '.ab-group__label { flex: 1; min-height: 5mm; font-size: 12px; color: transparent; }',
+  '.ab-group__random { border: 1px solid #94a3b8; border-radius: 4px; padding: 1mm 3mm; background: #fff; color: #334155; cursor: pointer; font-size: 11px; }',
+  '.ab-row { display: grid; grid-template-columns: 8mm minmax(0, 1fr); gap: 2mm; min-height: 10mm; padding: 2.2mm 0; align-items: center; break-inside: avoid; }',
+  '.ab-number { color: #64748b; font-size: calc(var(--ab-a-font-size) * .35); line-height: 1.25; font-weight: 700; }',
+  '.ab-question { font-size: var(--ab-a-font-size); line-height: 1.15; font-weight: 700; overflow-wrap: anywhere; }',
+  '.ab-answer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2mm; align-items: center; }',
+  '.ab-answer__main { min-width: 0; }',
+  '.ab-word { font-size: calc(var(--ab-a-font-size) * var(--ab-b-scale)); font-weight: 700; overflow-wrap: anywhere; }',
+  '.ab-phonetic { margin-top: .8mm; font-size: calc(var(--ab-a-font-size) * .42 * var(--ab-b-scale)); color: #475569; font-family: Georgia, serif; }',
+  '.ab-translation { margin-top: .8mm; font-size: calc(var(--ab-a-font-size) * .35 * var(--ab-b-scale)); color: #334155; overflow-wrap: anywhere; }',
+  '.ab-circles { display: flex; gap: 1.5mm; align-items: center; }',
+  '.ab-circle { width: 6mm; height: 6mm; border: 1.2px solid #334155; border-radius: 50%; }',
+  '@media print { @page { size: A4 portrait; margin: 0; } body { background: #fff; } #ab-controls { display: none; } #ab-pages { display: block; padding: 0; } .ab-page { width: 210mm; height: 297mm; min-height: 297mm; padding: 2mm 5mm 4mm; box-shadow: none; } .ab-group__random { display: none; } }',
+].join('\n')
+
+/** 生成非卡片式 A/B 双页打印稿；每个 B 页与前一个 A 页共享题号和顺序。 */
+export function buildABPrintHtml(cards: FlashCard[], options: ABPrintOptions = {}): string {
+  const title = options.title || '英语背诵练习'
+  const sentencePrompt = options.sentencePrompt === 'translate' ? 'translate' : 'sentence'
+  const cols = options.cols === 1 ? 1 : 2
+  // 40px 题面下每列最多放 15 行，避免 B 页内容溢出到下一张纸。
+  const pageSize = cols * 15
+  const grouped = new Map<string, FlashCard[]>()
+  cards.forEach(card => {
+    const key = card.groupKey || '__default__'
+    const bucket = grouped.get(key)
+    if (bucket) bucket.push(card)
+    else grouped.set(key, [card])
+  })
+  const orderedGroups = Array.from(grouped.values())
+  if (orderedGroups.length === 0) orderedGroups.push([])
+  const pages: FlashCard[][] = []
+  let current: FlashCard[] = []
+  orderedGroups.forEach(group => {
+    group.forEach(card => {
+      if (current.length >= pageSize) { pages.push(current); current = [] }
+      current.push(card)
+    })
+  })
+  if (current.length > 0 || pages.length === 0) pages.push(current)
+
+  const renderGroups = (group: FlashCard[], offset: number, answer: boolean): string => {
+    const chunks: string[] = []
+    let currentKey = ''
+    group.forEach((card, index) => {
+      const key = card.groupKey || '__default__'
+      if (key !== currentKey) {
+        currentKey = key
+        chunks.push('<div class="ab-group"><span class="ab-group__label"></span>' + (answer ? '' : '<button type="button" class="ab-group__random" data-group="' + escHtml(key) + '">随机</button>') + '</div>')
+      }
+      const text = card.type === 'sentence' && sentencePrompt === 'translate'
+        ? (card.translation || '—')
+        : (card.type === 'sentence' && card.displayText?.trim() ? card.displayText.trim() : card.word)
+      if (answer) {
+      const word = card.type === 'sentence' && card.displayText?.trim() ? card.displayText.trim() : card.word
+      chunks.push('<div class="ab-row"><div class="ab-number">' + (offset + index + 1) + '</div><div class="ab-answer"><div class="ab-answer__main"><div class="ab-word">' + escHtml(word) + '</div>' +
+        '<div class="ab-phonetic">' + escHtml(card.phonetic || '—') + '</div>' +
+        '<div class="ab-translation">' + escHtml(card.translation || '—') + '</div></div><div class="ab-circles" aria-label="完成次数：0，共 3 次"><span class="ab-circle"></span><span class="ab-circle"></span><span class="ab-circle"></span></div></div></div>')
+      } else chunks.push('<div class="ab-row"><div class="ab-number">' + (offset + index + 1) + '</div><div class="ab-question">' + escHtml(text) + '</div></div>')
+    })
+    return chunks.join('')
+  }
+  const pageHtml: string[] = []
+  let offset = 0
+  pages.forEach(group => {
+    const pageClass = ' style="--ab-cols:' + cols + '"'
+    pageHtml.push('<section class="ab-page ab-page--question"' + pageClass + '><div class="ab-page__body">' + renderGroups(group, offset, false) + '</div></section>')
+    pageHtml.push('<section class="ab-page ab-page--answer"' + pageClass + '><div class="ab-page__body">' + renderGroups(group, offset, true) + '</div></section>')
+    offset += group.length
+  })
+
+  const printId = options.printId ?? ''
+  return '<!DOCTYPE html><html lang="zh-CN" data-print-id="' + escHtml(printId) + '"><head><meta charset="UTF-8"><title>' + escHtml(title) + '</title><style>' + AB_PRINT_CSS + '</style></head><body>' +
+    '<div id="ab-controls"><button type="button" onclick="window.print()">打印</button><button type="button" onclick="window.opener && window.opener.__switchPrintMode && window.opener.__switchPrintMode(Number(document.documentElement.dataset.printId), \'card\')">卡片模式</button></div><main id="ab-pages">' + pageHtml.join('') + '</main><script>(function(){var area=document.getElementById(\'ab-pages\');if(!area)return;area.addEventListener(\'click\',function(e){var b=e.target&&e.target.closest?e.target.closest(\'.ab-group__random\'):null;if(!b)return;try{if(window.opener&&window.opener.__randomPrintGroup)window.opener.__randomPrintGroup(Number(document.documentElement.dataset.printId),b.getAttribute(\'data-group\'));}catch(_){}});})();</script></body></html>'
+}
+
+/** 把 A/B 双页打印稿渲进已打开的打印窗口。 */
+export function renderABPrintInto(win: CardWindow, cards: FlashCard[], options: ABPrintOptions = {}): void {
+  win.render(buildABPrintHtml(cards, options))
 }
 
 // ── 先开页、后填内容 ─────────────────────────────────────────────────────
@@ -870,7 +980,7 @@ function writeDoc(win: Window, html: string): void {
  * 被拦时返回 null。
  */
 export function openCardWindow(title: string): CardWindow | null {
-  const win = window.open('', '_blank')
+  const win = window.open('/print.html', '_blank')
   if (!win) return null
   writeDoc(win, bootHtml(title))
   return {
@@ -883,7 +993,18 @@ export function openCardWindow(title: string): CardWindow | null {
         ? '正在补音标和释义 ' + done + ' / ' + total + '...'
         : '正在读取本地词典缓存...'
     },
-    render(html: string) { if (!win.closed) writeDoc(win, html) },
+    render(html: string) {
+      if (win.closed) return
+      const id = printIdFromHtml(html)
+      if (id !== null) {
+        savePrintHtml(id, html)
+        if (win.location.pathname !== '/print.html' || win.location.search !== '?printId=' + id) {
+          win.location.replace('/print.html?printId=' + id)
+          return
+        }
+      }
+      writeDoc(win, html)
+    },
     fail(message: string) { if (!win.closed) writeDoc(win, bootErrorHtml(title, message)) },
     scrollY() { return win.closed ? 0 : (win.scrollY || 0) },
     scrollTo(top: number) { if (!win.closed) win.scrollTo(0, Math.max(0, top)) },
@@ -904,11 +1025,25 @@ export interface PrintControls {
 
 /** 主窗口处理「把这个词从本次打印里删掉」的回调，true = 已重新渲染 */
 export type RemoveCardHandler = (printId: number, word: string, controls: PrintControls) => boolean
+type PrintModeHandler = (printId: number, mode: 'card' | 'ab') => boolean
+type RandomPrintGroupHandler = (printId: number, groupKey: string) => boolean
 
 interface PrintSession {
   cards: FlashCard[]
   options: FlashcardOptions
   win: CardWindow
+  sentencePrompt?: 'sentence' | 'translate'
+}
+
+function printIdFromHtml(html: string): number | null {
+  const match = /data-print-id="(\d+)"/.exec(html)
+  if (!match) return null
+  const id = Number(match[1])
+  return Number.isFinite(id) ? id : null
+}
+
+function savePrintHtml(id: number, html: string): void {
+  try { window.localStorage.setItem('english-study-print-' + id, html) } catch { /* 存储不可用时仍可正常打印 */ }
 }
 
 let printSeq = 0
@@ -978,7 +1113,11 @@ const REMOVE_CARD_SCRIPT = [
 function installRemoveCardHandler(): void {
   if (removeHandlerInstalled) return
   removeHandlerInstalled = true
-  const opener = window as Window & { __removePrintCard?: RemoveCardHandler }
+  const opener = window as Window & {
+    __removePrintCard?: RemoveCardHandler
+    __switchPrintMode?: PrintModeHandler
+    __randomPrintGroup?: RandomPrintGroupHandler
+  }
   opener.__removePrintCard = (printId: number, word: string, controls: PrintControls): boolean => {
     const session = printSessions.get(printId)
     if (!session || session.win.closed) return false
@@ -988,6 +1127,30 @@ function installRemoveCardHandler(): void {
     session.cards = remaining
     const top = session.win.scrollY()
     session.win.render(buildFlashcardsHtml(remaining, { ...session.options, ...controls, printId }))
+    session.win.scrollTo(top)
+    return true
+  }
+  opener.__switchPrintMode = (printId: number, mode: 'card' | 'ab'): boolean => {
+    const session = printSessions.get(printId)
+    if (!session || session.win.closed) return false
+    const top = session.win.scrollY()
+    if (mode === 'card') session.win.render(buildFlashcardsHtml(session.cards, { ...session.options, printId }))
+    else session.win.render(buildABPrintHtml(session.cards, { title: session.options.title, sentencePrompt: session.sentencePrompt, cols: session.options.cols === 1 ? 1 : 2, printId }))
+    session.win.scrollTo(top)
+    return true
+  }
+  opener.__randomPrintGroup = (printId: number, groupKey: string): boolean => {
+    const session = printSessions.get(printId)
+    if (!session || session.win.closed) return false
+    const group = session.cards.filter(card => (card.groupKey || '__default__') === groupKey)
+    if (group.length < 2) return true
+    const shuffled = group.slice().sort(() => Math.random() - 0.5)
+    let cursor = 0
+    session.cards = session.cards.map(card => (
+      (card.groupKey || '__default__') === groupKey ? shuffled[cursor++] : card
+    ))
+    const top = session.win.scrollY()
+    session.win.render(buildABPrintHtml(session.cards, { title: session.options.title, sentencePrompt: session.sentencePrompt, cols: session.options.cols === 1 ? 1 : 2, printId }))
     session.win.scrollTo(top)
     return true
   }
@@ -1006,4 +1169,22 @@ export function renderCardsInto(win: CardWindow, cards: FlashCard[], options: Fl
   printSessions.set(printId, { cards, options, win })
   installRemoveCardHandler()
   win.render(buildFlashcardsHtml(cards, { ...options, printId }))
+}
+
+/** 打印落地页默认显示 A/B 模式，并可在页面内切换到原有卡片模式。 */
+export function renderPrintLandingInto(
+  win: CardWindow,
+  cards: FlashCard[],
+  options: FlashcardOptions = {},
+  sentencePrompt: 'sentence' | 'translate' = 'sentence',
+  initialMode: 'card' | 'ab' = 'ab',
+): void {
+  const printId = ++printSeq
+  for (const [id, session] of printSessions) {
+    if (session.win.closed) printSessions.delete(id)
+  }
+  printSessions.set(printId, { cards: cards.slice(), options, win, sentencePrompt })
+  installRemoveCardHandler()
+  if (initialMode === 'card') win.render(buildFlashcardsHtml(cards, { ...options, printId }))
+  else win.render(buildABPrintHtml(cards, { title: options.title, sentencePrompt, cols: options.cols === 1 ? 1 : 2, printId }))
 }

@@ -30,15 +30,18 @@ export function PhoneticRepair() {
         tags: ['missing-phonetics'],
       })
       setItems(Array.isArray(data.items) ? data.items : [])
-    } catch {
-      setError('无法读取缺少音标的词条，请确认云端服务可用。')
+    } catch (cause) {
+      setError(cause instanceof Error && cause.message
+        ? cause.message
+        : '无法读取缺少音标的词条，请确认云端服务可用。')
     } finally {
       setLoading(false)
     }
   }, [])
 
   const reloadAfterRepair = useCallback(() => {
-    invalidateApiCache(['missing-phonetics', 'dictionary', 'dictionary-batch'])
+    // 服务端会把新音标同步回 list_words；清掉列表缓存，切回学习列表时显示最新快照。
+    invalidateApiCache(['missing-phonetics', 'dictionary', 'dictionary-batch', 'lists'])
     void loadMissing()
   }, [loadMissing])
   const prefetch = useDictPrefetch(reloadAfterRepair)
@@ -52,8 +55,9 @@ export function PhoneticRepair() {
     // 不把页面快照当作最终名单，服务端在入队前再扫描一次当前学习列表。
     const result = await prefetch.repairPhonetics()
     setRepairing(false)
-    if (!result.ok) setError(result.error)
-    else if (result.queued === 0) {
+    if (!result.ok) {
+      setError(result.error)
+    } else if (result.queued === 0) {
       invalidateApiCache(['missing-phonetics'])
       await loadMissing()
     }
@@ -64,7 +68,6 @@ export function PhoneticRepair() {
       <div className="phonetic-repair__head">
         <div>
           <h2 className="settings-section__title">补充音标</h2>
-          <p className="hint">只显示当前学习列表里没有音标的单词和句子。补齐后会写回学习列表，不会修改已经保存的中文释义。</p>
         </div>
         <Button
           type="primary"
@@ -72,11 +75,28 @@ export function PhoneticRepair() {
           disabled={loading || items.length === 0 || repairing || prefetch.busy}
           onClick={() => { void repairAll() }}
         >
-          {prefetch.busy ? '补充中...' : '全部补充音标'}
+          {prefetch.busy ? '补充中...' : prefetch.state.failed > 0 ? '重试缺失音标' : '全部补充音标'}
         </Button>
       </div>
 
-      {error && <div className="callout callout--error phonetic-repair__message">{error}</div>}
+      {(error || prefetch.error) && (
+        <div className="callout callout--error phonetic-repair__message" role="alert">
+          {error || prefetch.error}
+        </div>
+      )}
+
+      {!repairing && !prefetch.busy && prefetch.state.failed > 0 && !error && !prefetch.error && (
+        <div className="callout callout--error phonetic-repair__message" role="alert">
+          本次补充有 {prefetch.state.failed} 条失败，请稍后重试。
+          {prefetch.state.errors.length > 0 && (
+            <ul>
+              {prefetch.state.errors.map(item => (
+                <li key={item.word + item.message}>{item.word}：{item.message}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {(repairing || prefetch.busy) && (
         <div className="callout callout--warn phonetic-repair__message" role="status" aria-live="polite">

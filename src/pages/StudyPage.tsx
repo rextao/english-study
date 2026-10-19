@@ -9,7 +9,7 @@ import { usePrintBatches } from '../hooks/usePrintBatches'
 import type {
   PrintBatch, StudyMarkScope, StudyPlanItem, StudyWordItem, VocabLibraryInfo,
 } from '../types/vocab'
-import { fetchCards, openCardWindow, renderCardsInto } from '../utils/flashcards'
+import { fetchCards, openCardWindow, renderPrintLandingInto } from '../utils/flashcards'
 import type { CardRequest, CardWindow } from '../utils/flashcards'
 import { formatTranslationOptions, selectedTranslationOptions } from '../utils/translations'
 import { primaryVocabIdForWord } from '../utils/vocabOrder'
@@ -43,6 +43,16 @@ const LAYOUT_OPTIONS: SelectOption[] = LAYOUTS.map(item => ({
   label: item.cols + ' 列 × ' + item.rows + ' 行',
   extra: '每页 ' + item.cols * item.rows + ' 张',
 }))
+
+const SENTENCE_PROMPT_OPTIONS: SelectOption[] = [
+  { value: 'sentence', label: '英文句子', extra: 'A 页显示英文' },
+  { value: 'translate', label: '中译英句子', extra: 'A 页显示中文' },
+]
+
+const AB_COLUMN_OPTIONS: SelectOption[] = [
+  { value: '1', label: '1 列', extra: '每页 15 个词' },
+  { value: '2', label: '2 列', extra: '每页 30 个词' },
+]
 
 function startOfDay(ts: number): number {
   const d = new Date(ts)
@@ -201,6 +211,8 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
   const [wordsLoading, setWordsLoading] = useState(false)
   const [picked, setPicked]             = useState<string[]>([])
   const [layout, setLayout]             = useState(LAYOUTS[0].value)
+  const [sentencePrompt, setSentencePrompt] = useState<'sentence' | 'translate'>('sentence')
+  const [abCols, setAbCols]             = useState<1 | 2>(2)
   const [busy, setBusy]                 = useState<BusyKind>('')
   const [progress, setProgress]         = useState<{ done: number; total: number } | null>(null)
   /** 右下角操作结果浮层：每次操作都弹一次（文案相同也靠自增 id 重新播放动画），成功 2.6s / 失败 5s 后自动消失 */
@@ -473,6 +485,17 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
     setDraft(newWords.slice(0, count).map(w => w.word))
   }
 
+  /** 将一个分组中已选词的顺序打乱，其他分组和未选词保持不变。 */
+  function randomizeGroup(items: StudyWordItem[], setter: (update: (current: string[]) => string[]) => void) {
+    const words = items.map(item => item.word)
+    setter(current => {
+      const selected = new Set(current.filter(word => words.includes(word)))
+      const shuffled = words.filter(word => selected.has(word)).sort(() => Math.random() - 0.5)
+      let cursor = 0
+      return current.map(word => words.includes(word) && selected.has(word) ? shuffled[cursor++] : word)
+    })
+  }
+
   function openCardPick() {
     const available = new Set(words.map(item => item.word))
     setCardDraft(current => current.filter(word => available.has(word)))
@@ -511,6 +534,7 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
   /** 来源 id 与可展示标签都带进打印链路；句子不显示词库标识。 */
   function toCardRequest(item: StudyWordItem): StudyCardRequest {
     const sourceIds = item.type === 'sentence' ? [] : item.sourceIds
+    const groupKey = item.batchKey || 'default'
     return {
       word: item.word,
       displayText: item.type === 'sentence' ? item.displayText : undefined,
@@ -521,14 +545,15 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
       sourceIds,
       libraryLabels: primaryVocabIdForWord(item.word, sourceIds, libraries) ? [getPrintLabelById(primaryVocabIdForWord(item.word, sourceIds, libraries)!)] : [],
       fromLibrary: sourceIds.length > 0,
+      groupKey,
+      groupLabel: '',
     }
   }
 
-  async function renderCards(
+  async function renderAB(
     win: CardWindow,
     requests: StudyCardRequest[],
     title: string,
-    startedAt?: number,
   ): Promise<boolean> {
     setProgress({ done: 0, total: 0 })
     try {
@@ -536,15 +561,13 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
         setProgress({ done, total })
         win.progress(done, total)
       })
-      renderCardsInto(win, cards, {
-        cols: layoutInfo.cols,
-        rows: layoutInfo.rows,
+      renderPrintLandingInto(win, cards, {
+        cols: abCols,
         title,
-        startedAt,
-      })
+      }, sentencePrompt, 'ab')
       return true
     } catch {
-      win.fail('卡片生成失败，请确认云端服务可用')
+      win.fail('打印稿生成失败，请确认云端服务可用')
       return false
     } finally {
       setProgress(null)
@@ -558,11 +581,10 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
   async function printCards(
     requests: StudyCardRequest[],
     title: string,
-    startedAt?: number,
   ): Promise<PrintResult> {
     const win = openCardWindow(title)
     if (!win) return 'blocked'
-    return await renderCards(win, requests, title, startedAt) ? 'ok' : 'failed'
+    return await renderAB(win, requests, title) ? 'ok' : 'failed'
   }
 
   async function handleStart(withPrint: boolean) {
@@ -585,9 +607,11 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
           translation: translationMap.get(word),
           sourceIds: [],
           libraryLabels: [],
+          groupKey: 'default',
+          groupLabel: '',
         }
       })
-      const printed = await printCards(requests, batchTitle, startedAt)
+       const printed = await printCards(requests, batchTitle)
       // 卡片没打开就不写学习状态，避免开始时间对不上手里的卡片
       if (printed !== 'ok') {
         setBusy('')
@@ -784,7 +808,7 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
 
       <section className="card card--pad study-start">
         <div className="study-start__head">
-          <h2 className="study-start__title">学习与打印卡片</h2>
+           <h2 className="study-start__title">学习与打印</h2>
           <div className="study-start__fields">
             <div className="study-start__field">
               <label className="field-label" htmlFor="study-list">学习列表</label>
@@ -806,6 +830,26 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
                 onChange={setLayout}
               />
             </div>
+            <div className="study-start__field">
+                <label className="field-label" htmlFor="study-sentence-prompt">句子题面</label>
+                <Select
+                  id="study-sentence-prompt"
+                  aria-label="句子题面"
+                  value={sentencePrompt}
+                  options={SENTENCE_PROMPT_OPTIONS}
+                  onChange={value => setSentencePrompt(value === 'translate' ? 'translate' : 'sentence')}
+                />
+            </div>
+            <div className="study-start__field">
+              <label className="field-label" htmlFor="study-ab-cols">AB 页列数</label>
+              <Select
+                id="study-ab-cols"
+                aria-label="AB 页列数"
+                value={String(abCols)}
+                options={AB_COLUMN_OPTIONS}
+                onChange={value => setAbCols(value === '1' ? 1 : 2)}
+              />
+            </div>
           </div>
         </div>
 
@@ -822,7 +866,7 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
             disabled={picked.length === 0 || busy !== ''}
             onClick={() => handleStart(true)}
           >
-            打印卡片并开始学习
+            打开打印页并开始学习
           </Button>
         </div>
 
@@ -880,13 +924,11 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
             const dayTs = isDate ? batchKeyTsOf(key) : Math.max(...items.map(w => w.addedAt))
             return (
               <div key={key} className="pick-modal__group">
-                <div className="pick-modal__group-title">
-                  <span>{customLabel || groupDayLabel(dayTs, planData.today)}</span>
-                  {customLabel && (
-                    <span className="pick-modal__group-day">{groupDayLabel(dayTs, planData.today)}</span>
-                  )}
-                  <span className="pick-modal__group-count">加入 · {items.length} 个词</span>
-                  <Checkbox
+                  <div className="pick-modal__group-title">
+                   <span>{customLabel || groupDayLabel(dayTs, planData.today)}</span>
+                   <span className="pick-modal__group-count">加入 · {items.length} 个词</span>
+                   <Button type="link" size="small" onClick={() => randomizeGroup(items, setDraft)}>随机</Button>
+                   <Checkbox
                     className="pick-modal__group-all"
                     checked={items.length > 0 && items.every(item => draftSet.has(item.word))}
                     onChange={() => toggleGroupWords(items)}
@@ -915,7 +957,7 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
           open={cardPickOpen}
           width="wide"
           title={'挑选要打印的单词 · ' + listName}
-          description={'可选择未开始、学习中或已完成的词；当前版式每页 ' + perPage + ' 张卡片'}
+            description="可选择未开始、学习中或已完成的词，打开打印页后选择打印模式。"
           onClose={() => { if (busy !== 'custom') setCardPickOpen(false) }}
           footer={
             <>
@@ -927,7 +969,7 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
                 disabled={cardDraft.length === 0 || busy !== ''}
                 onClick={handleCustomPrint}
               >
-                打印所选卡片（{cardDraft.length}）
+                 打印所选词（{cardDraft.length}）
               </Button>
             </>
           }
@@ -972,11 +1014,7 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
                 <div key={key} className="pick-modal__group">
                   <div className="pick-modal__group-title">
                     <span>{customLabel || groupDayLabel(dayTs, planData.today)}</span>
-                    {customLabel && (
-                      <span className="pick-modal__group-day">{groupDayLabel(dayTs, planData.today)}</span>
-                    )}
-                    <span className="pick-modal__group-count">打印 · {items.length} 个词</span>
-                    <Checkbox
+                   <Checkbox
                       className="pick-modal__group-all"
                       checked={items.length > 0 && items.every(item => cardDraftSet.has(item.word))}
                       onChange={() => toggleCardGroupWords(items)}
@@ -1063,7 +1101,7 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
             {activeItems.length > 0 && (
               <div className="study-day__ops">
                 <Button size="small" loading={busy === 'day'} disabled={busy !== ''} onClick={handlePrintBatch}>
-                  {isWeek ? '打印整周卡片' : '打印当天卡片'}
+                 {isWeek ? '打开整周打印页' : '打开当天打印页'}
                 </Button>
                 {canReview && (
                   <Popconfirm

@@ -11,9 +11,10 @@ export interface PrefetchState {
   pending: number
   running: number
   finished: boolean
+  errors: { word: string; message: string }[]
 }
 
-const IDLE: PrefetchState = { total: 0, done: 0, failed: 0, pending: 0, running: 0, finished: true }
+const IDLE: PrefetchState = { total: 0, done: 0, failed: 0, pending: 0, running: 0, finished: true, errors: [] }
 
 /** repair 的结果，失败时带上能直接显示给用户的原因 */
 export type RepairResult =
@@ -24,6 +25,11 @@ const MSG_OFFLINE = '云端服务没有响应，请检查网络或稍后再试'
 const MSG_STALE = '云端服务版本较旧，还没有补齐接口，请重新部署 Worker 后再试'
 
 type JsonBody = Record<string, unknown>
+type ServerError = { kind: 'error'; message: string }
+
+function isServerError(body: JsonBody | ServerError): body is ServerError {
+  return body.kind === 'error' && typeof body.message === 'string'
+}
 
 function numOf(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
@@ -45,18 +51,33 @@ function toState(body: JsonBody): PrefetchState | null {
     pending:  numOf(body.pending) ?? 0,
     running:  numOf(body.running) ?? 0,
     finished: body.finished,
+    errors: Array.isArray(body.errors)
+      ? body.errors.flatMap(item => {
+        if (!item || typeof item !== 'object') return []
+        const value = item as { word?: unknown; message?: unknown }
+        return typeof value.word === 'string' && typeof value.message === 'string'
+          ? [{ word: value.word, message: value.message }]
+          : []
+      })
+      : [],
   }
 }
 
 /** 连不上返回 offline；状态码或响应体不对返回 stale */
-async function callServer(path: string, init?: RequestInit): Promise<JsonBody | 'offline' | 'stale'> {
+async function callServer(path: string, init?: RequestInit): Promise<JsonBody | ServerError | 'offline' | 'stale'> {
   let res: Response
   try {
     res = await apiFetch(path, init)
   } catch {
     return 'offline'
   }
-  if (!res.ok) return 'stale'
+  if (!res.ok) {
+    const body = await res.json().catch(() => null) as { error?: unknown; message?: unknown } | null
+    const message = body && typeof body.error === 'string' ? body.error
+      : body && typeof body.message === 'string' ? body.message
+        : `请求失败（HTTP ${res.status}）`
+    return { kind: 'error', message }
+  }
   try {
     const body: unknown = await res.json()
     return body !== null && typeof body === 'object' ? body as JsonBody : 'stale'
@@ -88,13 +109,15 @@ export function useDictPrefetch(onFinish?: () => void) {
       if (!alive) return
       if (body === 'offline') { stop(MSG_OFFLINE); return }
       if (body === 'stale')   { stop(MSG_STALE);   return }
+      if (isServerError(body)) { stop(body.message); return }
       const next = toState(body)
       if (!next) { stop(MSG_STALE); return }
       setState(next)
       if (next.finished) {
         setWatching(false)
         // 后台补齐会改变词典条目；清掉单词释义和批量读取快照。
-        invalidateApiCache(['dictionary', 'dictionary-batch'])
+        // 音标任务会同步更新 list_words；切回学习列表时必须读取最新快照。
+        invalidateApiCache(['dictionary', 'dictionary-batch', 'lists'])
         finishRef.current?.()
       }
     }, 1200)
@@ -114,8 +137,10 @@ export function useDictPrefetch(onFinish?: () => void) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(words ? { words } : {}),
     })
-    if (body === 'offline' || body === 'stale') {
-      const message = body === 'offline' ? MSG_OFFLINE : MSG_STALE
+    if (body === 'offline' || body === 'stale' || isServerError(body)) {
+      const message = body === 'offline' ? MSG_OFFLINE
+        : body === 'stale' ? MSG_STALE
+          : body.message
       setError(message)
       return { ok: false, error: message }
     }

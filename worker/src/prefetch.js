@@ -19,7 +19,7 @@ import { KV_KEYS } from './kv.js'
 export const PREFETCH_CONCURRENCY = 2
 export const PREFETCH_PACE_MS = 250
 
-const EMPTY_STATE = { queue: [], total: 0, done: 0, failed: 0 }
+const EMPTY_STATE = { queue: [], total: 0, done: 0, failed: 0, errors: [] }
 
 async function readState(app) {
   const state = await app.kv.get(KV_KEYS.prefetch, null)
@@ -32,6 +32,7 @@ async function readState(app) {
     total: Number(state.total) || 0,
     done: Number(state.done) || 0,
     failed: Number(state.failed) || 0,
+    errors: Array.isArray(state.errors) ? state.errors.slice(-20) : [],
   }
 }
 
@@ -45,6 +46,7 @@ export function prefetchState(state, running) {
     total: state.total,
     done: state.done,
     failed: state.failed,
+    errors: state.errors,
     pending: state.queue.length,
     running: running ? 1 : 0,
     finished: state.queue.length === 0 && !running,
@@ -84,15 +86,41 @@ export async function runQueue(app) {
 
       let network = false
       try {
-        const resolved = job.phoneticOnly
-          ? await resolvePhoneticOnly(job.word, app)
-          : await resolveEntry(job.word, job.force === true, app)
+        const cached = job.fullChain ? await getCacheEntry(job.word, app) : null
+        const resolved = job.fullChain && cached?.phonetic && cached.phoneticStatus !== 'partial'
+          ? { entry: cached, network: false }
+          : job.fullChain
+            ? await resolveEntry(job.word, true, app)
+            : job.phoneticOnly
+              ? await resolvePhoneticOnly(job.word, app)
+              : await resolveEntry(job.word, job.force === true, app)
         network = resolved.network
-        if (job.phoneticOnly) await syncListPhonetic(job.word, resolved.entry, app)
-        else await syncListTranslation(job.word, resolved.entry, app)
+        if (job.fullChain) {
+          if (resolved.entry.phoneticStatus === 'complete' && resolved.entry.phonetic) {
+            await syncListPhonetic(job.word, resolved.entry, app)
+          }
+          // 完整执行查词链路，但只给学习列表补缺失字段，不覆盖用户已保存的中文释义。
+          await syncListTranslation(job.word, resolved.entry, app)
+          if (Array.isArray(resolved.entry.errors) && resolved.entry.errors.length > 0) {
+            const details = resolved.entry.errors.map(error => {
+              const target = error.target ? `（${error.target}）` : ''
+              return `${error.source}${target}：${error.message}`
+            }).join('；')
+            throw new Error(details || '查词链路返回错误')
+          }
+          if (resolved.entry.phoneticStatus !== 'complete' || !resolved.entry.phonetic) {
+            throw new Error('未获得完整音标')
+          }
+        } else if (job.phoneticOnly) {
+          await syncListPhonetic(job.word, resolved.entry, app)
+        } else {
+          await syncListTranslation(job.word, resolved.entry, app)
+        }
       } catch (e) {
         const failedState = await readState(app)
         failedState.failed++
+        failedState.errors.push({ word: job.word, message: e?.message || '补充失败' })
+        failedState.errors = failedState.errors.slice(-20)
         await writeState(app, failedState)
         console.warn('[prefetch]', job.word, e.message)
       }
@@ -116,6 +144,7 @@ async function enqueueJobs(app, jobs, { resetWhenIdle = true } = {}) {
     state.total = 0
     state.done = 0
     state.failed = 0
+    state.errors = []
   }
   const known = new Set(state.queue.map(item => (typeof item === 'object' && item !== null ? item.word : item)))
   let queued = 0
@@ -123,9 +152,14 @@ async function enqueueJobs(app, jobs, { resetWhenIdle = true } = {}) {
     const word = normalizeText(job.word)
     if (!word || known.has(word)) continue
     // 音标专用任务还要把已有词典缓存同步回 list_words，不能被 status=ok 短路。
-    if (!job.phoneticOnly && !await needsFetch(word, job.force === true, app)) continue
+    if (!job.phoneticOnly && !job.fullChain && !await needsFetch(word, job.force === true, app)) continue
     known.add(word)
-    state.queue.push({ word, force: job.force === true, phoneticOnly: job.phoneticOnly === true })
+    state.queue.push({
+      word,
+      force: job.force === true,
+      phoneticOnly: job.phoneticOnly === true,
+      fullChain: job.fullChain === true,
+    })
     state.total++
     queued++
   }
@@ -146,6 +180,12 @@ export async function enqueuePrefetch(words, force, app) {
 /** 只把缺失 / 不完整音标排进后台，不触发中文翻译。 */
 export async function enqueuePhoneticPrefetch(words, app) {
   const jobs = (Array.isArray(words) ? words : []).map(word => ({ word, phoneticOnly: true }))
+  return enqueueJobs(app, jobs)
+}
+
+/** 设置页使用完整查词链路，但学习列表只同步缺失字段。 */
+export async function enqueueFullPhoneticPrefetch(words, app) {
+  const jobs = (Array.isArray(words) ? words : []).map(word => ({ word, fullChain: true }))
   return enqueueJobs(app, jobs)
 }
 

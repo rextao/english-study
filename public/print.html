@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>英语打印页</title>
+  </head>
+  <body>
+    <p>正在加载打印页...</p>
+    <script>
+      (function () {
+        var id = new URLSearchParams(location.search).get('printId')
+        var html = id ? localStorage.getItem('english-study-print-' + id) : ''
+        if (html) {
+          document.open()
+          document.write(html)
+          document.close()
+        }
+      }())
+    </script>
+  </body>
+</html>

@@ -184,9 +184,6 @@
 /* 分组标题最右侧的全选框 */
 .pick-modal__group-all { margin-left: auto; font-weight: normal; }
 
-/* 存在自定义分组名时，旁边对照显示的只读加入日期 */
-.pick-modal__group-day { font-weight: normal; color: #999; }
-
 /* 复习计划：标题与月份切换一行，下面是月历 */
 .study-plan__head {
   display: flex;
