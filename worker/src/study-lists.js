@@ -290,6 +290,17 @@ export function createStudyListsStore(db) {
     )
   }
 
+  async function updateWordBatch(listId, word, batchKey, batchNames) {
+    const params = [String(batchKey || ''), String(listId), normalizeText(word)]
+    if (batchNames === undefined) {
+      return await db.run('UPDATE list_words SET batch_key = ? WHERE list_id = ? AND word = ?', ...params)
+    }
+    return await db.batch([
+      ['UPDATE list_words SET batch_key = ? WHERE list_id = ? AND word = ?', ...params],
+      ['UPDATE lists SET batch_names_json = ? WHERE id = ?', json(normalizeBatchNames(batchNames)), String(listId)],
+    ])
+  }
+
   async function removeWords(listId, words) {
     const keys = [...new Set((Array.isArray(words) ? words : []).map(normalizeText).filter(Boolean))]
     let removed = 0
@@ -354,7 +365,7 @@ export function createStudyListsStore(db) {
 
   return {
     resetStats, selectWords, listName, listMeta, nameExists, insertList, renameList, deleteList,
-    insertWords, updateWordContent, removeWords, updateBatchNames, saveWordProgress, adjustTallyStats,
+    insertWords, updateWordContent, updateWordBatch, removeWords, updateBatchNames, saveWordProgress, adjustTallyStats,
     listSummaries, listWords, batchNames, listIdsForWord, wordsNeedingRepair,
     wordsMissingPhonetic, itemsMissingPhonetic, syncPhonetics,
     activePlanRows, itemsMissingTranslation, syncTranslations,

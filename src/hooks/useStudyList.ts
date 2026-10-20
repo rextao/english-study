@@ -227,6 +227,19 @@ export function useStudyList() {
     return reply.data.item ?? null
   }, [])
 
+  /** 把已有词条移动到当前分组；只改分组，不改复习进度和释义快照 */
+  const moveItemBatch = useCallback(async (
+    listId: string, text: string, batchKey: string, batchName?: string,
+  ): Promise<boolean> => {
+    const reply = await request<{ ok: boolean }>(
+      listPath(listId) + '/words/' + encodeURIComponent(text),
+      jsonInit('PATCH', { batchKey, batchName }),
+    )
+    if (!reply.data?.ok) return false
+    invalidateApiCache(['list-words:' + listId, 'list-batches:' + listId, 'lists', 'study-plan', 'achievements'])
+    return true
+  }, [])
+
   /** 某个词在哪些学习列表里 */
   const getWordListIds = useCallback(async (word: string): Promise<string[]> => {
     const normalized = word.trim().toLowerCase()
@@ -249,7 +262,7 @@ export function useStudyList() {
     fetchLists, createList, renameList, deleteList,
     addItem, importItems, fetchListWords, removeItem, removeItems,
     fetchBatches, renameBatch,
-    updateItemSenses, getWordListIds, getListName,
+    updateItemSenses, moveItemBatch, getWordListIds, getListName,
     updateItemTranslations,
   }
 }

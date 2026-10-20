@@ -64,6 +64,8 @@
 .import-random-controls { display: flex; align-items: center; gap: 6px; }
 .import-random-controls__library { min-width: 110px; }
 .import-random-controls__count { min-width: 72px; }
+.import-replace-controls { display: flex; align-items: center; gap: 6px; }
+.import-replace-controls__input { width: 130px; }
 .import-camera__input { display: none; }
 .import-camera__button { display: none; }
 .import-camera__status,
@@ -164,6 +166,8 @@
   text-overflow: ellipsis;
 }
 
+.import-row__move { flex-shrink: 0; font-size: 12px; }
+
 /* 不会被导入的行压暗，被词库筛掉的再加一道删除线 */
 .import-row--filtered .import-row__text,
 .import-row--dup-text .import-row__text,
@@ -210,6 +214,8 @@
   .import-target__select { flex: 1; min-width: 0; }
   .import-random-controls { width: 100%; }
   .import-random-controls__library { flex: 1; min-width: 0; }
+  .import-replace-controls { width: 100%; }
+  .import-replace-controls__input { flex: 1; width: auto; min-width: 0; }
   .import-actions__msg { min-width: 0; }
   .import-query-status { align-items: flex-start; flex-wrap: wrap; }
   .import-query-status__hint { flex-basis: 100%; padding-left: 19px; }

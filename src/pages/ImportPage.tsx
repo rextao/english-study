@@ -73,6 +73,7 @@ interface Row {
   sourceIds: string[]
   /** 命中的词库：整行本身收录它的词库，句子则是「句中出现过其词条」的词库 */
   hitIds: string[]
+  existingBatchKey?: string
   state: RowState
 }
 
@@ -208,7 +209,7 @@ interface ImportPageProps {
 }
 
 export function ImportPage({ libraries, getLabelById, study, onManageLists, embedded }: ImportPageProps) {
-  const { lists, importItems, fetchListWords, fetchBatches } = study
+  const { lists, importItems, fetchListWords, fetchBatches, moveItemBatch } = study
   const { getSourceIds } = useVocabMatch(libraries)
 
   const [text, setText]                 = useState('')
@@ -217,12 +218,14 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
   const [keepSentences, setKeepSentences] = useState(false)
   const [randomLibraryId, setRandomLibraryId] = useState('')
   const [randomCount, setRandomCount] = useState('10')
+  const [replaceText, setReplaceText] = useState('')
   const [targetList, setTargetList]     = useState('default')
   const [importing, setImporting]       = useState(false)
   const [queryProgress, setQueryProgress] = useState<QueryProgress | null>(null)
-  const [result, setResult]             = useState<{ added: number; skipped: number; queued: number; suspect: number } | null>(null)
+  const [result, setResult]             = useState<{ added: number; skipped: number; queued: number; suspect: number; moved?: number } | null>(null)
   const [error, setError]               = useState('')
-  const [existing, setExisting]         = useState<Set<string>>(new Set())
+  const [existing, setExisting]         = useState<Map<string, string>>(new Map())
+  const [moveExisting, setMoveExisting] = useState<Set<string>>(new Set())
   const [reloadToken, setReloadToken]   = useState(0)
   const [pickerRows, setPickerRows]     = useState<Row[]>([])
   const [pickerEntries, setPickerEntries] = useState<Map<string, DictionaryEntry>>(new Map())
@@ -300,7 +303,7 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
     if (!library) return
     const count = Number(randomCount)
     const existingKeys = new Set(text.split(/\r?\n/).map(normalize).filter(Boolean))
-    const listKeys = new Set([...existing].map(normalize))
+    const listKeys = new Set([...existing.keys()].map(normalize))
     const candidates = library.words.filter(word => {
       const key = normalize(word.word)
       return !existingKeys.has(key) && !listKeys.has(key)
@@ -320,12 +323,20 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
     setResult(null)
   }
 
+  /** 将输入框中所有匹配文本替换为空；按普通文本匹配，不执行正则。 */
+  function removeTextFromInput() {
+    const target = replaceText
+    if (!target || !text) return
+    setText(previous => previous.split(target).join(''))
+    setResult(null)
+  }
+
   // 目标列表已有的词条，用于预览时标出「列表已有」
   useEffect(() => {
     let alive = true
     fetchListWords(targetList).then(items => {
       if (!alive) return
-      setExisting(new Set(items.map(i => i.word)))
+       setExisting(new Map(items.map(i => [normalize(i.word), i.batchKey || dayBatchKey(i.addedAt)])))
       const keys = new Set<string>()
       for (const it of items) keys.add(it.batchKey || dayBatchKey(it.addedAt))
       setListBatchKeys(keys)
@@ -379,11 +390,11 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
         if (!hit) state = 'filtered'
       }
       if (state === 'keep' && seen.has(key)) state = 'dup-text'
-      if (state === 'keep' && existing.has(key)) state = 'dup-list'
+       if (state === 'keep' && existing.has(key)) state = 'dup-list'
 
       seen.add(key)
       const raw = type === 'sentence' ? capitalizeSentence(line) : line.trim()
-      out.push({ inputIndex, raw, key, type, sourceIds, hitIds, state })
+       out.push({ inputIndex, raw, key, type, sourceIds, hitIds, state, existingBatchKey: existing.get(key) })
     }
     return out
   }, [text, filterLibId, keepSentences, existing, getSourceIds])
@@ -560,8 +571,39 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
       && entry?.spellingStatus === 'suspect'
   }
 
+  async function moveSelectedExistingRows() {
+    const batchName = pendingBatch && pendingBatch.key === batchChoice ? pendingBatch.name : batchNames[batchChoice]
+    const moveRows = rows.filter(row => row.state === 'dup-list' && moveExisting.has(row.key))
+    const movedInputIndexes = new Set<number>()
+    let moved = 0
+    for (const row of moveRows) {
+      if (await moveItemBatch(targetList, row.key, batchChoice, batchName)) {
+        moved++
+        movedInputIndexes.add(row.inputIndex)
+      }
+    }
+    if (moved > 0) {
+      setText(rows.filter(row => !movedInputIndexes.has(row.inputIndex)).map(row => row.raw).join('\n'))
+      setResult({ added: 0, skipped: 0, queued: 0, suspect: 0, moved })
+      setMoveExisting(new Set())
+      setReloadToken(t => t + 1)
+      if (batchChoice) setPendingBatch(null)
+    }
+    return moved
+  }
+
   async function handleImport() {
-    if (stats.keep === 0) return
+    if (stats.keep === 0) {
+      if (moveExisting.size === 0) return
+      setImporting(true)
+      setError('')
+      try {
+        await moveSelectedExistingRows()
+      } finally {
+        setImporting(false)
+      }
+      return
+    }
     setImporting(true)
     setQueryProgress({ phase: 'preparing', batch: 0, batches: 1, done: 0, total: stats.keep })
     setResult(null)
@@ -612,7 +654,7 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
         },
       }]
     })
-    if (candidates.length === 0) {
+    if (candidates.length === 0 && moveExisting.size === 0) {
       setError('没有成功获取中文词义的项目，暂时无法导入')
       setPickerSaving(false)
       return
@@ -627,8 +669,18 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
       ? await importItems(targetList, pendingCandidates.map(({ item }) => item), batchChoice || undefined, pendingBatch && pendingBatch.key === batchChoice ? pendingBatch.name : undefined)
       : { added: 0, skipped: 0, queued: 0 }
     if (res) {
+      const movedBefore = new Set<number>()
+      const batchName = pendingBatch && pendingBatch.key === batchChoice ? pendingBatch.name : batchNames[batchChoice]
+      const moveRows = rows.filter(row => row.state === 'dup-list' && moveExisting.has(row.key))
+      let moved = 0
+      for (const row of moveRows) {
+        if (await moveItemBatch(targetList, row.key, batchChoice, batchName)) {
+          moved++
+          movedBefore.add(row.inputIndex)
+        }
+      }
       const suspect = pickerRows.filter(row => isSpellingSuspect(row, pickerEntries.get(row.key))).length
-      setResult({ ...res, skipped: res.skipped + alreadyExistingCount, suspect })
+      setResult({ ...res, skipped: res.skipped + alreadyExistingCount, suspect, moved })
 
       // 服务端按提交顺序处理；正常情况下 pendingCandidates 都会成功。若并发产生跳过，
       // 只按返回的 added 数量移除前面的成功项，其余输入（含重复、筛选项和查询失败项）全部保留。
@@ -636,9 +688,10 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
         pendingCandidates.slice(0, res.added).map(({ row }) => row.inputIndex),
       )
       setText(rows
-        .filter(row => !addedInputIndexes.has(row.inputIndex))
+        .filter(row => !addedInputIndexes.has(row.inputIndex) && !movedBefore.has(row.inputIndex))
         .map(row => row.raw)
         .join('\n'))
+      setMoveExisting(new Set())
       setReloadToken(t => t + 1)
       // 分组名已随这次导入落盘；清掉未保存标记（reloadToken 变化会重新拉分组列表）
       if (batchChoice) setPendingBatch(null)
@@ -837,6 +890,18 @@ const targetControls = (
                   />
                   <Button size="small" disabled={!randomLibraryId} onClick={addRandomWords}>随机单词</Button>
                 </div>
+                <div className="import-replace-controls">
+                  <Input
+                    size="small"
+                    className="import-replace-controls__input"
+                    aria-label="要删除的文本"
+                    placeholder="输入要删除的文本"
+                    value={replaceText}
+                    onChange={event => setReplaceText(event.target.value)}
+                    onPressEnter={removeTextFromInput}
+                  />
+                  <Button size="small" disabled={!replaceText || !text} onClick={removeTextFromInput}>替换为空</Button>
+                </div>
                 <input ref={cameraInputRef} className="import-camera__input" type="file" accept="image/*" capture="environment"
                   onChange={e => { void handleOcrPhoto(e.target.files?.[0]) }} aria-label="拍照提取文字" />
                 <Button className="import-camera__button" size="small" loading={ocrBusy}
@@ -886,6 +951,7 @@ const targetControls = (
               <div className="callout callout--success import-actions__msg">
                 ✓ 成功导入 <strong>{result.added}</strong> 条，跳过重复 <strong>{result.skipped}</strong> 条
                 {result.suspect > 0 && <> · 疑似错误 <strong>{result.suspect}</strong> 条未导入</>}
+                {result.moved && result.moved > 0 && <> · 已移动 <strong>{result.moved}</strong> 条</>}
                 {result.queued > 0 && <> · 缺失音标正在后台补齐</>}
               </div>
             )}
@@ -916,6 +982,29 @@ const targetControls = (
                         {row.type === 'sentence' ? '含 ' + getLabelById(primaryVocabId(row.hitIds)!) : getLabelById(primaryVocabId(row.hitIds)!)}
                       </Tag>
                     )}
+                    {row.state === 'dup-list' && row.existingBatchKey && (
+                      <>
+                        <Tag color={row.existingBatchKey === batchChoice ? 'green' : 'gold'}>
+                          {row.existingBatchKey === batchChoice
+                            ? '已在当前分组'
+                            : '已在：' + batchKeyLabel(row.existingBatchKey, batchNames)}
+                        </Tag>
+                        {row.existingBatchKey !== batchChoice && (
+                          <Checkbox
+                            className="import-row__move"
+                            checked={moveExisting.has(row.key)}
+                            onChange={event => setMoveExisting(previous => {
+                              const next = new Set(previous)
+                              if (event.target.checked) next.add(row.key)
+                              else next.delete(row.key)
+                              return next
+                            })}
+                          >
+                            移到当前分组
+                          </Checkbox>
+                        )}
+                      </>
+                    )}
                     <span className={'import-state import-state--' + row.state}>{STATE_LABEL[row.state]}</span>
                   </li>
                 ))}
@@ -942,9 +1031,9 @@ const targetControls = (
               <span className="hint">每个词最多选择 {MAX_PICKED_TRANSLATIONS} 条</span>
               <div className="import-translation-picker__buttons">
                 <Button size="small" onClick={() => setPickerOpen(false)}>取消</Button>
-                <Button type="primary" size="small" loading={pickerSaving} disabled={pickerImportableCount === 0} onClick={() => { void confirmImport() }}>
-                  确认导入 {pickerImportableCount} 条
-                </Button>
+                 <Button type="primary" size="small" loading={pickerSaving} disabled={pickerImportableCount === 0 && moveExisting.size === 0} onClick={() => { void confirmImport() }}>
+                   {moveExisting.size > 0 ? '确认处理' : '确认导入 ' + pickerImportableCount + ' 条'}
+                 </Button>
               </div>
             </div>
           }

@@ -518,6 +518,15 @@ export async function handleApi(method, pathname, searchParams, body, app) {
       const target = normalizeText(decodeURIComponent(wordPathMatch[1]))
       const item = (await app.listsStore.selectWords(listId, [target]))[0]
       if (!item) return { status: 404, body: { ok: false, reason: 'not found' } }
+      if ('batchKey' in (body || {})) {
+        const batchKey = String(body?.batchKey ?? '').trim()
+        const batchName = batchKey ? String(body?.batchName ?? '').trim() : ''
+        if (batchName.length > 40) return { status: 409, body: { ok: false, error: '标签过长' } }
+        if (batchKey && batchName) list.batchNames[batchKey] = batchName
+        await app.listsStore.updateWordBatch(listId, target, batchKey, batchKey && batchName ? list.batchNames : undefined)
+        console.log('[word ~]   ', target, 'moved to batch', batchKey || '(date)')
+        return { status: 200, body: { ok: true } }
+      }
       if ('senseIds' in (body || {})) {
         const senseIds = normalizeSenseIds(body?.senseIds)
         if (senseIds.length) item.senseIds = senseIds
