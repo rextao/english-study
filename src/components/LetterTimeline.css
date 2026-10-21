@@ -1,0 +1,69 @@
+.letter-timeline {
+  position: sticky;
+  top: 88px;
+  grid-area: 1 / 1;
+  align-self: start;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  width: 28px;
+  height: calc(100vh - 120px);
+  min-height: 180px;
+  margin-left: -83px;
+  padding: 8px 0;
+}
+
+.letter-timeline::before {
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  left: 50%;
+  width: 2px;
+  content: '';
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--color-border-strong, var(--color-border)) 12%,
+    var(--color-border-strong, var(--color-border)) 88%,
+    transparent
+  );
+  transform: translateX(-50%);
+}
+
+.letter-timeline__item {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 2px solid var(--color-surface, #fff);
+  border-radius: 50%;
+  color: var(--color-text);
+  background: var(--color-surface, #fff);
+  box-shadow: 0 0 0 1px var(--color-border), 0 2px 5px rgb(15 23 42 / 12%);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: color .15s ease, background-color .15s ease, border-color .15s ease, transform .15s ease;
+}
+
+.letter-timeline__item:hover,
+.letter-timeline__item--active {
+  border-color: var(--color-primary);
+  color: #fff;
+  background: var(--color-primary);
+  box-shadow: 0 0 0 2px rgb(37 99 235 / 16%), 0 3px 7px rgb(15 23 42 / 18%);
+  transform: scale(1.08);
+}
+
+.letter-timeline__item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}

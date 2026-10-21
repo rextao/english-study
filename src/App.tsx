@@ -85,14 +85,11 @@ export default function App() {
     )
   }
 
-  const totalItems = study.lists.reduce((sum, l) => sum + l.wordCount, 0)
-
   return (
     <div className="app">
       <Nav
         active={tab}
         onChange={setTab}
-        totalItems={totalItems}
         dueToday={plan.dueCount}
       />
 

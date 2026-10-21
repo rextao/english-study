@@ -361,7 +361,12 @@ export function ImportPage({
 
   /** 预览行右侧的 ×：把这一行从输入框里删掉（inputIndex 就是原始文本里的行号） */
   function removePreviewRow(inputIndex: number) {
-    setText(previous => previous.split('\n').filter((_, index) => index !== inputIndex).join('\n'))
+    const row = rows.find(item => item.inputIndex === inputIndex)
+    if (!row) return
+    setText(previous => previous.split('\n').filter(line => normalize(line) !== row.key).join('\n'))
+    setResult(null)
+    setUndoSnapshot(null)
+    setUndoMessage('')
   }
 
   /** 词义弹窗里每行右侧的 ×：这一条不导入；输入框内容保留，之后仍可重新查询 */
@@ -822,7 +827,13 @@ export function ImportPage({
   }
 
   const filterActive = filterLibId !== NO_FILTER
-  const shown = rows.slice(0, PREVIEW_LIMIT)
+  const shown = useMemo(() => {
+    const unique = new Map<string, Row>()
+    for (const row of rows) {
+      if (!unique.has(row.key)) unique.set(row.key, row)
+    }
+    return Array.from(unique.values()).slice(0, PREVIEW_LIMIT)
+  }, [rows])
   const pickerImportableCount = pickerRows.filter(row => (
     !pickerErrors.has(row.key)
     && !isSpellingSuspect(row, pickerEntries.get(row.key))
@@ -1118,27 +1129,25 @@ const targetControls = (
                       </Tag>
                     )}
                     {row.state === 'dup-list' && row.existingBatchKey && (
-                      <>
-                        <Tag color={row.existingBatchKey === batchChoice ? 'green' : 'gold'}>
-                          {row.existingBatchKey === batchChoice
-                            ? '已在当前分组'
-                            : '已在：' + batchKeyLabel(row.existingBatchKey, batchNames)}
-                        </Tag>
-                        {row.existingBatchKey !== batchChoice && (
-                          <Checkbox
-                            className="import-row__move"
-                            checked={moveExisting.has(row.key)}
-                            onChange={event => setMoveExisting(previous => {
-                              const next = new Set(previous)
-                              if (event.target.checked) next.add(row.key)
-                              else next.delete(row.key)
-                              return next
-                            })}
-                          >
-                            移到当前分组
-                          </Checkbox>
-                        )}
-                      </>
+                      row.existingBatchKey === batchChoice ? (
+                        <Tag color="green">当前分组</Tag>
+                      ) : (
+                        <Checkbox
+                          className="import-row__move"
+                          checked={moveExisting.has(row.key)}
+                          onChange={event => setMoveExisting(previous => {
+                            const next = new Set(previous)
+                            if (event.target.checked) next.add(row.key)
+                            else next.delete(row.key)
+                            return next
+                          })}
+                        >
+                          <span className="import-row__move-label">
+                            <Tag color="gold">{batchKeyLabel(row.existingBatchKey, batchNames)}</Tag>
+                            <span>→ 当前</span>
+                          </span>
+                        </Checkbox>
+                      )
                     )}
                     <span className={'import-state import-state--' + row.state}>{STATE_LABEL[row.state]}</span>
                     <Button
@@ -1154,8 +1163,8 @@ const targetControls = (
                   </li>
                 ))}
               </ul>
-              {rows.length > PREVIEW_LIMIT && (
-                <p className="hint">仅显示前 {PREVIEW_LIMIT} 行，剩余 {rows.length - PREVIEW_LIMIT} 行仍会按同样规则导入</p>
+              {new Set(rows.map(row => row.key)).size > PREVIEW_LIMIT && (
+                <p className="hint">仅显示前 {PREVIEW_LIMIT} 条，剩余 {new Set(rows.map(row => row.key)).size - PREVIEW_LIMIT} 条仍会按同样规则导入</p>
               )}
             </div>
           )}

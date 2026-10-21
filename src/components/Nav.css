@@ -87,33 +87,6 @@
   font-weight: 600;
 }
 
-.nav__badge {
-  min-width: 17px;
-  padding: 0 5px;
-  border-radius: var(--radius-full);
-  background: var(--color-border-strong);
-  color: var(--color-text-muted);
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 17px;
-  text-align: center;
-}
-
-.nav__tab--active .nav__badge { background: var(--color-primary); color: #fff; }
-
-/* 手机端折叠菜单里的角标（学习列表条数），沿用分段控件里角标的观感 */
-.nav__menu-badge {
-  min-width: 17px;
-  padding: 0 5px;
-  border-radius: var(--radius-full);
-  background: var(--color-border-strong);
-  color: var(--color-text-muted);
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 17px;
-  text-align: center;
-}
-
 /* 折叠菜单的「更多」按钮：桌面端不需要，只在手机端出现 */
 .nav__more { display: none; }
 

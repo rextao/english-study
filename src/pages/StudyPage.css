@@ -336,8 +336,17 @@
 
 .study-day .empty { margin-top: 10px; }
 
+/* 本周词条超过 20 个时，列表左侧显示首字母快速定位条。 */
+.review-list-shell {
+  position: relative;
+  display: grid;
+}
+
+.review-row[id] { scroll-margin-top: 72px; }
+
 /* 一行一个词，右侧是打卡按钮 */
 .review-rows {
+  grid-area: 1 / 1;
   list-style: none;
   margin-top: 12px;
   border-top: 1px solid var(--color-border);
@@ -448,6 +457,8 @@
 /* 「下一轮 / 没记住」一组：桌面端 display:contents 不影响现有行内布局，窄屏整行铺满 */
 .review-row__main { display: contents; }
 @media (max-width: 640px) {
+  .letter-timeline { display: none; }
+
   /* 移动端不需要打印卡片，整个「学习与打印卡片」模块隐藏，两个挑词弹窗也随之不可触发 */
   .study-start { display: none; }
   .study-start__head { flex-direction: column; align-items: stretch; }

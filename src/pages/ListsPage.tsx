@@ -5,7 +5,8 @@ import type { StudyWordItem } from '../types/vocab'
 import type { VocabLibraryInfo } from '../types/vocab'
 import { PageHeader } from '../components/PageHeader'
 import { formatTranslationOptions, selectedTranslationOptions } from '../utils/translations'
-import { Button, Checkbox, Input, Popconfirm, Tag } from '../ui'
+import { Button, Checkbox, Input, Popconfirm, Select, Tag } from '../ui'
+import type { SelectOption } from '../ui'
 import { primaryVocabIdForWord } from '../utils/vocabOrder'
 import './ListsPage.css'
 
@@ -42,6 +43,17 @@ function batchTitle(key: string): string {
   return sameYear ? m + ' 月 ' + d + ' 日' : y + ' 年 ' + m + ' 月 ' + d + ' 日'
 }
 
+/** 分组键对应的创建时间；按分组自身排序，避免移动词条后分组顺序被词条加入时间带偏。 */
+function batchSortTs(key: string): number {
+  const custom = /^b:(\d+)-/.exec(key)
+  if (custom) return Number(custom[1])
+  if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+    const [y, m, d] = key.split('-').map(Number)
+    return new Date(y, m - 1, d).getTime()
+  }
+  return 0
+}
+
 interface ListsPageProps {
   libraries: VocabLibraryInfo[]
   getLabelById: (id: string) => string
@@ -52,8 +64,8 @@ interface ListsPageProps {
 
 export function ListsPage({ libraries, getLabelById, study, onManageLists }: ListsPageProps) {
   const {
-    lists, loading, deleteList,
-    fetchListWords, removeItem, removeItems, fetchBatches, renameBatch,
+    lists, loading,
+    fetchListWords, removeItem, removeItems, fetchBatches, renameBatch, moveItemBatch,
   } = study
 
   const [selectedId, setSelectedId]     = useState(DEFAULT_LIST_ID)
@@ -68,12 +80,14 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
   const [removing, setRemoving]         = useState(false)
 
   // 分组展示：默认关闭保持平铺；batchNames 是各日期的显示名（可重命名）
-  const [showBatches, setShowBatches]   = useState(false)
+  const [showBatches, setShowBatches]   = useState(true)
   const [batchNames, setBatchNames]     = useState<Record<string, string>>({})
   const [editingBatch, setEditingBatch] = useState<string | null>(null)
   const [batchDraft, setBatchDraft]     = useState('')
   // 已折叠的分组（日期串集合），点分组标题切换
   const [collapsed, setCollapsed]       = useState<Set<string>>(new Set())
+  const [moveBatchKey, setMoveBatchKey] = useState('')
+  const [moving, setMoving]             = useState(false)
 
   // 选中的列表被删掉后回退到默认列表
   useEffect(() => {
@@ -132,8 +146,21 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
       if (bucket) bucket.push(item)
       else groups.set(key, [item])
     }
-    return Array.from(groups.entries())
+    return Array.from(groups.entries()).sort(([a], [b]) => {
+      const timeDiff = batchSortTs(b) - batchSortTs(a)
+      return timeDiff || b.localeCompare(a)
+    })
   }, [visibleWords])
+
+  const batchOptions = useMemo<SelectOption[]>(() => {
+    const keys = new Set<string>()
+    for (const item of words) keys.add(item.batchKey || batchKeyOf(item.addedAt))
+    return Array.from(keys).map(key => ({
+      value: key,
+      label: batchNames[key] || batchTitle(key),
+      extra: words.filter(item => (item.batchKey || batchKeyOf(item.addedAt)) === key).length + ' 条',
+    }))
+  }, [words, batchNames])
 
   // 选中项以列表里真实存在的词条为准：某个词被别处删掉后这里自动跟着消失
   const selectedWords = useMemo(
@@ -154,14 +181,6 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
       if (selected.length > 0) return formatTranslationOptions(selected)
     }
     return entry?.translation
-  }
-
-  async function handleDelete() {
-    if (!current || isDefault) return
-    setError('')
-    const res = await deleteList(current.id)
-    if (!res.ok) setError(res.error)
-    else setSelectedId(DEFAULT_LIST_ID)
   }
 
   async function handleRemoveWord(text: string) {
@@ -343,6 +362,31 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
       + (res.missing > 0 ? '，另有 ' + res.missing + ' 条已经不在列表里' : ''))
   }
 
+  /** 将多选词条移动到指定分组，只修改分组归属。 */
+  async function handleMoveSelected() {
+    if (!moveBatchKey || selectedWords.length === 0) return
+    setMoving(true)
+    setError('')
+    const batchName = batchNames[moveBatchKey]
+    const results = await Promise.all(selectedWords.map(word => (
+      moveItemBatch(selectedId, word, moveBatchKey, batchName)
+    )))
+    setMoving(false)
+    if (results.some(ok => !ok)) {
+      setError('移动分组失败，请确认云端服务可用')
+      return
+    }
+    const [updatedWords, updatedNames] = await Promise.all([
+      fetchListWords(selectedId),
+      fetchBatches(selectedId),
+    ])
+    setWords(updatedWords)
+    setBatchNames(updatedNames)
+    setSelected(new Set())
+    setMoveBatchKey('')
+    setNotice('已移动 ' + selectedWords.length + ' 条到「' + (batchName || batchTitle(moveBatchKey)) + '」')
+  }
+
   return (
     <div className="page lists-page">
       <PageHeader title="学习列表"
@@ -421,25 +465,6 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
             >
               重命名
             </Button>
-            <Popconfirm
-              title="删除这个列表？"
-              description="列表里的词条会一起删除，且不可恢复"
-              okText="删除"
-              danger
-              disabled={isDefault}
-              placement="bottomRight"
-              onConfirm={handleDelete}
-            >
-              <Button
-                type="text"
-                danger
-                size="small"
-                disabled={isDefault}
-                title={isDefault ? '默认列表不可删除' : undefined}
-              >
-                删除
-              </Button>
-            </Popconfirm>
           </div>
         </div>
       )}
@@ -454,6 +479,24 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
             {keyword.trim() ? '（当前筛选出的 ' + visibleWords.length + ' 条）' : ''}
           </Checkbox>
           <span className="lists-select__count">已选 {selectedWords.length} 条</span>
+          <Select
+            className="lists-select__move"
+            size="small"
+            value={moveBatchKey}
+            options={batchOptions}
+            placeholder="移动到分组"
+            aria-label="移动到分组"
+            disabled={selectedWords.length === 0 || moving}
+            onChange={setMoveBatchKey}
+          />
+          <Button
+            size="small"
+            loading={moving}
+            disabled={selectedWords.length === 0 || !moveBatchKey}
+            onClick={() => void handleMoveSelected()}
+          >
+            移动
+          </Button>
           <Popconfirm
             title={'删除选中的 ' + selectedWords.length + ' 条？'}
             description="只从这个列表移除，其他列表和词典缓存不受影响，但不可恢复"

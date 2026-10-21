@@ -209,6 +209,8 @@
   white-space: nowrap;
 }
 
+.lists-select__move { width: 180px; flex-shrink: 0; }
+
 /* 词条清单：一行一个，直接平铺在页面上，不再有内层滚动 */
 .word-rows {
   list-style: none;

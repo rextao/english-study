@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PageHeader } from '../components/PageHeader'
-import { Button, Checkbox, ENGLISH_WORD_INPUT_PROPS, Input, Modal, Popconfirm, Select } from '../ui'
+import { LetterTimeline } from '../components/LetterTimeline'
+import { WordSelectionGroups } from '../components/WordSelectionGroups'
+import { Button, ENGLISH_WORD_INPUT_PROPS, Input, Modal, Popconfirm, Select } from '../ui'
 import type { SelectOption } from '../ui'
 import type { StudyListApi } from '../hooks/useStudyList'
 import type { StudyPlanApi, TallyKind } from '../hooks/useStudyPlan'
@@ -13,6 +15,7 @@ import { fetchCards, openCardWindow, renderPrintLandingInto } from '../utils/fla
 import type { CardRequest, CardWindow } from '../utils/flashcards'
 import { formatTranslationOptions, selectedTranslationOptions } from '../utils/translations'
 import { primaryVocabIdForWord } from '../utils/vocabOrder'
+import { groupStudyWords } from '../utils/studyWordGroups'
 import './StudyPage.css'
 
 const DAY = 86400000
@@ -92,30 +95,6 @@ function printBatchTitle(batch: PrintBatch): string {
 function fmtMonth(ts: number): string {
   const d = new Date(ts)
   return d.getFullYear() + ' 年 ' + (d.getMonth() + 1) + ' 月'
-}
-
-/** 分组标题：同一年只显示月日，跨年补年份；今天/昨天额外标注 */
-function groupDayLabel(day: number, today: number): string {
-  const diff = dayDiff(today, day)
-  const sameYear = new Date(day).getFullYear() === new Date(today).getFullYear()
-  const base = sameYear ? fmtDate(day) : new Date(day).getFullYear() + ' 年 ' + fmtDate(day)
-  if (diff === 0) return base + ' · 今天'
-  if (diff === 1) return base + ' · 昨天'
-  return base
-}
-
-/** 词条加入时间 → 自然日串，形如 2026-09-15（本地时区），与学习列表的分组键一致 */
-const batchKeyOf = (ts: number) => {
-  const d = new Date(ts)
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return d.getFullYear() + '-' + mm + '-' + dd
-}
-
-/** 分组键反回当天 0 点时间戳，供今天/昨天标注对照 */
-const batchKeyTsOf = (key: string) => {
-  const [y, m, d] = key.split('-').map(Number)
-  return new Date(y, m - 1, d).getTime()
 }
 
 /** 相对 base 偏移 offset 个月的 1 号零点；先归到 1 号，避免 31 号跳月 */
@@ -246,6 +225,7 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
   /** 挑词弹窗：draft 是草稿，点取消就丢掉 */
   const [pickOpen, setPickOpen]         = useState(false)
   const [draft, setDraft]               = useState<string[]>([])
+  const [newWordSearch, setNewWordSearch] = useState('')
   /** 自由打印弹窗：可选择列表里的任意词，只打印、不改变学习进度。 */
   const [cardPickOpen, setCardPickOpen] = useState(false)
   const [cardDraft, setCardDraft]       = useState<string[]>([])
@@ -272,6 +252,7 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
     let alive = true
     setWordsLoading(true)
     setPicked([])
+    setNewWordSearch('')
     setCardDraft([])
     setCardSearch('')
     setQuickBatchId('')
@@ -319,20 +300,16 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
     () => words.filter(w => !w.startedAt).sort((a, b) => a.word.localeCompare(b.word)),
     [words]
   )
-  /** 挑新词弹窗按加入日期分成分组：与学习列表同键（2026-09-15），显示名直接读同一份 batchNames */
-  const newWordGroups = useMemo(() => {
-    const groups = new Map<string, StudyWordItem[]>()
-    for (const item of newWords) {
-      const key = item.batchKey || batchKeyOf(item.addedAt)
-      const bucket = groups.get(key)
-      if (bucket) bucket.push(item)
-      else groups.set(key, [item])
-    }
-    // 按组内最新加入时间倒序：自定义分组与自然日分组统一按时间排，新分组在上
-    return Array.from(groups.entries()).sort(
-      (a, b) => Math.max(...b[1].map(w => w.addedAt)) - Math.max(...a[1].map(w => w.addedAt)),
-    )
-  }, [newWords])
+  /** 挑新词搜索：匹配单词或句子。 */
+  const filteredNewWords = useMemo(() => {
+    const query = keyOf(newWordSearch)
+    if (!query) return newWords
+    return newWords.filter(item => keyOf(displayTextOf(item)).includes(query))
+  }, [newWords, newWordSearch])
+  const newWordGroups = useMemo(
+    () => groupStudyWords(filteredNewWords, batchNames, planData.today),
+    [filteredNewWords, batchNames, planData.today],
+  )
   const printableWords = useMemo(
     () => words.slice().sort((a, b) => displayTextOf(a).localeCompare(displayTextOf(b))),
     [words]
@@ -342,19 +319,10 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
     if (!query) return printableWords
     return printableWords.filter(item => keyOf(displayTextOf(item)).includes(query))
   }, [printableWords, cardSearch])
-  /** 自由打印也按学习列表里的批次分组，搜索时只保留命中的词。 */
-  const printableWordGroups = useMemo(() => {
-    const groups = new Map<string, StudyWordItem[]>()
-    for (const item of filteredPrintableWords) {
-      const key = item.batchKey || batchKeyOf(item.addedAt)
-      const bucket = groups.get(key)
-      if (bucket) bucket.push(item)
-      else groups.set(key, [item])
-    }
-    return Array.from(groups.entries()).sort(
-      (a, b) => Math.max(...b[1].map(w => w.addedAt)) - Math.max(...a[1].map(w => w.addedAt)),
-    )
-  }, [filteredPrintableWords])
+  const printableWordGroups = useMemo(
+    () => groupStudyWords(filteredPrintableWords, batchNames, planData.today),
+    [filteredPrintableWords, batchNames, planData.today],
+  )
 
   const layoutInfo    = LAYOUTS.find(l => l.value === layout) ?? LAYOUTS[0]
   const perPage       = layoutInfo.cols * layoutInfo.rows
@@ -458,6 +426,42 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
       keyOf(displayTextOf(item)) + ' ' + keyOf(item.phonetic ?? '') + ' ' + keyOf(item.translation ?? '')
     ).includes(query))
   }, [activeItems, reviewSearch])
+  /** 本周词条较多时，按当前可见结果生成左侧首字母导航。 */
+  const reviewLetterNav = useMemo(() => {
+    if (!isWeek || activeItems.length <= 20) return []
+    const letters: string[] = []
+    for (const item of visibleItems) {
+      const match = /^[^a-zA-Z]*([a-zA-Z])/.exec(displayTextOf(item))
+      const letter = (match?.[1] ?? '#').toUpperCase()
+      if (!letters.includes(letter)) letters.push(letter)
+    }
+    return letters
+  }, [activeItems.length, isWeek, visibleItems])
+  const [activeReviewLetter, setActiveReviewLetter] = useState('')
+
+  useEffect(() => {
+    setActiveReviewLetter(reviewLetterNav[0] ?? '')
+  }, [reviewLetterNav])
+
+  useEffect(() => {
+    if (reviewLetterNav.length === 0) return
+    const updateActiveLetter = () => {
+      const anchor = 120
+      let current = reviewLetterNav[0]
+      for (const letter of reviewLetterNav) {
+        const row = document.getElementById('review-letter-' + letter)
+        if (row && row.getBoundingClientRect().top <= anchor) current = letter
+      }
+      setActiveReviewLetter(current)
+    }
+    updateActiveLetter()
+    window.addEventListener('scroll', updateActiveLetter, { passive: true })
+    window.addEventListener('resize', updateActiveLetter)
+    return () => {
+      window.removeEventListener('scroll', updateActiveLetter)
+      window.removeEventListener('resize', updateActiveLetter)
+    }
+  }, [reviewLetterNav])
   /** 只有当前这一天 / 当前这一周能打卡，未来的批次只能看 */
   const canReview   = isWeek ? isThisWeek : isToday
   const panelTitle  = isWeek
@@ -471,6 +475,7 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
 
   function openPick() {
     setDraft(picked)
+    setNewWordSearch('')
     setPickOpen(true)
     // 每次打开都刷新一次分组显示名，保证学习列表刚改过的名称立即生效
     fetchBatches(listId).then(names => setBatchNames(names))
@@ -486,21 +491,6 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
     setDraft(prev => words.every(word => prev.includes(word))
       ? prev.filter(word => !words.includes(word))
       : prev.concat(words.filter(word => !prev.includes(word))))
-  }
-
-  function draftFirst(count: number) {
-    setDraft(newWords.slice(0, count).map(w => w.word))
-  }
-
-  /** 将一个分组中已选词的顺序打乱，其他分组和未选词保持不变。 */
-  function randomizeGroup(items: StudyWordItem[], setter: (update: (current: string[]) => string[]) => void) {
-    const words = items.map(item => item.word)
-    setter(current => {
-      const selected = new Set(current.filter(word => words.includes(word)))
-      const shuffled = words.filter(word => selected.has(word)).sort(() => Math.random() - 0.5)
-      let cursor = 0
-      return current.map(word => words.includes(word) && selected.has(word) ? shuffled[cursor++] : word)
-    })
   }
 
   function openCardPick() {
@@ -930,45 +920,29 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
             </>
           }
         >
-          <div className="pick-modal__quick">
-            <Button type="link" size="small" onClick={() => draftFirst(perPage)}>选 1 页</Button>
-            <Button type="link" size="small" onClick={() => draftFirst(perPage * 2)}>选 2 页</Button>
-            <Button type="link" size="small" onClick={() => setDraft(newWords.map(w => w.word))}>全选</Button>
-            <Button type="link" size="small" disabled={draft.length === 0} onClick={() => setDraft([])}>清空</Button>
+          <div className="pick-modal__search">
+            <Input
+              {...ENGLISH_WORD_INPUT_PROPS}
+              block
+              allowClear
+              value={newWordSearch}
+              placeholder="搜索单词或句子"
+              aria-label="搜索要开始学习的单词或句子"
+              onChange={event => setNewWordSearch(event.target.value)}
+              onClear={() => setNewWordSearch('')}
+            />
           </div>
-          {newWordGroups.map(([key, items]) => {
-            const isDate = /^\d{4}-\d{2}-\d{2}$/.test(key)
-            const customLabel = batchNames[key] || (isDate ? '' : '自定义分组')
-            const dayTs = isDate ? batchKeyTsOf(key) : Math.max(...items.map(w => w.addedAt))
-            return (
-              <div key={key} className="pick-modal__group">
-                  <div className="pick-modal__group-title">
-                   <span>{customLabel || groupDayLabel(dayTs, planData.today)}</span>
-                   <span className="pick-modal__group-count">加入 · {items.length} 个词</span>
-                   <Button type="link" size="small" onClick={() => randomizeGroup(items, setDraft)}>随机</Button>
-                   <Checkbox
-                    className="pick-modal__group-all"
-                    checked={items.length > 0 && items.every(item => draftSet.has(item.word))}
-                    onChange={() => toggleGroupWords(items)}
-                  >
-                    全选
-                  </Checkbox>
-                </div>
-                <div className="pick-grid">
-                  {items.map(item => (
-                    <Checkbox
-                      key={item.word}
-                      className="pick-grid__item"
-                      checked={draftSet.has(item.word)}
-                      onChange={() => toggleDraft(item.word)}
-                    >
-                      {displayTextOf(item)}
-                    </Checkbox>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
+          {newWordGroups.length === 0 ? (
+            <p className="empty empty--inline">没有匹配的单词或句子。</p>
+          ) : (
+            <WordSelectionGroups
+              groups={newWordGroups}
+              selectedWords={draftSet}
+              onToggleWord={toggleDraft}
+              onToggleGroup={toggleGroupWords}
+              countLabel={items => '加入 · ' + items.length + ' 个词'}
+            />
+          )}
         </Modal>
 
         <Modal
@@ -1024,37 +998,12 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
           {filteredPrintableWords.length === 0 ? (
             <p className="empty empty--inline">没有匹配的单词或句子。</p>
           ) : (
-            printableWordGroups.map(([key, items]) => {
-              const isDate = /^\d{4}-\d{2}-\d{2}$/.test(key)
-              const customLabel = batchNames[key] || (isDate ? '' : '自定义分组')
-              const dayTs = isDate ? batchKeyTsOf(key) : Math.max(...items.map(w => w.addedAt))
-              return (
-                <div key={key} className="pick-modal__group">
-                  <div className="pick-modal__group-title">
-                    <span>{customLabel || groupDayLabel(dayTs, planData.today)}</span>
-                   <Checkbox
-                      className="pick-modal__group-all"
-                      checked={items.length > 0 && items.every(item => cardDraftSet.has(item.word))}
-                      onChange={() => toggleCardGroupWords(items)}
-                    >
-                      全选
-                    </Checkbox>
-                  </div>
-                  <div className="pick-grid">
-                    {items.map(item => (
-                      <Checkbox
-                        key={item.word}
-                        className="pick-grid__item"
-                        checked={cardDraftSet.has(item.word)}
-                        onChange={() => toggleCardDraft(item.word)}
-                      >
-                        {displayTextOf(item)}
-                      </Checkbox>
-                    ))}
-                  </div>
-                </div>
-              )
-            })
+            <WordSelectionGroups
+              groups={printableWordGroups}
+              selectedWords={cardDraftSet}
+              onToggleWord={toggleCardDraft}
+              onToggleGroup={toggleCardGroupWords}
+            />
           )}
         </Modal>
       </section>
@@ -1162,6 +1111,15 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
               没有匹配「{reviewSearch.trim()}」的单词，清空关键词可查看全部 {activeItems.length} 个词。
             </p>
           ) : (
+            <div className="review-list-shell">
+              {reviewLetterNav.length > 0 && (
+                <LetterTimeline
+                  letters={reviewLetterNav}
+                  activeLetter={activeReviewLetter}
+                  onSelect={letter => document.getElementById('review-letter-' + letter)?.scrollIntoView({ block: 'start' })}
+                  ariaLabel="按首字母跳转"
+                />
+              )}
               <ul className="review-rows">
               {visibleItems.map(item => {
                 const action = wordBusy[item.listId + '/' + item.word]
@@ -1173,6 +1131,7 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
                 return (
                   <li
                     key={item.listId + '/' + item.word}
+                    id={'review-letter-' + (/^[^a-zA-Z]*([a-zA-Z])/.exec(displayTextOf(item))?.[1]?.toUpperCase() ?? '#')}
                     className={'review-row' + (item.type === 'sentence' ? ' review-row--sentence' : '')}
                   >
                     <div className="review-row__content">
@@ -1253,7 +1212,8 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
                   </li>
                 )
               })}
-            </ul>
+              </ul>
+            </div>
           )}
         </div>
       </section>

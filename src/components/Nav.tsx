@@ -36,22 +36,17 @@ const gearIcon = (
 interface NavProps {
   active: TabKey
   onChange: (tab: TabKey) => void
-  /** 所有学习列表里的词条总数，显示在「学习列表」上 */
-  totalItems: number
   /** 今天要复习的词数，显示在「英语学习」入口的角标上 */
   dueToday: number
 }
 
-export function Nav({ active, onChange, totalItems, dueToday }: NavProps) {
+export function Nav({ active, onChange, dueToday }: NavProps) {
   const visibleActive = active === 'records' ? 'achievements' : active
 
   // 手机端折叠菜单里装着学习列表 / 学习成果 / 目标 / 设置，落在这些页面上时「更多」按钮要高亮
   const moreActive = active === 'lists' || active === 'achievements' || active === 'goal' || active === 'settings' || active === 'records'
   const moreItems: MenuItemType[] = [
-    {
-      key: 'lists', label: '学习列表',
-      extra: totalItems > 0 ? <span className="nav__menu-badge">{totalItems}</span> : undefined,
-     },
+      { key: 'lists', label: '学习列表' },
      { key: 'achievements', label: '学习成果' },
      { key: 'goal', label: '目标' },
      { key: 'settings', label: '设置', icon: gearIcon },
@@ -67,7 +62,6 @@ export function Nav({ active, onChange, totalItems, dueToday }: NavProps) {
 
         <div className="nav__tabs">
           {TABS.map(tab => {
-            const badge = tab.key === 'lists' ? totalItems : 0
             return (
               <button
                 key={tab.key}
@@ -78,7 +72,6 @@ export function Nav({ active, onChange, totalItems, dueToday }: NavProps) {
                 onClick={() => onChange(tab.key)}
               >
                 {tab.label}
-                {badge > 0 && <span className="nav__badge">{badge}</span>}
               </button>
             )
           })}
