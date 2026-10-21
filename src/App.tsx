@@ -7,6 +7,7 @@ import { AUTH_REQUIRED_EVENT, getStoredToken, setStoredToken } from './utils/api
 import { Nav } from './components/Nav'
 import { TokenGate } from './components/TokenGate'
 import { SearchPage } from './pages/SearchPage'
+import type { ImportUndoSnapshot } from './pages/ImportPage'
 import { ListsPage } from './pages/ListsPage'
 import type { SettingsSection } from './pages/SettingsPage'
 import { StudyPage } from './pages/StudyPage'
@@ -36,6 +37,8 @@ export default function App() {
   const study = useStudyList()
   // 复习计划跨列表汇总，导航角标和学习页共用同一份
   const plan = useStudyPlan()
+  // 批量导入的撤销快照提到全局：切到学习列表再回到查词页仍可撤销，直到新的导入 / 新输入覆盖
+  const [importUndoSnapshot, setImportUndoSnapshot] = useState<ImportUndoSnapshot | null>(null)
   // 当前页面记在地址栏 hash 上，刷新后不会跳回首页
   const [tab, setTab] = useTabRoute()
 
@@ -108,6 +111,8 @@ export default function App() {
             getLabelById={getLabelById}
             study={study}
             onManageLists={goToListSettings}
+            undoSnapshot={importUndoSnapshot}
+            onUndoSnapshotChange={setImportUndoSnapshot}
           />
         )}
         {tab === 'lists' && (

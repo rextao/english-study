@@ -404,7 +404,8 @@
   flex-shrink: 0;
 }
 
-/* 会拼 / 会读 / 知意：主按钮显示本周期次数（点击 +1），右侧小「−」撤销一次（最少 0） */
+/* 会拼 / 会读 / 知意：主按钮显示「本周期(整个学习周期)」次数（点击 +1），
+   右侧小「−」撤销一次（最少 0） */
 .review-row__tally {
   display: inline-flex;
   flex-shrink: 0;
@@ -421,6 +422,14 @@
   margin-left: -1px;
   padding: 4px 7px;
   font-weight: 600;
+}
+
+/* 括号里的整个学习周期累计：更小一号、颜色淡一档，和本周期次数区分开 */
+.review-row__tally .ui-btn .review-row__tally-lifetime {
+  margin-left: 1px;
+  font-size: 10px;
+  font-weight: 400;
+  opacity: .55;
 }
 
 /* 「进入下一轮」：蓝色圆形徽标 + 白色对勾，替代透明背景的 ✅ emoji */

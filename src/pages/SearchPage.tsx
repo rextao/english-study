@@ -5,6 +5,7 @@ import { useStudy } from '../hooks/useStudy'
 import type { StudyListApi } from '../hooks/useStudyList'
 import { WordCard } from '../components/WordCard'
 import { ImportPage } from './ImportPage'
+import type { ImportUndoSnapshot } from './ImportPage'
 import { Button, ENGLISH_WORD_INPUT_PROPS, Input, Select, Tag } from '../ui'
 import type { SelectOption } from '../ui'
 import type { VocabLibrary } from '../types/vocab'
@@ -71,11 +72,15 @@ interface SearchPageProps {
   study: StudyListApi
   /** 点「+ 新建列表」跳到设置页的学习列表分区统一管理 */
   onManageLists: () => void
+  /** 批量导入的撤销快照（存在 App 状态中枢，跨页保留） */
+  undoSnapshot: ImportUndoSnapshot | null
+  onUndoSnapshotChange: (snapshot: ImportUndoSnapshot | null) => void
 }
 
-export function SearchPage({ libraries, getLabelById, study, onManageLists }: SearchPageProps) {
+export function SearchPage({ libraries, getLabelById, study, onManageLists, undoSnapshot, onUndoSnapshotChange }: SearchPageProps) {
   const [input, setInput] = useState('')
-  const [mode, setMode] = useState<'search' | 'import'>('search')
+  // 还有没撤销的导入时，回到查词页直接落在批量导入视图，撤销入口一眼可见
+  const [mode, setMode] = useState<'search' | 'import'>(() => (undoSnapshot ? 'import' : 'search'))
   const { entry, status, lookup, cancelLookup } = useDictionary()
   const { getSourceIds } = useVocabMatch(libraries)
   const { getStatus, getListIds, checkWord, markAdded } = useStudy()
@@ -342,6 +347,8 @@ export function SearchPage({ libraries, getLabelById, study, onManageLists }: Se
           getLabelById={getLabelById}
           study={study}
           onManageLists={onManageLists}
+          undoSnapshot={undoSnapshot}
+          onUndoSnapshotChange={onUndoSnapshotChange}
         />
       )}
     </div>

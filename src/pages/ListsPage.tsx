@@ -196,6 +196,22 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
     setBatchNames(updated)
   }
 
+  /** 复制当前分组里的英文单词；句子不作为单词复制，词之间用英文逗号分隔。 */
+  async function copyBatchWords(items: StudyWordItem[]) {
+    const wordsToCopy = items
+      .filter(item => item.type === 'word')
+      .map(item => item.word.trim())
+      .filter(Boolean)
+    if (wordsToCopy.length === 0) return
+    try {
+      await navigator.clipboard.writeText(wordsToCopy.join(', '))
+      setNotice('已复制 ' + wordsToCopy.length + ' 个单词')
+      setError('')
+    } catch {
+      setError('复制失败，请检查浏览器剪贴板权限')
+    }
+  }
+
   /** 点分组标题切换折叠；编辑重命名时不响应 */
   function toggleCollapsed(key: string) {
     if (editingBatch === key) return
@@ -505,6 +521,15 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
                       <span className="word-batch__chevron" aria-hidden="true">{isCollapsed ? '▸' : '▾'}</span>
                       <span className="word-batch__name">{batchNames[key] || batchTitle(key)}</span>
                       <span className="word-batch__count">加入 · {items.length} 个词</span>
+                      <Button
+                        className="word-batch__copy"
+                        type="link"
+                        size="small"
+                        disabled={!items.some(item => item.type === 'word')}
+                        onClick={e => { e.stopPropagation(); void copyBatchWords(items) }}
+                      >
+                        复制
+                      </Button>
                       <Button
                         className="word-batch__rename"
                         type="link"

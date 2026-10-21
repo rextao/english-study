@@ -185,6 +185,13 @@ const TALLY_LABEL: Record<TallyKind, string> = {
   meaning: '知意',
 }
 
+/** 熟悉度按钮 → 整个学习周期的累计计数字段（list_words 持久化，plan 接口返回） */
+const LIFETIME_COUNT_KEY: Record<TallyKind, 'spellingCount' | 'readingCount' | 'rememberedCount'> = {
+  spelling: 'spellingCount',
+  reading: 'readingCount',
+  meaning: 'rememberedCount',
+}
+
 /** 「−」按钮撤销的维度：本周期内最近一次该维度的计数 */
 const UNDO_KIND: Partial<Record<WordAction, TallyKind>> = {
   'spelling-undo': 'spelling',
@@ -719,43 +726,54 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
     const displayText = displayTextOf(item)
     setError('')
     setNotice('')
+    const undoKind = UNDO_KIND[action]
+    const tallyKind = action === 'spelling' || action === 'reading' || action === 'meaning'
+      ? action as 'spelling' | 'reading' | 'meaning'
+      : undefined
+    if (undoKind || tallyKind) {
+      // 熟悉度计数走乐观路径：点击瞬间本地已生效，落库请求在 hook 里排队执行，
+      // 所以不锁按钮（慢网络也能连点）；失败时 hook 回滚计数，这里只负责提示。
+      if (undoKind) {
+        void plan.undoTally(item.listId, [item.word], undoKind, reviewOptions.scope).then(result => {
+          if (!result.ok) {
+            setError(displayText + ' 撤销失败：' + result.error)
+            return
+          }
+          setNotice(result.undone > 0
+            ? displayText + ' 已撤销一次' + TALLY_LABEL[undoKind] + '（本周期内）。'
+            : displayText + ' 本周期内没有可撤销的' + TALLY_LABEL[undoKind] + '记录。')
+        })
+      } else if (tallyKind) {
+        void plan.reviewWords(item.listId, [item.word], 'tally', {
+          ...reviewOptions,
+          successKind: tallyKind,
+          requestId: newRequestId(item, action),
+        }).then(result => {
+          if (!result.ok) {
+            setError(displayText + ' 保存失败：' + result.error)
+            return
+          }
+          setNotice(displayText + ' 已记一次' + TALLY_LABEL[tallyKind] + '（不影响复习轮次）。')
+        })
+      }
+      return
+    }
+    // 进入下一轮 / 没记住：改变排期，需要等服务端确认后按钮才解锁
     setWordBusy(prev => ({ ...prev, [key]: action }))
     try {
-      // 「−」按钮：撤销本周期内最近一次会拼 / 会读 / 知意，计数下限 0
-      const undoKind = UNDO_KIND[action]
-      if (undoKind) {
-        const result = await plan.undoTally(item.listId, [item.word], undoKind, reviewOptions.scope)
-        if (!result.ok) {
-          setError(displayText + ' 撤销失败：' + result.error)
-          return
-        }
-        setNotice(result.undone > 0
-          ? displayText + ' 已撤销一次' + TALLY_LABEL[undoKind] + '（本周期内）。'
-          : displayText + ' 本周期内没有可撤销的' + TALLY_LABEL[undoKind] + '记录。')
-        return
-      }
-      const tallyKind = action === 'spelling' || action === 'reading' || action === 'meaning'
-        ? action as 'spelling' | 'reading' | 'meaning'
-        : undefined
-      const reviewAction: 'tally' | 'done' | 'again' = tallyKind
-        ? 'tally'
-        : (action === 'next' ? 'done' : 'again')
+      const reviewAction: 'done' | 'again' = action === 'next' ? 'done' : 'again'
       const result = await plan.reviewWords(item.listId, [item.word], reviewAction, {
         ...reviewOptions,
-        successKind: tallyKind,
         requestId: newRequestId(item, action),
       })
       if (!result.ok) {
         setError(displayText + ' 保存失败：' + result.error)
         return
       }
-      if (action === 'spelling') setNotice(displayText + ' 已记一次会拼（不影响复习轮次）。')
-      else if (action === 'reading') setNotice(displayText + ' 已记一次会读（不影响复习轮次）。')
-      else if (action === 'meaning') setNotice(displayText + ' 已记一次知意（不影响复习轮次）。')
-      else if (action === 'next') setNotice(displayText + ' 已进入下一轮复习。')
+      if (action === 'next') setNotice(displayText + ' 已进入下一轮复习。')
       else setNotice(displayText + ' 已标记为没记住，明天重新复习。')
-      // 熟悉度计数只影响计划按钮，plan hook 已按成功响应就地更新，不重拉词条与批次。
-      if (!tallyKind && item.listId === listId) setReloadToken(t => t + 1)
+      // 排期变了，计划按钮由 plan hook 按成功响应就地更新；列表词条重新拉取。
+      if (item.listId === listId) setReloadToken(t => t + 1)
     } finally {
       setWordBusy(prev => {
         const next = { ...prev }
@@ -1167,23 +1185,23 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
                         const undo = (kind + '-undo') as WordAction
                         const counts = item.tallyCounts?.[isWeek ? 'week' : 'day']
                         const count = counts?.[kind] ?? 0
+                        const lifetime = item[LIFETIME_COUNT_KEY[kind]] ?? 0
                         return (
                           <span key={kind} className="review-row__tally">
                             <Button
                               size="small"
-                              title={'记一次' + TALLY_LABEL[kind] + '（本周期内可重复）'}
-                              loading={action === kind}
+                              title={TALLY_LABEL[kind] + '次数：括号外是本周期，括号内是整个学习周期'}
                               disabled={action != null}
                               onClick={() => handleWordAction(item, kind)}
                             >
                               {TALLY_LABEL[kind]} {count}
+                              <span className="review-row__tally-lifetime">({lifetime})</span>
                             </Button>
                             <Button
                               size="small"
                               className="review-row__tally-minus"
                               title={'减少一次' + TALLY_LABEL[kind] + '（本周期内，最少 0）'}
                               aria-label={'减少一次' + TALLY_LABEL[kind]}
-                              loading={action === undo}
                               disabled={action != null || count <= 0}
                               onClick={() => handleWordAction(item, undo)}
                             >

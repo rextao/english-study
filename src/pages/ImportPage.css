@@ -110,6 +110,7 @@
 }
 
 .import-actions__msg { flex: 1; min-width: 240px; }
+.import-undo { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
 
 /* 查询不是瞬时操作：把当前批次、已完成数量和自动重试规则直接放在按钮旁，
    避免用户只看到一个一直旋转的图标而误以为页面卡死。 */
@@ -168,6 +169,16 @@
 
 .import-row__move { flex-shrink: 0; font-size: 12px; }
 
+/* 预览行右侧的删除 ×：平时低调，悬停变红提示这是删除操作 */
+.import-row__remove {
+  flex-shrink: 0;
+  padding: 0 6px;
+  color: var(--color-text-subtle);
+  font-size: 16px;
+  line-height: 1;
+}
+.import-row__remove:hover { color: var(--color-danger, #b42318); }
+
 /* 不会被导入的行压暗，被词库筛掉的再加一道删除线 */
 .import-row--filtered .import-row__text,
 .import-row--dup-text .import-row__text,
@@ -194,6 +205,15 @@
 .import-translation-row__word { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; }
 .import-translation-row__word > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .import-translation-row__select-all { margin-left: auto; flex: 0 0 auto; }
+/* 词义弹窗每行右侧的删除 ×：排在「全选」后面，同样悬停变红 */
+.import-translation-row__remove {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  color: var(--color-text-subtle);
+  font-size: 16px;
+  line-height: 1;
+}
+.import-translation-row__remove:hover { color: var(--color-danger, #b42318); }
 .import-translation-row__phonetic { color: var(--color-text-muted); font-family: var(--font-mono); font-size: 12px; font-weight: 400; }
 .import-translation-row__error { color: var(--color-danger, #c23b3b); font-size: 12px; }
 .import-translation-row__suspect { color: var(--ui-gold-text); font-size: 12px; }
@@ -209,6 +229,16 @@
 .import-translation-picker__buttons { display: flex; gap: 8px; }
 
 @media (max-width: 640px) {
+  /* 预览行手机端：英文单词完整换行显示（不出现省略号），
+     词库标签 / 状态 / 删除 × 换到下一行，不够放再继续折行 */
+  .import-row { flex-wrap: wrap; row-gap: 4px; }
+  .import-row__text {
+    flex: 1 1 100%;
+    white-space: normal;
+    word-break: break-word;
+    overflow: visible;
+    text-overflow: clip;
+  }
   .import-camera__button { display: inline-flex; }
   .import-target { width: 100%; }
   .import-target__select { flex: 1; min-width: 0; }

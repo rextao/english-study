@@ -108,6 +108,10 @@ async function postJson<T>(url: string, body: unknown): Promise<Reply<T>> {
 
 const listPath = (listId: string) => '/api/lists/' + encodeURIComponent(listId)
 
+/** 打卡 / 撤销的统一返回：成功带结果明细，失败带原因 */
+type ReviewOpResult = { ok: true } | { ok: false; error: string }
+type UndoOpResult = { ok: true; undone: number } | { ok: false; error: string }
+
 export type StudyPlanApi = ReturnType<typeof useStudyPlan>
 
 /** 艾宾浩斯复习计划：哪些词在学、今天该复习哪些、打卡与开始学习 */
@@ -117,6 +121,11 @@ export function useStudyPlan() {
   const [offline, setOffline] = useState(false)
   const queryRef = useRef<PlanQuery>({})
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 熟悉度计数的落库队列：点击时乐观生效，请求在链上串行执行（tally-undo 撤的是
+  // 本周期最近一次事件，必须保序），链上还有操作时计划快照先不套用，等排空后对账。
+  const opChainRef = useRef<Promise<unknown>>(Promise.resolve())
+  const inflightOpsRef = useRef(0)
+  const scheduleRefreshRef = useRef<() => void>(() => {})
 
   // 挂载时那次拉取不算数据变动；之后每次 refresh 都是打卡 / 开始学习等写操作触发的
 
@@ -131,7 +140,12 @@ export function useStudyPlan() {
       const data = await queryApi<StudyPlan>('/api/study/plan' + (suffix ? '?' + suffix : ''), {}, {
         staleTime: 15_000, tags: ['study-plan'],
       })
-      if (data && Array.isArray(data.items)) setPlan(data)
+      if (data && Array.isArray(data.items)) {
+        // 还有计数操作没落库时，这份快照落后于本地乐观计数；先不套用，
+        // 等操作链排空后的对账刷新再覆盖，避免刚点上去的数字被打回去。
+        if (inflightOpsRef.current > 0) scheduleRefreshRef.current()
+        else setPlan(data)
+      }
       setOffline(false)
     } catch {
       setOffline(true)
@@ -147,6 +161,17 @@ export function useStudyPlan() {
       void refresh()
     }, 800)
   }, [refresh])
+  scheduleRefreshRef.current = scheduleRefresh
+
+  /** 把一次 tally / 撤销的落库请求排进串行链：保住提交顺序，操作全部结束才允许对账刷新。 */
+  const enqueueTallyOp = useCallback(<T,>(task: () => Promise<T>): Promise<T> => {
+    inflightOpsRef.current += 1
+    const run = opChainRef.current.then(task, task) as Promise<T>
+    opChainRef.current = run.finally(() => {
+      inflightOpsRef.current = Math.max(0, inflightOpsRef.current - 1)
+    })
+    return run
+  }, [])
 
   useEffect(() => () => {
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
@@ -178,11 +203,35 @@ export function useStudyPlan() {
     words: string[],
     action: ReviewAction,
     options?: ReviewOptions,
-  ) => {
+  ): Promise<ReviewOpResult> => {
     const tallyKind = action === 'tally' ? options?.successKind : undefined
     if (tallyKind) {
-      // 点击后立即反馈；真正落库仍以随后成功返回的 POST 为准。
+      // 点击后立即反馈（本地 +1），落库请求排进串行链后台执行，调用方不用等网络；
+      // 失败时回滚本地计数并把错误带回给调用方提示。
       setPlan(current => adjustLocalTally(current, listId, words, options?.scope, tallyKind, 1))
+      return enqueueTallyOp(async () => {
+        const reply = await postJson<{ ok: boolean; items?: StudyWordItem[]; error?: string }>(
+          listPath(listId) + '/review', {
+            words,
+            action,
+            scope: options?.scope,
+            successKind: options?.successKind,
+            requestIds: options?.requestIds ?? (options?.requestId ? { [words[0]]: options.requestId } : undefined),
+          }
+        )
+        if (reply.offline || !reply.data?.ok) {
+          setPlan(current => adjustLocalTally(current, listId, words, options?.scope, tallyKind, -1))
+          scheduleRefresh()
+          return { ok: false as const, error: reply.offline ? '云端服务不可用' : reply.data?.error ?? '打卡失败' }
+        }
+        // 响应词条带最新累计数；不含周期 tally 聚合，合并时保留本地计数。
+        if (Array.isArray(reply.data.items)) {
+          setPlan(current => mergePlanItems(current, listId, reply.data!.items!))
+        }
+        invalidateApiCache(['list-words:' + listId, 'study-plan', 'achievements', 'history'])
+        scheduleRefresh()
+        return { ok: true as const }
+      })
     }
     const reply = await postJson<{ ok: boolean; updated?: number; updatedWords?: string[]; items?: StudyWordItem[]; error?: string }>(
       listPath(listId) + '/review', {
@@ -194,56 +243,44 @@ export function useStudyPlan() {
       }
     )
     if (reply.offline) {
-      if (tallyKind) setPlan(current => adjustLocalTally(current, listId, words, options?.scope, tallyKind, -1))
       return { ok: false as const, error: '云端服务不可用' }
     }
     if (!reply.data?.ok) {
-      if (tallyKind) setPlan(current => adjustLocalTally(current, listId, words, options?.scope, tallyKind, -1))
       return { ok: false as const, error: reply.data?.error ?? '打卡失败' }
     }
-    // 计划项优先采用本次响应；服务端 item 不含周期 tally 聚合，合并时保留本地计数。
+    // done / again 改变排期：先立即提交响应中的词条，再后台对账，不阻塞按钮解锁。
     if (Array.isArray(reply.data.items)) {
       setPlan(current => mergePlanItems(current, listId, reply.data!.items!))
     }
     invalidateApiCache(['list-words:' + listId, 'study-plan', 'achievements', 'history'])
-    if (action === 'tally') {
-      // POST 已经等待服务端落库；界面先显示本地计数，稍后只做一次服务端对账。
-      scheduleRefresh()
-      return { ok: true as const }
-    }
-    // done / again 改变排期：先立即提交响应中的词条，再后台对账，不阻塞按钮解锁。
     void refresh()
     return { ok: true as const }
-  }, [refresh, scheduleRefresh])
+  }, [enqueueTallyOp, refresh, scheduleRefresh])
 
-  /** 撤销本周期内最近一次会拼 / 会读 / 知意：计数 -1（下限 0），永久事件同步软删 */
+  /** 撤销本周期内最近一次会拼 / 会读 / 知意：计数 -1（下限 0），永久事件同步软删。
+   *  与 tally 一样乐观生效、排队落库；撤销没有可撤记录时由对账刷新纠正显示。 */
   const undoTally = useCallback(async (
     listId: string,
     words: string[],
     successKind: TallyKind,
     scope?: StudyMarkScope,
-  ) => {
+  ): Promise<UndoOpResult> => {
     setPlan(current => adjustLocalTally(current, listId, words, scope, successKind, -1))
-    const reply = await postJson<{ ok: boolean; undone?: number; undoneWords?: string[]; items?: StudyWordItem[]; error?: string }>(
-      listPath(listId) + '/tally-undo', { words, successKind, scope }
-    )
-    if (reply.offline) {
-      setPlan(current => adjustLocalTally(current, listId, words, scope, successKind, 1))
-      return { ok: false as const, error: '云端服务不可用' }
-    }
-    if (!reply.data?.ok) {
-      setPlan(current => adjustLocalTally(current, listId, words, scope, successKind, 1))
-      return { ok: false as const, error: reply.data?.error ?? '撤销失败' }
-    }
-    const undone = reply.data.undone ?? 0
-    // 撤销同样重新按当前选中的窗口聚合，避免 day / week 两套镜像互相污染。
-    invalidateApiCache(['list-words:' + listId, 'study-plan', 'achievements', 'history'])
-    if (undone === 0) {
-      setPlan(current => adjustLocalTally(current, listId, words, scope, successKind, 1))
-    }
-    scheduleRefresh()
-    return { ok: true as const, undone }
-  }, [refresh, scheduleRefresh])
+    return enqueueTallyOp(async () => {
+      const reply = await postJson<{ ok: boolean; undone?: number; undoneWords?: string[]; items?: StudyWordItem[]; error?: string }>(
+        listPath(listId) + '/tally-undo', { words, successKind, scope }
+      )
+      if (reply.offline || !reply.data?.ok) {
+        setPlan(current => adjustLocalTally(current, listId, words, scope, successKind, 1))
+        scheduleRefresh()
+        return { ok: false as const, error: reply.offline ? '云端服务不可用' : reply.data?.error ?? '撤销失败' }
+      }
+      const undone = reply.data.undone ?? 0
+      invalidateApiCache(['list-words:' + listId, 'study-plan', 'achievements', 'history'])
+      scheduleRefresh()
+      return { ok: true as const, undone }
+    })
+  }, [enqueueTallyOp, scheduleRefresh])
 
   /** 兼容性的纯标记原语：不改变复习轮次；当前“会拼”复习不走这里。 */
   const markWords = useCallback(async (

@@ -92,6 +92,17 @@ interface BatchSearchResult {
   error?: { message?: string }
 }
 
+interface ImportUndoItem {
+  text: string
+  translationIds?: string[]
+  customTranslations?: string[]
+}
+
+export interface ImportUndoSnapshot {
+  listId: string
+  items: ImportUndoItem[]
+}
+
 interface QueryProgress {
   phase: 'preparing' | 'querying' | 'retrying'
   batch: number
@@ -206,10 +217,19 @@ interface ImportPageProps {
   onManageLists: () => void
   /** 嵌入查词页时不画自己的 .page 容器和标题，由查词页提供版式 */
   embedded?: boolean
+  /**
+   * 撤销快照放在 App 状态中枢：切到学习列表再回到查词页仍可撤销，
+   * 直到新的导入 / 新的词输入把它覆盖或清掉。
+   */
+  undoSnapshot: ImportUndoSnapshot | null
+  onUndoSnapshotChange: (snapshot: ImportUndoSnapshot | null) => void
 }
 
-export function ImportPage({ libraries, getLabelById, study, onManageLists, embedded }: ImportPageProps) {
-  const { lists, importItems, fetchListWords, fetchBatches, moveItemBatch } = study
+export function ImportPage({
+  libraries, getLabelById, study, onManageLists, embedded,
+  undoSnapshot, onUndoSnapshotChange: setUndoSnapshot,
+}: ImportPageProps) {
+  const { lists, importItems, fetchListWords, fetchBatches, moveItemBatch, removeItems } = study
   const { getSourceIds } = useVocabMatch(libraries)
 
   const [text, setText]                 = useState('')
@@ -223,6 +243,7 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
   const [importing, setImporting]       = useState(false)
   const [queryProgress, setQueryProgress] = useState<QueryProgress | null>(null)
   const [result, setResult]             = useState<{ added: number; skipped: number; queued: number; suspect: number; moved?: number } | null>(null)
+  const [undoMessage, setUndoMessage] = useState('')
   const [error, setError]               = useState('')
   const [existing, setExisting]         = useState<Map<string, string>>(new Map())
   const [moveExisting, setMoveExisting] = useState<Set<string>>(new Set())
@@ -231,6 +252,7 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
   const [pickerEntries, setPickerEntries] = useState<Map<string, DictionaryEntry>>(new Map())
   const [pickerErrors, setPickerErrors]   = useState<Map<string, string>>(new Map())
   const [pickerSelected, setPickerSelected] = useState<Map<string, string[]>>(new Map())
+  const [restorePickerSelections, setRestorePickerSelections] = useState<Map<string, Pick<ImportUndoItem, 'translationIds' | 'customTranslations'>>>(new Map())
   // 分组选择：默认今天的自然日分组键；也可选任意已有分组（自然日或自定义 b:...）
   const [batchChoice, setBatchChoice] = useState(() => dayBatchKey(Date.now()))
   const [batchNames, setBatchNames] = useState<Record<string, string>>({})
@@ -284,6 +306,8 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
           return filterNonWords ? filterEnglishText(next) : next
         })
         setResult(null)
+        setUndoSnapshot(null)
+        setUndoMessage('')
         setOcrStatus('识别完成')
       } finally {
         await worker.terminate()
@@ -321,6 +345,8 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
       return filterNonWords ? filterEnglishText(next) : next
     })
     setResult(null)
+    setUndoSnapshot(null)
+    setUndoMessage('')
   }
 
   /** 将输入框中所有匹配文本替换为空；按普通文本匹配，不执行正则。 */
@@ -329,6 +355,28 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
     if (!target || !text) return
     setText(previous => previous.split(target).join(''))
     setResult(null)
+    setUndoSnapshot(null)
+    setUndoMessage('')
+  }
+
+  /** 预览行右侧的 ×：把这一行从输入框里删掉（inputIndex 就是原始文本里的行号） */
+  function removePreviewRow(inputIndex: number) {
+    setText(previous => previous.split('\n').filter((_, index) => index !== inputIndex).join('\n'))
+  }
+
+  /** 词义弹窗里每行右侧的 ×：这一条不导入；输入框内容保留，之后仍可重新查询 */
+  function removePickerRow(key: string) {
+    setPickerRows(previous => previous.filter(row => row.key !== key))
+    setPickerSelected(previous => {
+      const next = new Map(previous)
+      next.delete(key)
+      return next
+    })
+    setPickerCustoms(previous => {
+      const next = new Map(previous)
+      next.delete(key)
+      return next
+    })
   }
 
   // 目标列表已有的词条，用于预览时标出「列表已有」
@@ -347,16 +395,25 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
 
   // 目标列表被删掉时回退到默认列表
   useEffect(() => {
-    if (lists.length > 0 && !lists.some(l => l.id === targetList)) setTargetList('default')
+    if (lists.length > 0 && !lists.some(l => l.id === targetList)) {
+      setTargetList('default')
+      setUndoSnapshot(null)
+    }
   }, [lists, targetList])
 
-  // 切换目标列表时把分组选择重置回今天
+  // 切换目标列表时把分组选择重置回今天；只在列表真的变化时清撤销快照。
+  // 不能用「首次挂载」标记：StrictMode 下挂载副作用会跑两遍，会误判成切换并把跨页
+  // 保留的撤销快照清掉（切到学习列表再回来就看不到撤销按钮了）。
+  const prevListRef = useRef(targetList)
   useEffect(() => {
+    if (prevListRef.current === targetList) return
+    prevListRef.current = targetList
+    setUndoSnapshot(null)
     setBatchChoice(dayBatchKey(Date.now()))
     setPendingBatch(null)
     setAddingBatch(false)
     setNewBatchName('')
-  }, [targetList])
+  }, [targetList, setUndoSnapshot])
 
   /** 句子里出现过的词库 id（去重）：句子的筛选按「含该词库的词」判断 */
   function tokenSourceIds(key: string): string[] {
@@ -493,17 +550,21 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
     targetRows: Row[], entries: Map<string, DictionaryEntry>, errors: Map<string, string>,
   ) {
     const selected = new Map<string, string[]>()
+    const customs = new Map<string, string[]>()
     for (const row of targetRows) {
       const choices = translationOptions(entries.get(row.key)?.translations ?? [])
-      selected.set(row.key, row.type === 'sentence' && choices.length === 1 ? [choices[0].id] : [])
+      const restored = restorePickerSelections.get(row.key)
+      selected.set(row.key, restored?.translationIds ?? (row.type === 'sentence' && choices.length === 1 ? [choices[0].id] : []))
+      if (restored?.customTranslations?.length) customs.set(row.key, restored.customTranslations)
     }
     setPickerRows(targetRows)
     setPickerEntries(entries)
     setPickerErrors(errors)
     setPickerSelected(selected)
-    setPickerCustoms(new Map())
+    setPickerCustoms(customs)
     setPickerCustomDraft(new Map())
     setPickerOpen(true)
+    setRestorePickerSelections(new Map())
   }
 
   function toggleTranslation(word: string, id: string) {
@@ -574,22 +635,61 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
   async function moveSelectedExistingRows() {
     const batchName = pendingBatch && pendingBatch.key === batchChoice ? pendingBatch.name : batchNames[batchChoice]
     const moveRows = rows.filter(row => row.state === 'dup-list' && moveExisting.has(row.key))
+    const latestItems = await fetchListWords(targetList)
+    const latestByWord = new Map(latestItems.map(item => [normalize(item.word), item]))
     const movedInputIndexes = new Set<number>()
+    const undoItems: ImportUndoItem[] = []
     let moved = 0
     for (const row of moveRows) {
       if (await moveItemBatch(targetList, row.key, batchChoice, batchName)) {
         moved++
         movedInputIndexes.add(row.inputIndex)
+        const item = latestByWord.get(row.key)
+        undoItems.push({
+          text: row.raw,
+          translationIds: item?.translationIds,
+          customTranslations: item?.customTranslations,
+        })
       }
     }
     if (moved > 0) {
       setText(rows.filter(row => !movedInputIndexes.has(row.inputIndex)).map(row => row.raw).join('\n'))
       setResult({ added: 0, skipped: 0, queued: 0, suspect: 0, moved })
       setMoveExisting(new Set())
+      setUndoSnapshot({ listId: targetList, items: undoItems })
+      setUndoMessage('')
       setReloadToken(t => t + 1)
       if (batchChoice) setPendingBatch(null)
     }
     return moved
+  }
+
+  async function undoLastImport() {
+    // 撤销永远针对当初导入的那份快照；跨页回来后当前选中的列表可能已经变了
+    if (!undoSnapshot) return
+    const listId = undoSnapshot.listId
+    setImporting(true)
+    setError('')
+    try {
+      const result = await removeItems(listId, undoSnapshot.items.map(item => item.text))
+      if (!result) {
+        setError('撤销失败，请确认云端服务可用')
+        return
+      }
+      setText(undoSnapshot.items.map(item => item.text).join('\n'))
+      setRestorePickerSelections(new Map(undoSnapshot.items.map(item => [
+        normalize(item.text), {
+          translationIds: item.translationIds,
+          customTranslations: item.customTranslations,
+        },
+      ])))
+      setUndoMessage('已撤销本次导入，并将 ' + result.removed + ' 条内容放回输入框')
+      setUndoSnapshot(null)
+      setResult(null)
+      setReloadToken(t => t + 1)
+    } finally {
+      setImporting(false)
+    }
   }
 
   async function handleImport() {
@@ -607,6 +707,8 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
     setImporting(true)
     setQueryProgress({ phase: 'preparing', batch: 0, batches: 1, done: 0, total: stats.keep })
     setResult(null)
+    setUndoSnapshot(null)
+    setUndoMessage('')
     setError('')
     try {
       const targetRows = rows.filter(r => r.state === 'keep')
@@ -670,17 +772,33 @@ export function ImportPage({ libraries, getLabelById, study, onManageLists, embe
       : { added: 0, skipped: 0, queued: 0 }
     if (res) {
       const movedBefore = new Set<number>()
+      const undoItems: ImportUndoItem[] = pendingCandidates.slice(0, res.added).map(({ row, item }) => ({
+        text: row.raw,
+        translationIds: item.translationIds,
+        customTranslations: item.customTranslations,
+      }))
       const batchName = pendingBatch && pendingBatch.key === batchChoice ? pendingBatch.name : batchNames[batchChoice]
       const moveRows = rows.filter(row => row.state === 'dup-list' && moveExisting.has(row.key))
+      const latestByWord = new Map(latestItems.map(item => [normalize(item.word), item]))
       let moved = 0
       for (const row of moveRows) {
         if (await moveItemBatch(targetList, row.key, batchChoice, batchName)) {
           moved++
           movedBefore.add(row.inputIndex)
+          const item = latestByWord.get(row.key)
+          undoItems.push({
+            text: row.raw,
+            translationIds: item?.translationIds,
+            customTranslations: item?.customTranslations,
+          })
         }
       }
       const suspect = pickerRows.filter(row => isSpellingSuspect(row, pickerEntries.get(row.key))).length
       setResult({ ...res, skipped: res.skipped + alreadyExistingCount, suspect, moved })
+      if (undoItems.length > 0) {
+        setUndoSnapshot({ listId: targetList, items: undoItems })
+        setUndoMessage('')
+      }
 
       // 服务端按提交顺序处理；正常情况下 pendingCandidates 都会成功。若并发产生跳过，
       // 只按返回的 added 数量移除前面的成功项，其余输入（含重复、筛选项和查询失败项）全部保留。
@@ -906,7 +1024,7 @@ const targetControls = (
                   onChange={e => { void handleOcrPhoto(e.target.files?.[0]) }} aria-label="拍照提取文字" />
                 <Button className="import-camera__button" size="small" loading={ocrBusy}
                   onClick={() => cameraInputRef.current?.click()}>拍照提取文字</Button>
-                {text && <Button type="link" size="small" onClick={() => { setText(''); setResult(null) }}>清空</Button>}
+                {text && <Button type="link" size="small" onClick={() => { setText(''); setResult(null); setUndoSnapshot(null); setUndoMessage('') }}>清空</Button>}
               </div>
             </div>
             {ocrStatus && <p className="import-camera__status" role="status">{ocrStatus}</p>}
@@ -918,6 +1036,8 @@ const targetControls = (
               onChange={e => {
                 setText(filterNonWords ? filterEnglishText(e.target.value) : e.target.value)
                 setResult(null)
+                setUndoSnapshot(null)
+                setUndoMessage('')
               }}
               rows={14}
               spellCheck={false}
@@ -932,7 +1052,7 @@ const targetControls = (
             <Button
               type="primary"
               size="large"
-              disabled={stats.keep === 0}
+                disabled={stats.keep === 0 && moveExisting.size === 0}
               loading={importing}
               onClick={handleImport}
             >
@@ -947,7 +1067,8 @@ const targetControls = (
                 <span className="import-query-status__hint">单批最长等待 90 秒，网络或服务端临时失败会自动重试 1 次</span>
               </div>
             )}
-            {result && (
+            {/* 音标还在后台补齐时不展示导入结果和撤销入口，等补齐完成再一起出现 */}
+            {result && !prefetch.busy && (
               <div className="callout callout--success import-actions__msg">
                 ✓ 成功导入 <strong>{result.added}</strong> 条，跳过重复 <strong>{result.skipped}</strong> 条
                 {result.suspect > 0 && <> · 疑似错误 <strong>{result.suspect}</strong> 条未导入</>}
@@ -955,6 +1076,20 @@ const targetControls = (
                 {result.queued > 0 && <> · 缺失音标正在后台补齐</>}
               </div>
             )}
+            {undoSnapshot && !prefetch.busy && (
+              <div className="import-undo">
+                <Button
+                  size="small"
+                  danger
+                  disabled={importing}
+                  title="点击后会从导入的学习列表删除这些词，并放回输入框"
+                  onClick={() => { void undoLastImport() }}
+                >
+                  撤销本次导入
+                </Button>
+              </div>
+            )}
+            {undoMessage && <div className="callout callout--success import-actions__msg">{undoMessage}</div>}
             {prefetch.busy && (
               <div className="callout callout--warn import-actions__msg">
                 {prefetch.state.total > 0
@@ -1006,6 +1141,16 @@ const targetControls = (
                       </>
                     )}
                     <span className={'import-state import-state--' + row.state}>{STATE_LABEL[row.state]}</span>
+                    <Button
+                      type="text"
+                      size="small"
+                      className="import-row__remove"
+                      aria-label={'删除此行：' + row.raw}
+                      title="从输入中删除此行"
+                      onClick={() => removePreviewRow(row.inputIndex)}
+                    >
+                      ×
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -1060,6 +1205,16 @@ const targetControls = (
                         {allSelected ? '取消全选' : '全选'}
                       </Button>
                     )}
+                    <Button
+                      type="text"
+                      size="small"
+                      className="import-translation-row__remove"
+                      aria-label={'本条不导入：' + row.raw}
+                      title="这一条不导入，内容保留在输入框"
+                      onClick={() => removePickerRow(row.key)}
+                    >
+                      ×
+                    </Button>
                   </div>
                   {spellingSuspect ? (
                     <span className="import-translation-row__suspect">可能拼写错误：本地词典、免费词典和词库均未命中，本条默认不导入</span>
