@@ -166,6 +166,47 @@ async function tallyUndoRowLevel(app, listId, body) {
   return { status: 200, body: { ok: true, undone, undoneWords, items } }
 }
 
+/** 一次请求按顺序处理多个熟悉度操作；客户端会把连续点击合并成 count。 */
+async function tallyBatchRowLevel(app, listId, body) {
+  const listName = await ensureListName(app, listId)
+  if (listName === null) return { status: 404, body: { error: 'list not found' } }
+  const operations = Array.isArray(body?.operations) ? body.operations : []
+  if (operations.length === 0 || operations.length > 100) {
+    return { status: 400, body: { error: 'invalid operations' } }
+  }
+  const processed = []
+  for (const operation of operations) {
+    const requestId = String(operation?.requestId || '').trim()
+    const action = String(operation?.action || '')
+    const count = Number(operation?.count)
+    const word = normalizeText(operation?.word)
+    const kind = String(operation?.successKind || '')
+    if (!requestId || !word || !['tally', 'undo'].includes(action) || !TALLY_KINDS.has(kind)
+      || !Number.isInteger(count) || count < 1 || count > 100) {
+      return { status: 400, body: { error: 'invalid tally operation' } }
+    }
+    for (let index = 0; index < count; index++) {
+      const id = requestId + ':' + index
+      const claimed = await app.db.run(
+        'INSERT OR IGNORE INTO study_tally_operations (request_id, list_id, created_at) VALUES (?, ?, ?)',
+        id, listId, Date.now(),
+      )
+      if (Number(claimed) === 0) continue
+      const result = action === 'tally'
+        ? await reviewRowLevel(app, listId, {
+          words: [word], action: 'tally', scope: operation.scope, successKind: kind,
+          requestIds: { [word]: id },
+        })
+        : await tallyUndoRowLevel(app, listId, {
+          words: [word], scope: operation.scope, successKind: kind,
+        })
+      if (result.status !== 200) return result
+    }
+    processed.push(requestId)
+  }
+  return { status: 200, body: { ok: true, processed } }
+}
+
 /** plan 里某个词的本周期熟悉度计数；聚合表里查不到就给全零，结构和逐词版一致 */
 const EMPTY_TALLY_COUNTS = { spelling: 0, reading: 0, meaning: 0 }
 function planTallyCounts(tallies, listId, word) {
@@ -421,6 +462,7 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     // 复习打卡 / 撤销熟悉度是高频写操作：走行级更新，不再整库重写
     if (method === 'POST' && subpath === 'review') return await reviewRowLevel(app, listId, body)
     if (method === 'POST' && subpath === 'tally-undo') return await tallyUndoRowLevel(app, listId, body)
+    if (method === 'POST' && subpath === 'tally-batch') return await tallyBatchRowLevel(app, listId, body)
     const list    = await app.listsStore.listMeta(listId)
     if (!list) return { status: 404, body: { error: 'list not found' } }
 

@@ -79,6 +79,13 @@ CREATE INDEX IF NOT EXISTS idx_learning_events_tally_period
   ON learning_events(deleted_at, action, occurred_at, list_id, word_key)
   WHERE action IN ('spelling', 'reading', 'meaning');
 
+-- 批量熟悉度操作的幂等账本；用于刷新 / 重试后避免同一批操作重复执行。
+CREATE TABLE IF NOT EXISTS study_tally_operations (
+  request_id TEXT PRIMARY KEY,
+  list_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+) STRICT;
+
 CREATE TABLE IF NOT EXISTS learning_event_meanings (
   event_id TEXT NOT NULL REFERENCES learning_events(id),
   meaning_key TEXT NOT NULL REFERENCES meaning_profiles(meaning_key),

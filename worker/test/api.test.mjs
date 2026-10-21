@@ -455,6 +455,31 @@ melon = r.body?.items?.find(w => w.word === 'melon')
 check('重新点击会拼各算一次，轮次仍然不动',
   r.body?.updated === 1 && melon?.spellingCount === 2 && melon.stage === 0, melon)
 
+r = await call('POST', '/api/lists/' + studyId + '/import', { items: [{ text: 'papaya' }] })
+check('批量熟悉度操作：准备 papaya', r.body?.added === 1, r.body)
+r = await call('POST', '/api/lists/' + studyId + '/start', { words: ['papaya'], startedAt: threeDaysAgo })
+check('批量熟悉度操作：开始学习 papaya', r.body?.started === 1, r.body)
+r = await call('POST', '/api/lists/' + studyId + '/tally-batch', {
+  operations: [
+    { word: 'papaya', action: 'tally', successKind: 'spelling', scope: 'day', count: 3, requestId: 'batch-papaya-3' },
+    { word: 'papaya', action: 'undo', successKind: 'spelling', scope: 'day', count: 1, requestId: 'batch-papaya-undo-1' },
+  ],
+})
+const batchPapaya = (await call('GET', '/api/lists/' + studyId + '/words')).body.find(w => w.word === 'papaya')
+check('批量熟悉度操作按顺序落库并减少一次请求',
+  r.body?.ok === true && batchPapaya?.spellingCount === 2
+  && (await wordEvents('papaya', 'spelling')).length === 2, batchPapaya)
+r = await call('POST', '/api/lists/' + studyId + '/tally-batch', {
+  operations: [
+    { word: 'papaya', action: 'tally', successKind: 'spelling', scope: 'day', count: 3, requestId: 'batch-papaya-3' },
+    { word: 'papaya', action: 'undo', successKind: 'spelling', scope: 'day', count: 1, requestId: 'batch-papaya-undo-1' },
+  ],
+})
+check('批量熟悉度操作重复提交不重复执行',
+  r.body?.ok === true && (await wordEvents('papaya', 'spelling')).length === 2, r.body)
+r = await call('DELETE', '/api/lists/' + studyId + '/words/papaya')
+check('批量熟悉度操作清理测试词', r.body?.ok === true, r.body)
+
 // 会读（reading）与知意（meaning）互相独立：只累计自己的次数，同样不推进轮次
 r = await call('POST', '/api/lists/' + studyId + '/import', { items: [{ text: 'apricot' }] })
 check('会读用例：准备 apricot', r.body?.added === 1, r.body)
