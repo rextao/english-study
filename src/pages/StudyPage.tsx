@@ -75,6 +75,15 @@ function fmtDate(ts: number): string {
   return (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日'
 }
 
+function defaultBatchLabel(key: string): string {
+  if (key === 'default') return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+    const [year, month, day] = key.split('-').map(Number)
+    return year + ' 年 ' + month + ' 月 ' + day + ' 日'
+  }
+  return key
+}
+
 function fmtShort(ts: number): string {
   const d = new Date(ts)
   return (d.getMonth() + 1) + '/' + d.getDate()
@@ -108,6 +117,10 @@ function monthStart(base: number, offset: number): number {
 
 const dayDiff = (from: number, to: number) => Math.round((startOfDay(to) - startOfDay(from)) / DAY)
 const keyOf = (word: string) => word.trim().replace(/\s+/g, ' ').toLowerCase()
+const batchKeyOf = (ts: number) => {
+  const d = new Date(ts)
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+}
 
 function displayTextOf(item: StudyWordItem): string {
   return item.type === 'sentence' && item.displayText?.trim()
@@ -152,10 +165,10 @@ interface DayCell {
 }
 
 type BusyKind = '' | 'print' | 'start' | 'day' | 'custom'
-/** spelling / reading / meaning = 熟悉度计数；next = 进入下一轮；again = 没记住 */
+/** spelling / reading / meaning = 熟悉度计数；next = 进入下一轮；suspend = 暂时移出 */
 type WordAction = 'spelling' | 'reading' | 'meaning'
   | 'spelling-undo' | 'reading-undo' | 'meaning-undo'
-  | 'next' | 'again'
+  | 'next' | 'suspend'
 
 /** 会拼 / 会读 / 知意的按钮文案，与 tally 的 successKind 一一对应 */
 const TALLY_LABEL: Record<TallyKind, string> = {
@@ -297,7 +310,7 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
 
   /** 还没开始学的词才能选进新分组 */
   const newWords = useMemo(
-    () => words.filter(w => !w.startedAt).sort((a, b) => a.word.localeCompare(b.word)),
+    () => words.filter(w => !w.startedAt || w.suspendedAt != null).sort((a, b) => a.word.localeCompare(b.word)),
     [words]
   )
   /** 挑新词搜索：匹配单词或句子。 */
@@ -413,11 +426,6 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
   const activeItems = (isWeek ? dueByWeek.get(activeWeek) : dueByDay.get(activeDay)) ?? []
   const dict = useDictBatch(activeItems.map(item => item.word))
 
-  // 切换日 / 周时只更新计数窗口，搜索词保留，方便继续查同一个词。
-  useEffect(() => {
-    void plan.refresh({ dayStart: activeDay, weekStart: activeWeek })
-  }, [activeDay, activeWeek, plan.refresh])
-
   /** 本周期单词模糊搜索：匹配单词、音标或中文词义，大小写与空白不敏感 */
   const visibleItems = useMemo(() => {
     const query = keyOf(reviewSearch)
@@ -531,7 +539,8 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
   /** 来源 id 与可展示标签都带进打印链路；句子不显示词库标识。 */
   function toCardRequest(item: StudyWordItem): StudyCardRequest {
     const sourceIds = item.type === 'sentence' ? [] : item.sourceIds
-    const groupKey = item.batchKey || 'default'
+    const groupKey = item.batchKey || batchKeyOf(item.addedAt)
+    const defaultGroupLabel = defaultBatchLabel(groupKey)
     return {
       word: item.word,
       displayText: item.type === 'sentence' ? item.displayText : undefined,
@@ -543,7 +552,7 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
       libraryLabels: primaryVocabIdForWord(item.word, sourceIds, libraries) ? [getPrintLabelById(primaryVocabIdForWord(item.word, sourceIds, libraries)!)] : [],
       fromLibrary: sourceIds.length > 0,
       groupKey,
-      groupLabel: '',
+      groupLabel: batchNames[groupKey] || defaultGroupLabel,
     }
   }
 
@@ -619,10 +628,17 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
       }
     }
 
-    const res = await plan.startWords(listId, picked, startedAt, mode)
+    const freshWords = picked.filter(word => !wordMap.get(word)?.startedAt)
+    const suspendedWords = picked.filter(word => wordMap.get(word)?.suspendedAt != null)
+    const startRes = freshWords.length > 0
+      ? await plan.startWords(listId, freshWords, startedAt, mode)
+      : { ok: true as const, started: 0, skipped: 0 }
+    const resumeRes = startRes.ok && suspendedWords.length > 0
+      ? await plan.resumeWords(listId, suspendedWords)
+      : { ok: true as const, resumed: 0 }
     // 卡片导出成功后再留一条打印记录。
     let recordError = ''
-    if (withPrint && res.ok) {
+    if (withPrint && startRes.ok && resumeRes.ok) {
       const saved = await prints.record({
         title: batchTitle,
         kind: 'start',
@@ -633,8 +649,9 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
       if (!saved.ok) recordError = '卡片已导出，但打印记录没保存：' + saved.error
     }
     setBusy('')
-    if (!res.ok) { setError(res.error); return }
-    setNotice(res.started + ' 个词已放入今天，完成记忆标记后才会进入下一轮复习。')
+    if (!startRes.ok) { setError(startRes.error); return }
+    if (!resumeRes.ok) { setError(resumeRes.error); return }
+    setNotice((startRes.started + resumeRes.resumed) + ' 个词已加入学习计划，完成记忆标记后才会进入下一轮复习。')
     if (recordError) setError(recordError)
     setPicked([])
     setReloadToken(t => t + 1)
@@ -748,10 +765,19 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
       }
       return
     }
-    // 进入下一轮 / 没记住：改变排期，需要等服务端确认后按钮才解锁
+    // 进入下一轮 / 暂时移出：改变计划，需要等服务端确认后按钮才解锁
     setWordBusy(prev => ({ ...prev, [key]: action }))
     try {
-      const reviewAction: 'done' | 'again' = action === 'next' ? 'done' : 'again'
+      if (action === 'suspend') {
+        const suspended = await plan.suspendWords(item.listId, [item.word])
+        if (!suspended.ok) {
+          setError(displayText + ' 暂时移出失败：' + suspended.error)
+          return
+        }
+        setNotice(displayText + ' 已暂时移出学习计划。')
+        return
+      }
+      const reviewAction = 'done' as const
       const result = await plan.reviewWords(item.listId, [item.word], reviewAction, {
         ...reviewOptions,
         requestId: newRequestId(item, action),
@@ -760,8 +786,7 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
         setError(displayText + ' 保存失败：' + result.error)
         return
       }
-      if (action === 'next') setNotice(displayText + ' 已进入下一轮复习。')
-      else setNotice(displayText + ' 已标记为没记住，明天重新复习。')
+      setNotice(displayText + ' 已进入下一轮复习。')
       // 排期变了，计划按钮由 plan hook 按成功响应就地更新；列表词条重新拉取。
       if (item.listId === listId) setReloadToken(t => t + 1)
     } finally {
@@ -1173,41 +1198,32 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
                       {canReview && (
                         <span className="review-row__main">
                           <Button
-                            type="primary"
                             size="small"
                             className="review-row__done"
-                            title="进入下一轮"
-                            aria-label="进入下一轮"
+                            title="下一轮"
+                            aria-label="下一轮"
                             loading={action === 'next'}
                             disabled={action != null}
                             onClick={() => handleWordAction(item, 'next')}
                           >
-                            <svg
-                              className="review-row__done-icon"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              aria-hidden="true"
-                            >
-                              <path
-                                d="M20 6 9 17l-5-5"
-                                stroke="currentColor"
-                                strokeWidth="2.6"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                            <span className="review-row__done-label">进入下一轮</span>
-                          </Button>
-                          <Button
-                            size="small"
-                            loading={action === 'again'}
-                            disabled={action != null}
-                            onClick={() => handleWordAction(item, 'again')}
-                          >
-                            没记住
-                          </Button>
-                        </span>
-                      )}
+                             <span>下一轮</span>
+                           </Button>
+                         </span>
+                        )}
+                        <Button
+                          type="primary"
+                          size="small"
+                         className="review-row__suspend"
+                         title="暂时移出学习计划"
+                         aria-label="暂时移出学习计划"
+                         loading={action === 'suspend'}
+                         disabled={action != null}
+                         onClick={() => handleWordAction(item, 'suspend')}
+                       >
+                         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                           <path d="M20 6 9 17l-5-5" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+                         </svg>
+                       </Button>
                     </span>
                   </li>
                 )

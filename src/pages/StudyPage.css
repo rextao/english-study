@@ -441,18 +441,15 @@
   opacity: .55;
 }
 
-/* 「进入下一轮」：蓝色圆形徽标 + 白色对勾，替代透明背景的 ✅ emoji */
-.review-row__done {
+/* 「暂时移出」：列表最右侧的蓝色确认按钮 */
+.review-row__suspend {
   width: 28px;
   height: 28px;
   padding: 0;
   border-radius: 50%;
 }
 
-.review-row__done svg { display: block; width: 15px; height: 15px; }
-
-/* 「进入下一轮」的文字标签默认不显示（桌面端只留圆形徽标），窄屏卡片式展开 */
-.review-row__done-label { display: none; }
+.review-row__suspend svg { display: block; width: 16px; height: 16px; }
 
 /* 「下一轮 / 没记住」一组：桌面端 display:contents 不影响现有行内布局，窄屏整行铺满 */
 .review-row__main { display: contents; }
@@ -511,7 +508,6 @@
     gap: 8px;
   }
   .review-row__main .ui-btn { flex: 1; min-height: 40px; }
-  .review-row__done { width: auto; height: auto; padding: 8px 11px; border-radius: var(--ui-radius); }
-  .review-row__done svg { width: 14px; height: 14px; }
-  .review-row__done-label { display: inline; }
+  .review-row__suspend { width: 28px; height: 28px; padding: 0; border-radius: 50%; }
+  .review-row__suspend svg { width: 14px; height: 14px; }
 }

@@ -201,8 +201,7 @@ function filterEnglishText(input: string): string {
       .replace(/[0-9０-９\u3400-\u9fff]/g, '')
       .replace(/[^A-Za-z'’.,!?;:()\-\s]/g, ' ')
       .replace(/^\s*[.,!?;:]+(?=\s)/, '')
-      .replace(/[ \t]+/g, ' ')
-      .trim(),
+      .replace(/[ \t]+/g, ' '),
     )
     // 不删除空行：受控 TextArea 在行尾按 Enter 时会先产生一个空行，
     // 这里删掉它会立刻把光标所在的换行改回去，导致用户无法继续输入下一行。

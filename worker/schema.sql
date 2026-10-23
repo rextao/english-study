@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS list_words (
   mark_count INTEGER NOT NULL DEFAULT 0, review_count INTEGER NOT NULL DEFAULT 0,
   spelling_count INTEGER NOT NULL DEFAULT 0, reading_count INTEGER NOT NULL DEFAULT 0,
   remembered_count INTEGER NOT NULL DEFAULT 0, forgotten_count INTEGER NOT NULL DEFAULT 0,
-  processed_review_keys_json TEXT NOT NULL, batch_key TEXT,
+  processed_review_keys_json TEXT NOT NULL, batch_key TEXT, suspended_at INTEGER,
   PRIMARY KEY (list_id, word)
 ) STRICT;
 
@@ -33,6 +33,8 @@ CREATE INDEX IF NOT EXISTS idx_list_words_added ON list_words(added_at);
 CREATE INDEX IF NOT EXISTS idx_list_words_word ON list_words(word, list_id);
 CREATE INDEX IF NOT EXISTS idx_list_words_started ON list_words(list_id, started_at)
   WHERE started_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_list_words_active_plan ON list_words(list_id, started_at, suspended_at)
+  WHERE started_at IS NOT NULL AND suspended_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_list_words_repair_phonetic ON list_words(word)
   WHERE phonetic IS NULL OR phonetic = '';
 CREATE INDEX IF NOT EXISTS idx_list_words_repair_translation ON list_words(word)

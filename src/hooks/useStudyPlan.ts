@@ -190,6 +190,30 @@ export function useStudyPlan() {
       void refresh()
     }, 800)
   }, [refresh])
+
+  /** 恢复暂时移出计划的词，只清除隐藏标记，不重置记忆曲线。 */
+  const resumeWords = useCallback(async (listId: string, words: string[]) => {
+    const reply = await postJson<{ ok: boolean; resumed?: number; error?: string }>(
+      listPath(listId) + '/resume', { words },
+    )
+    if (reply.offline) return { ok: false as const, error: '云端服务不可用' }
+    if (!reply.data?.ok) return { ok: false as const, error: reply.data?.error ?? '恢复失败' }
+    invalidateApiCache(['list-words:' + listId, 'study-plan', 'achievements', 'history'])
+    await refresh()
+    return { ok: true as const, resumed: reply.data.resumed ?? 0 }
+  }, [refresh])
+
+  /** 暂时移出计划，不改变学习统计和记忆曲线。 */
+  const suspendWords = useCallback(async (listId: string, words: string[]) => {
+    const reply = await postJson<{ ok: boolean; suspended?: number; error?: string }>(
+      listPath(listId) + '/suspend', { words },
+    )
+    if (reply.offline) return { ok: false as const, error: '云端服务不可用' }
+    if (!reply.data?.ok) return { ok: false as const, error: reply.data?.error ?? '暂时移出失败' }
+    invalidateApiCache(['list-words:' + listId, 'study-plan', 'achievements', 'history'])
+    await refresh()
+    return { ok: true as const, suspended: reply.data.suspended ?? 0 }
+  }, [refresh])
   const flushTallyQueue = useCallback(async () => {
     if (tallyFlushRunningRef.current || tallyQueueRef.current.length === 0) return
     tallyFlushRunningRef.current = true
@@ -330,5 +354,5 @@ export function useStudyPlan() {
 
   const dueCount = plan.items.filter(item => item.state === 'due').length
 
-  return { plan, loading, offline, dueCount, refresh, startWords, reviewWords, undoTally, markWords }
+  return { plan, loading, offline, dueCount, refresh, startWords, resumeWords, suspendWords, reviewWords, undoTally, markWords }
 }

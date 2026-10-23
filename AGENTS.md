@@ -286,7 +286,7 @@ schema.sql → migration.sql → 回填迁移的 UPDATE。
 ## 数据归属（取代旧的「跨设备共享」章节）
 
 D1 是唯一数据源：桌面浏览器和手机浏览器打开同一个 Worker URL、带同一个令牌，看到并操作的就是同一份数据。没有同步、没有快照、没有手动提交 sqlite。本地 `cache/` 目录只剩历史遗留，不进 git。
-本地 `npm run dev` 读写的是另一份本地 D1（`.wrangler/state/`，`npm run db:local:init` 建表），与线上库完全隔离，测试造数据不会污染生产（见「部署与迁移」的本地开发小节）。
+本地 `npm run dev` 读写的是另一份本地 D1（`.wrangler/state/`，`npm run db:local:sync` 创建或刷新），与线上库完全隔离，测试造数据不会污染生产（见「部署与迁移」的本地开发小节）。
 
 归一化主键 = `normalizeText` = trim + 连续空白压成一个空格 + 转小写。服务端在 `worker/src/text.js`；前端还是各写一遍：`useDictBatch.keyOf`、`ImportPage.normalize`、`StudyGoal.keyOf`、`flashcards.ts`。改规则这几处要一起改（`meaning_profiles` 的 key 也按它算，改了旧画像就对不上）。
 
@@ -428,9 +428,8 @@ npx wrangler secret put BAIDU_TRANSLATE_API_KEY
 npx wrangler secret put BAIDU_TRANSLATE_APP_ID
 
 # 本地开发（读写的是一份独立的本地 D1，落在 .wrangler/state，不碰线上库）
-npm run db:local:init                          # 本地 D1 建表（= wrangler d1 execute --local --file=worker/schema.sql），首次 / 改 schema 后跑
 npm run dev                                    # wrangler dev(8787) + vite(5173)，vite 的 /api 代理到 8787
-npm run db:local:import                        # 可选：把 migration.sql 灌进本地库，造接近真实的样例数据
+npm run db:local:sync                          # 从远端导出表结构和数据，创建或刷新本地 D1
 # 本地 wrangler dev 的 secret / vars 读 .dev.vars（不进 git）：API_TOKEN 必填（本地随便设一个），
 # 没有它 /api/* 直接 500；DICT_NO_NETWORK=1 可断网只吃缓存；百度密钥填了本地查词才有中文
 ```

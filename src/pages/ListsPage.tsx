@@ -65,7 +65,7 @@ interface ListsPageProps {
 export function ListsPage({ libraries, getLabelById, study, onManageLists }: ListsPageProps) {
   const {
     lists, loading,
-    fetchListWords, removeItem, removeItems, fetchBatches, renameBatch, moveItemBatch,
+    fetchListWords, removeItem, removeItems, fetchBatches, fetchBatchMeta, renameBatch, reorderBatches, moveItemBatch,
   } = study
 
   const [selectedId, setSelectedId]     = useState(DEFAULT_LIST_ID)
@@ -79,15 +79,18 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
   const [selected, setSelected]         = useState<Set<string>>(new Set())
   const [removing, setRemoving]         = useState(false)
 
-  // 分组展示：默认关闭保持平铺；batchNames 是各日期的显示名（可重命名）
+  // 分组展示：默认开启；batchNames 是各日期的显示名（可重命名）
   const [showBatches, setShowBatches]   = useState(true)
   const [batchNames, setBatchNames]     = useState<Record<string, string>>({})
+  const [batchOrder, setBatchOrder]     = useState<string[]>([])
   const [editingBatch, setEditingBatch] = useState<string | null>(null)
   const [batchDraft, setBatchDraft]     = useState('')
   // 已折叠的分组（日期串集合），点分组标题切换
   const [collapsed, setCollapsed]       = useState<Set<string>>(new Set())
   const [moveBatchKey, setMoveBatchKey] = useState('')
   const [moving, setMoving]             = useState(false)
+  const [draggingBatch, setDraggingBatch] = useState<string | null>(null)
+  const [reordering, setReordering]     = useState(false)
 
   // 选中的列表被删掉后回退到默认列表
   useEffect(() => {
@@ -107,16 +110,17 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
       setWords(items)
       setWordsLoading(false)
     })
-    // 词条一起拉分组显示名
-    fetchBatches(selectedId).then(names => {
+    // 词条一起拉分组显示名和自定义顺序
+    fetchBatchMeta(selectedId).then(meta => {
       if (!alive) return
-      setBatchNames(names)
+      setBatchNames(meta.names)
+      setBatchOrder(meta.order)
       setEditingBatch(null)
       setBatchDraft('')
       setCollapsed(new Set())
     })
     return () => { alive = false }
-  }, [selectedId, fetchListWords, fetchBatches])
+  }, [selectedId, fetchListWords, fetchBatchMeta])
 
   // 删除成功只做短暂提示，不占用页面内容区域。
   useEffect(() => {
@@ -146,11 +150,20 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
       if (bucket) bucket.push(item)
       else groups.set(key, [item])
     }
-    return Array.from(groups.entries()).sort(([a], [b]) => {
+    const fallback = Array.from(groups.entries()).sort(([a], [b]) => {
       const timeDiff = batchSortTs(b) - batchSortTs(a)
       return timeDiff || b.localeCompare(a)
     })
-  }, [visibleWords])
+    const orderIndex = new Map(batchOrder.map((key, index) => [key, index]))
+    return fallback.sort(([a], [b]) => {
+      const aIndex = orderIndex.get(a)
+      const bIndex = orderIndex.get(b)
+      if (aIndex != null && bIndex != null) return aIndex - bIndex
+      if (aIndex != null) return -1
+      if (bIndex != null) return 1
+      return 0
+    })
+  }, [visibleWords, batchOrder])
 
   const batchOptions = useMemo<SelectOption[]>(() => {
     const keys = new Set<string>()
@@ -387,6 +400,40 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
     setNotice('已移动 ' + selectedWords.length + ' 条到「' + (batchName || batchTitle(moveBatchKey)) + '」')
   }
 
+  function fullBatchKeys() {
+    const keys = new Set(words.map(item => item.batchKey || batchKeyOf(item.addedAt)))
+    const fallback = [...keys].sort((a, b) => {
+      const timeDiff = batchSortTs(b) - batchSortTs(a)
+      return timeDiff || b.localeCompare(a)
+    })
+    return [...new Set([...batchOrder, ...fallback])].filter(key => keys.has(key))
+  }
+
+  async function handleBatchDrop(targetKey: string) {
+    const sourceKey = draggingBatch
+    setDraggingBatch(null)
+    if (!sourceKey || sourceKey === targetKey || reordering) return
+    const currentOrder = fullBatchKeys()
+    const sourceIndex = currentOrder.indexOf(sourceKey)
+    const targetIndex = currentOrder.indexOf(targetKey)
+    if (sourceIndex < 0 || targetIndex < 0) return
+    const nextOrder = currentOrder.slice()
+    nextOrder.splice(sourceIndex, 1)
+    nextOrder.splice(nextOrder.indexOf(targetKey), 0, sourceKey)
+    const previousOrder = batchOrder
+    setBatchOrder(nextOrder)
+    setReordering(true)
+    setError('')
+    const ok = await reorderBatches(selectedId, nextOrder)
+    setReordering(false)
+    if (!ok) {
+      setBatchOrder(previousOrder)
+      setError('分组排序保存失败，请确认云端服务可用')
+      return
+    }
+    setNotice('分组顺序已更新')
+  }
+
   return (
     <div className="page lists-page">
       <PageHeader title="学习列表"
@@ -545,6 +592,13 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
                       toggleCollapsed(key)
                     }
                   }}
+                  onDragOver={e => {
+                    if (draggingBatch && draggingBatch !== key) e.preventDefault()
+                  }}
+                  onDrop={e => {
+                    e.preventDefault()
+                    void handleBatchDrop(key)
+                  }}
                 >
                   {editingBatch === key ? (
                     <Input
@@ -561,6 +615,23 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
                     />
                   ) : (
                     <>
+                      <Button
+                        className="word-batch__drag"
+                        type="text"
+                        size="small"
+                        draggable
+                        aria-label="拖拽调整分组顺序"
+                        title="拖拽调整分组顺序"
+                        onClick={e => e.stopPropagation()}
+                        onDragStart={e => {
+                          e.stopPropagation()
+                          e.dataTransfer.effectAllowed = 'move'
+                          setDraggingBatch(key)
+                        }}
+                        onDragEnd={() => setDraggingBatch(null)}
+                      >
+                        ⋮⋮
+                      </Button>
                       <span className="word-batch__chevron" aria-hidden="true">{isCollapsed ? '▸' : '▾'}</span>
                       <span className="word-batch__name">{batchNames[key] || batchTitle(key)}</span>
                       <span className="word-batch__count">加入 · {items.length} 个词</span>

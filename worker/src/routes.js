@@ -42,6 +42,12 @@ async function ensureListName(app, listId) {
   return listId === DEFAULT_LIST_ID ? '默认列表' : null
 }
 
+function ensureBatchInOrder(list, batchKey) {
+  if (!batchKey) return
+  const order = Array.isArray(list.batchOrder) ? list.batchOrder : []
+  if (!order.includes(batchKey)) list.batchOrder = [...order, batchKey]
+}
+
 /** 打印档只引用少量词：按引用加载对应列表及词条，不扫描学习库。 */
 async function loadReferencedLists(app, refs) {
   const grouped = new Map()
@@ -457,10 +463,25 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     if (method === 'GET' && subpath === 'batches') {
       const name = await ensureListName(app, listId)
       if (name === null) return { status: 404, body: { error: 'list not found' } }
-      return { status: 200, body: { batchNames: await app.listsStore.batchNames(listId) } }
+      const meta = await app.listsStore.batchMeta(listId)
+      return { status: 200, body: { batchNames: meta.names, batchOrder: meta.order } }
     }
     // 复习打卡 / 撤销熟悉度是高频写操作：走行级更新，不再整库重写
     if (method === 'POST' && subpath === 'review') return await reviewRowLevel(app, listId, body)
+    if (method === 'POST' && subpath === 'suspend') {
+      if (await ensureListName(app, listId) === null) return { status: 404, body: { error: 'list not found' } }
+      const words = Array.isArray(body?.words) ? body.words : []
+      if (words.length === 0) return { status: 400, body: { error: 'missing words' } }
+      const suspended = await app.listsStore.setSuspended(listId, words, Date.now())
+      return { status: 200, body: { ok: true, suspended } }
+    }
+    if (method === 'POST' && subpath === 'resume') {
+      if (await ensureListName(app, listId) === null) return { status: 404, body: { error: 'list not found' } }
+      const words = Array.isArray(body?.words) ? body.words : []
+      if (words.length === 0) return { status: 400, body: { error: 'missing words' } }
+      const resumed = await app.listsStore.setSuspended(listId, words, null)
+      return { status: 200, body: { ok: true, resumed } }
+    }
     if (method === 'POST' && subpath === 'tally-undo') return await tallyUndoRowLevel(app, listId, body)
     if (method === 'POST' && subpath === 'tally-batch') return await tallyBatchRowLevel(app, listId, body)
     const list    = await app.listsStore.listMeta(listId)
@@ -519,8 +540,11 @@ export async function handleApi(method, pathname, searchParams, body, app) {
       const batchName = batchKey ? String(body?.batchName ?? '').trim() : ''
       if (batchName.length > 40) return { status: 409, body: { ok: false, error: '标签过长' } }
       if (batchKey) item.batchKey = batchKey
+      if (batchKey) ensureBatchInOrder(list, batchKey)
       if (batchKey && batchName) list.batchNames[batchKey] = batchName
-      await app.listsStore.insertWords(listId, [item], batchKey && batchName ? list.batchNames : undefined)
+      await app.listsStore.insertWords(
+        listId, [item], batchKey ? { names: list.batchNames, order: list.batchOrder } : undefined,
+      )
       // 加入学习只保存搜索页传来的快照；缺失的音标等数据交给后台补齐，不阻塞响应。
       const queued = await enqueuePhoneticPrefetch([word], app)
       console.log('[word +]   ', word, '->', listId)
@@ -529,18 +553,24 @@ export async function handleApi(method, pathname, searchParams, body, app) {
 
     // GET /api/lists/:id/batches  — 每个批次（自然日）的显示名
     if (method === 'GET' && subpath === 'batches') {
-      return { status: 200, body: { batchNames: list.batchNames ?? {} } }
+      return { status: 200, body: { batchNames: list.batchNames ?? {}, batchOrder: list.batchOrder ?? [] } }
     }
 
     // PATCH /api/lists/:id/batches  — 重命名某个批次；name 空串=重置为日期
     if (method === 'PATCH' && subpath === 'batches') {
+      if (Array.isArray(body?.order)) {
+        const order = [...new Set(body.order.map(value => String(value ?? '').trim()).filter(Boolean))]
+        await app.listsStore.updateBatchOrder(listId, order)
+        console.log('[list ~]   ', listId, 'batch order', order)
+        return { status: 200, body: { ok: true, batchNames: list.batchNames ?? {}, batchOrder: order } }
+      }
       const date = String(body?.date ?? '').trim()
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date) && !/^b:/.test(date)) return { status: 400, body: { error: 'invalid date' } }
       const name = String(body?.name ?? '').trim()
       if (name.length > 40) return { status: 409, body: { ok: false, error: '标签过长' } }
       if (name) list.batchNames[date] = name
       else delete list.batchNames[date]
-      await app.listsStore.updateBatchNames(listId, list.batchNames)
+      await app.listsStore.updateBatchNames(listId, list.batchNames, list.batchOrder)
       console.log('[list ~]   ', listId, 'batch', date, '->', name || '(日期)')
       return { status: 200, body: { ok: true, batchNames: list.batchNames } }
     }
@@ -564,8 +594,12 @@ export async function handleApi(method, pathname, searchParams, body, app) {
         const batchKey = String(body?.batchKey ?? '').trim()
         const batchName = batchKey ? String(body?.batchName ?? '').trim() : ''
         if (batchName.length > 40) return { status: 409, body: { ok: false, error: '标签过长' } }
+        if (batchKey) ensureBatchInOrder(list, batchKey)
         if (batchKey && batchName) list.batchNames[batchKey] = batchName
-        await app.listsStore.updateWordBatch(listId, target, batchKey, batchKey && batchName ? list.batchNames : undefined)
+        await app.listsStore.updateWordBatch(
+          listId, target, batchKey,
+          batchKey ? { names: list.batchNames, order: list.batchOrder } : undefined,
+        )
         console.log('[word ~]   ', target, 'moved to batch', batchKey || '(date)')
         return { status: 200, body: { ok: true } }
       }
@@ -656,9 +690,11 @@ export async function handleApi(method, pathname, searchParams, body, app) {
         fresh.push(word)
         added++
       }
+      if (importBatchKey && fresh.length > 0) ensureBatchInOrder(list, importBatchKey)
       if (importBatchKey && importBatchName && fresh.length > 0) list.batchNames[importBatchKey] = importBatchName
       await app.listsStore.insertWords(
-        listId, freshItems, importBatchKey && importBatchName && freshItems.length ? list.batchNames : undefined,
+        listId, freshItems,
+        importBatchKey && freshItems.length ? { names: list.batchNames, order: list.batchOrder } : undefined,
       )
       // 中文已在批量查询阶段确定；导入后最多后台补音标，不重新翻译、不覆盖中文快照。
       const queued = await enqueuePhoneticPrefetch(fresh, app)

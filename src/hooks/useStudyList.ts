@@ -52,6 +52,18 @@ const listPath = (listId: string) => '/api/lists/' + encodeURIComponent(listId)
 
 export type StudyListApi = ReturnType<typeof useStudyList>
 
+export interface BatchMeta {
+  names: Record<string, string>
+  order: string[]
+}
+
+interface BatchMetaResponse {
+  names?: Record<string, string>
+  order?: string[]
+  batchNames?: Record<string, string>
+  batchOrder?: string[]
+}
+
 export function useStudyList() {
   const [lists, setLists]     = useState<StudyList[]>([])
   const [loading, setLoading] = useState(true)
@@ -152,15 +164,21 @@ export function useStudyList() {
     } catch { return [] }
   }, [])
 
-  /** 读取列表的分组显示名（按导入自然日分组） */
-  const fetchBatches = useCallback(async (listId: string): Promise<Record<string, string>> => {
+  /** 读取分组名称和持久化顺序；旧服务 / 旧数据没有顺序时返回空数组。 */
+  const fetchBatchMeta = useCallback(async (listId: string): Promise<BatchMeta> => {
     try {
-      const data = await queryApi<{ batchNames: Record<string, string> }>(listPath(listId) + '/batches', {}, {
+      const data = await queryApi<BatchMetaResponse>(listPath(listId) + '/batches', {}, {
         staleTime: 5 * 60_000, tags: ['list-batches:' + listId],
       })
-      return data.batchNames ?? {}
-    } catch { return {} }
+      return { names: data.names ?? data.batchNames ?? {}, order: Array.isArray(data.order) ? data.order : (data.batchOrder ?? []) }
+    } catch { return { names: {}, order: [] } }
   }, [])
+
+  /** 读取列表的分组显示名（按导入自然日分组） */
+  const fetchBatches = useCallback(async (listId: string): Promise<Record<string, string>> => {
+    const data = await fetchBatchMeta(listId)
+    return data.names
+  }, [fetchBatchMeta])
 
   /** 重命名某个分组；name 空串=重置为日期；服务不可用/失败返回 null */
   const renameBatch = useCallback(async (listId: string, date: string, name: string): Promise<Record<string, string> | null> => {
@@ -170,6 +188,16 @@ export function useStudyList() {
     if (reply.offline || !reply.data?.ok) return null
     invalidateApiCache(['list-batches:' + listId, 'lists'])
     return reply.data.batchNames ?? {}
+  }, [])
+
+  /** 保存分组顺序；只影响当前列表的分组展示顺序。 */
+  const reorderBatches = useCallback(async (listId: string, order: string[]): Promise<boolean> => {
+    const reply = await request<{ ok: boolean }>(
+      listPath(listId) + '/batches', jsonInit('PATCH', { order }),
+    )
+    if (reply.offline || !reply.data?.ok) return false
+    invalidateApiCache(['list-batches:' + listId, 'lists'])
+    return true
   }, [])
 
   /** 从列表移除某个词条 */
@@ -261,7 +289,7 @@ export function useStudyList() {
     lists, loading, offline,
     fetchLists, createList, renameList, deleteList,
     addItem, importItems, fetchListWords, removeItem, removeItems,
-    fetchBatches, renameBatch,
+    fetchBatches, fetchBatchMeta, renameBatch, reorderBatches,
     updateItemSenses, moveItemBatch, getWordListIds, getListName,
     updateItemTranslations,
   }

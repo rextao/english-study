@@ -34,8 +34,8 @@ git clone https://github.com/rextao/english-study.git   # 已经克隆过就 cd 
 cd english-study
 npm install
 
-# 首次：给本地 D1 建表（落在 .wrangler/state，跟线上库完全无关）
-npm run db:local:init
+# 首次或每次需要刷新本地数据：从远端同步本地 D1
+npm run db:local:sync
 
 npm run dev             # wrangler dev(8787) + vite(5173)，vite 的 /api 代理到 8787
 ```
@@ -46,16 +46,15 @@ npm run dev             # wrangler dev(8787) + vite(5173)，vite 的 /api 代理
 想要一份接近真实的样例数据，可以从线上导一份灌进本地：
 
 ```bash
-npx wrangler d1 export english-study-sync --remote --output=prod-dump.sql
-npx wrangler d1 execute english-study-sync --local --file=prod-dump.sql
+npm run db:local:sync
 ```
+
+该命令会把远端 D1 的表结构和数据导出到临时目录，再导入本地 D1；临时 SQL 文件执行完成后会自动删除，不会进入仓库。它会覆盖本地数据库中的同名表数据，请只在确认本地数据可以丢弃时执行。
 
 | 命令 | 作用 |
 | --- | --- |
-| `npm run dev` | 本地开发：wrangler dev + vite 一起起（`/api` 走本地 D1） |
-| `npm run db:local:init` | 给本地 D1 建表（首次 / schema 变更后跑一次） |
-| `npm run db:local:migrate` | 给**已存在**的本地 D1 补结构变更（建表语句补不上已有表的新列；跑一次即可） |
-| `npm run db:local:import` | 把 `migration.sql` 灌进本地 D1（从历史 sqlite 快照造样例数据用） |
+| `npm run dev` | 先检查 Node 版本，再启动 wrangler dev + vite（`/api` 走本地 D1） |
+| `npm run db:local:sync` | 导出远端 D1 的表结构和数据并导入本地 D1（会覆盖本地同名表数据） |
 | `npm run build` | 类型检查 + 打包到 `dist/` |
 | `npm run test:server` | 服务端测试，跑在临时目录的 node:sqlite shim 上、不联网，不会动你的数据 |
 | `npm run docs:check` | 检查项目文档入口、关键路径和本机绝对路径引用 |
@@ -154,7 +153,7 @@ npx wrangler secret put BAIDU_TRANSLATE_APP_ID
 | `dict_cache` | 词典缓存，一个词一行 |
 
 本地仓库里：`vocab/*.json` 是前端词库本体；`vocab/my_words.csv` 是查词优先使用的个人词典，构建时会生成 Worker 使用的索引；`cache/` 只剩迁移前的历史遗留，不进 git。
-本地开发读写的是另一份独立的本地 D1（`.wrangler/state/`，用 `npm run db:local:init` 建表），线上库只有部署后的 Worker 会碰。
+本地开发读写的是另一份独立的本地 D1（`.wrangler/state/`，用 `npm run db:local:sync` 创建或刷新），线上库只有部署后的 Worker 会碰。
 访问令牌存浏览器 localStorage（key `es-api-token`）；词库标签也在浏览器留一份镜像，服务端可用时以服务端为准。
 
 ## 词库格式与新增词库

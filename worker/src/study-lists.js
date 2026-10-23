@@ -17,7 +17,7 @@ const INSERT_WORD_COLUMNS = [
   'custom_translations_json', 'started_at', 'stage', 'reviewed_json',
   'last_done_at', 'review_scope', 'mark_count', 'review_count', 'spelling_count',
   'reading_count', 'remembered_count', 'forgotten_count', 'processed_review_keys_json',
-  'batch_key',
+  'batch_key', 'suspended_at',
 ]
 const INSERT_WORD_SQL = 'INSERT INTO list_words (' + INSERT_WORD_COLUMNS.join(', ')
   + ') VALUES (' + INSERT_WORD_COLUMNS.map(() => '?').join(', ') + ')'
@@ -50,6 +50,25 @@ function parseJson(value, fallback) {
 
 function normalizeBatchNames(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+}
+
+function normalizeBatchOrder(value) {
+  if (!Array.isArray(value)) return []
+  return [...new Set(value.map(item => String(item ?? '').trim()).filter(Boolean))]
+}
+
+function parseBatchMeta(value) {
+  const parsed = value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+  if (parsed.names && typeof parsed.names === 'object' && !Array.isArray(parsed.names)) {
+    return { names: normalizeBatchNames(parsed.names), order: normalizeBatchOrder(parsed.order) }
+  }
+  // 兼容旧版直接保存 { batchKey: batchName } 的数据。
+  return { names: normalizeBatchNames(parsed), order: [] }
+}
+
+function batchMetaJson(value) {
+  const meta = value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+  return json({ names: normalizeBatchNames(meta.names ?? meta), order: normalizeBatchOrder(meta.order) })
 }
 
 /**
@@ -90,6 +109,7 @@ function rowToItem(row) {
   const keys = parseJson(row.processed_review_keys_json, [])
   if (Array.isArray(keys) && keys.length) item.processedReviewKeys = keys
   if (row.batch_key) item.batchKey = row.batch_key
+  if (row.suspended_at) item.suspendedAt = Number(row.suspended_at)
   return item
 }
 
@@ -129,6 +149,7 @@ export function itemToRow(listId, item, position) {
     Math.max(0, Number(item?.forgottenCount) || 0),
     json(Array.isArray(item?.processedReviewKeys) ? item.processedReviewKeys : []),
     item?.batchKey ? String(item.batchKey) : null,
+    Number.isFinite(Number(item?.suspendedAt)) ? Number(item.suspendedAt) : null,
   ]
 }
 
@@ -154,7 +175,12 @@ export function createStudyListsStore(db) {
 
   async function batchNames(listId) {
     const row = await db.first("SELECT batch_names_json FROM lists WHERE id = ?", String(listId))
-    return normalizeBatchNames(parseJson(row?.batch_names_json, {}))
+    return parseBatchMeta(parseJson(row?.batch_names_json, {})).names
+  }
+
+  async function batchMeta(listId) {
+    const row = await db.first("SELECT batch_names_json FROM lists WHERE id = ?", String(listId))
+    return parseBatchMeta(parseJson(row?.batch_names_json, {}))
   }
 
   async function listIdsForWord(word) {
@@ -175,7 +201,7 @@ export function createStudyListsStore(db) {
 
   /** 计划页只读在学词，并带出列表名。 */
   async function activePlanRows() {
-    const rows = await db.all("SELECT w.*, l.name AS list_name FROM list_words w JOIN lists l ON l.id = w.list_id WHERE w.started_at IS NOT NULL ORDER BY w.list_id, w.position")
+    const rows = await db.all("SELECT w.*, l.name AS list_name FROM list_words w JOIN lists l ON l.id = w.list_id WHERE w.started_at IS NOT NULL AND w.suspended_at IS NULL ORDER BY w.list_id, w.position")
     return rows.map(row => ({ listId: row.list_id, listName: row.list_name, item: rowToItem(row) }))
   }
 
@@ -249,9 +275,10 @@ export function createStudyListsStore(db) {
   async function listMeta(listId) {
     const row = await db.first('SELECT id, name, created_at, batch_names_json FROM lists WHERE id = ?', String(listId))
     if (!row) return null
+    const batch = parseBatchMeta(parseJson(row.batch_names_json, {}))
     return {
       id: row.id, name: row.name, createdAt: Number(row.created_at),
-      batchNames: normalizeBatchNames(parseJson(row.batch_names_json, {})), words: [],
+      batchNames: batch.names, batchOrder: batch.order, words: [],
     }
   }
 
@@ -272,12 +299,12 @@ export function createStudyListsStore(db) {
     return await db.run('DELETE FROM lists WHERE id = ?', String(listId))
   }
 
-  async function insertWords(listId, items, batchNames) {
+  async function insertWords(listId, items, batchMeta) {
     const list = await db.first('SELECT COALESCE(MAX(position), -1) + 1 AS position FROM list_words WHERE list_id = ?', String(listId))
     let position = Number(list?.position || 0)
     const statements = (Array.isArray(items) ? items : []).map(item => [INSERT_WORD_SQL, ...itemToRow(String(listId), item, position++)])
-    if (batchNames !== undefined) statements.unshift([
-      'UPDATE lists SET batch_names_json = ? WHERE id = ?', json(normalizeBatchNames(batchNames)), String(listId),
+    if (batchMeta !== undefined) statements.unshift([
+      'UPDATE lists SET batch_names_json = ? WHERE id = ?', batchMetaJson(batchMeta), String(listId),
     ])
     if (statements.length) await db.batch(statements)
   }
@@ -290,14 +317,14 @@ export function createStudyListsStore(db) {
     )
   }
 
-  async function updateWordBatch(listId, word, batchKey, batchNames) {
+  async function updateWordBatch(listId, word, batchKey, batchMeta) {
     const params = [String(batchKey || ''), String(listId), normalizeText(word)]
-    if (batchNames === undefined) {
+    if (batchMeta === undefined) {
       return await db.run('UPDATE list_words SET batch_key = ? WHERE list_id = ? AND word = ?', ...params)
     }
     return await db.batch([
       ['UPDATE list_words SET batch_key = ? WHERE list_id = ? AND word = ?', ...params],
-      ['UPDATE lists SET batch_names_json = ? WHERE id = ?', json(normalizeBatchNames(batchNames)), String(listId)],
+      ['UPDATE lists SET batch_names_json = ? WHERE id = ?', batchMetaJson(batchMeta), String(listId)],
     ])
   }
 
@@ -311,8 +338,34 @@ export function createStudyListsStore(db) {
     return removed
   }
 
-  async function updateBatchNames(listId, batchNames) {
-    return await db.run('UPDATE lists SET batch_names_json = ? WHERE id = ?', json(normalizeBatchNames(batchNames)), String(listId))
+  async function setSuspended(listId, words, suspendedAt) {
+    const keys = [...new Set((Array.isArray(words) ? words : []).map(normalizeText).filter(Boolean))]
+    if (keys.length === 0) return 0
+    let changed = 0
+    for (let i = 0; i < keys.length; i += 80) {
+      const chunk = keys.slice(i, i + 80)
+      changed += await db.run(
+        'UPDATE list_words SET suspended_at = ? WHERE list_id = ? AND word IN (' + chunk.map(() => '?').join(', ') + ')',
+        suspendedAt == null ? null : Number(suspendedAt), String(listId), ...chunk,
+      )
+    }
+    return changed
+  }
+
+  async function updateBatchNames(listId, batchNames, batchOrder) {
+    return await db.run(
+      'UPDATE lists SET batch_names_json = ? WHERE id = ?',
+      batchMetaJson({ names: batchNames, order: batchOrder }), String(listId),
+    )
+  }
+
+  async function updateBatchOrder(listId, batchOrder) {
+    const row = await db.first('SELECT batch_names_json FROM lists WHERE id = ?', String(listId))
+    const current = parseBatchMeta(parseJson(row?.batch_names_json, {}))
+    return await db.run(
+      'UPDATE lists SET batch_names_json = ? WHERE id = ?',
+      batchMetaJson({ names: current.names, order: batchOrder }), String(listId),
+    )
   }
 
   /**
@@ -365,8 +418,8 @@ export function createStudyListsStore(db) {
 
   return {
     resetStats, selectWords, listName, listMeta, nameExists, insertList, renameList, deleteList,
-    insertWords, updateWordContent, updateWordBatch, removeWords, updateBatchNames, saveWordProgress, adjustTallyStats,
-    listSummaries, listWords, batchNames, listIdsForWord, wordsNeedingRepair,
+    insertWords, updateWordContent, updateWordBatch, removeWords, setSuspended, updateBatchNames, saveWordProgress, adjustTallyStats,
+    updateBatchOrder, listSummaries, listWords, batchNames, batchMeta, listIdsForWord, wordsNeedingRepair,
     wordsMissingPhonetic, itemsMissingPhonetic, syncPhonetics,
     activePlanRows, itemsMissingTranslation, syncTranslations,
   }
@@ -389,7 +442,7 @@ export async function readStudyLists(db) {
       id: row.id,
       name: row.name,
       createdAt: Number(row.created_at),
-      batchNames: normalizeBatchNames(parseJson(row.batch_names_json, {})),
+      batchNames: parseBatchMeta(parseJson(row.batch_names_json, {})).names,
       words: wordsByList.get(row.id) || [],
     })),
   }

@@ -268,6 +268,21 @@ r = await call('PATCH', '/api/lists/' + batchListId + '/batches', { date: '2026-
 const savedBatchList = (await readStudyLists(db())).lists?.find(l => l.id === batchListId)
 check('batchNames 字段落盘', savedBatchList?.batchNames?.['2026-09-15'] === '秋词汇', savedBatchList)
 
+r = await call('PATCH', '/api/lists/' + batchListId + '/batches', {
+  order: ['b:custom-order', '2026-09-15'],
+})
+check('PATCH 分组顺序成功',
+  r.status === 200 && r.body?.ok === true
+  && JSON.stringify(r.body?.batchOrder) === JSON.stringify(['b:custom-order', '2026-09-15']), r.body)
+r = await call('GET', '/api/lists/' + batchListId + '/batches')
+check('GET 返回持久化的分组顺序',
+  JSON.stringify(r.body?.batchOrder) === JSON.stringify(['b:custom-order', '2026-09-15']), r.body)
+r = await call('PATCH', '/api/lists/' + batchListId + '/batches', { date: '2026-09-15', name: '秋词汇-保序' })
+r = await call('GET', '/api/lists/' + batchListId + '/batches')
+check('重命名分组不改变自定义顺序',
+  r.body?.batchNames?.['2026-09-15'] === '秋词汇-保序'
+  && JSON.stringify(r.body?.batchOrder) === JSON.stringify(['b:custom-order', '2026-09-15']), r.body)
+
 // 重复单词永远留在旧批次：addedAt 不变
 r = await call('POST', '/api/lists/' + batchListId + '/import', { items: [{ text: 'batch-dup' }] })
 check('首次导入 batch-dup added=1', r.body?.added === 1, r.body)
@@ -310,6 +325,19 @@ check('batchName 随自定义键落盘', r.body?.batchNames?.['b:test-1'] === '�
 // (b) 单词加入时带 batchKey
 r = await call('POST', '/api/lists/' + batchKeyListId + '/words', { text: 'bkword2', batchKey: 'b:test-1' })
 check('单加带 batchKey', r.body?.ok === true && r.body?.item?.batchKey === 'b:test-1', r.body)
+r = await call('POST', '/api/lists/' + batchKeyListId + '/import', {
+  items: [{ text: 'bkword4' }], batchKey: 'b:test-2', batchName: '自定义Y',
+})
+check('第二个自定义批次导入成功', r.body?.added === 1, r.body)
+r = await call('PATCH', '/api/lists/' + batchKeyListId + '/batches', {
+  order: ['b:test-2', 'b:test-1'],
+})
+check('自定义批次顺序可保存', r.body?.ok === true, r.body)
+r = await call('PATCH', '/api/lists/' + batchKeyListId + '/words/bkword2', { batchKey: 'b:test-2' })
+check('移动词条不改变已有批次顺序', r.body?.ok === true, r.body)
+r = await call('GET', '/api/lists/' + batchKeyListId + '/batches')
+check('移动词条后批次顺序仍保持',
+  JSON.stringify(r.body?.batchOrder) === JSON.stringify(['b:test-2', 'b:test-1']), r.body)
 // (c) PATCH 自定义批次键重命名（正则泛化回归）
 r = await call('PATCH', '/api/lists/' + batchKeyListId + '/batches', { date: 'b:test-1', name: '改名' })
 check('PATCH 自定义批次键 200', r.status === 200 && r.body?.ok === true && r.body.batchNames['b:test-1'] === '改名', r.body)
@@ -418,6 +446,21 @@ r = await call('POST', '/api/lists/' + studyId + '/start', { words: ['lemon'] })
 let lemon = r.body?.items?.find(w => w.word === 'lemon')
 check('今天开始学习后立即进入今天待复习',
   lemon?.stage === 0 && lemon.state === 'due' && lemon.nextDueAt === today, lemon)
+
+r = await call('POST', '/api/lists/' + studyId + '/suspend', { words: ['MELON'] })
+check('暂时移出学习计划成功', r.body?.ok === true && r.body.suspended === 1, r.body)
+r = await call('GET', '/api/lists/' + studyId + '/words')
+melon = r.body.find(w => w.word === 'melon')
+check('暂时移出保留原记忆曲线和统计',
+  melon?.suspendedAt > 0 && melon.stage === 0 && melon.markCount === 1, melon)
+r = await call('GET', '/api/study/plan')
+check('暂时移出的词不再出现在复习计划',
+  !r.body.items.some(item => item.listId === studyId && item.word === 'melon'), r.body)
+r = await call('POST', '/api/lists/' + studyId + '/resume', { words: ['melon'] })
+check('恢复学习成功且不重置曲线', r.body?.ok === true && r.body.resumed === 1, r.body)
+r = await call('GET', '/api/lists/' + studyId + '/words')
+melon = r.body.find(w => w.word === 'melon')
+check('恢复后保留原记忆曲线', !melon?.suspendedAt && melon?.stage === 0 && melon?.markCount === 1, melon)
 
 r = await call('POST', '/api/lists/' + studyId + '/review', { words: ['lemon'], action: 'done' })
 lemon = r.body?.items?.find(w => w.word === 'lemon')

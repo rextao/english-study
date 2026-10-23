@@ -842,6 +842,8 @@ function abDynamicPaginationScript(cols: number): string {
   var a = document.getElementById('ab-a-font');
   var b = document.getElementById('ab-b-font');
   var titleKey = 'english-study-print-titles';
+  var currentQuestionPages = [];
+  var currentAnswerPages = [];
   function setVar(el, name, fallback, min, max) {
     var value = Number(el && el.value);
     if (!Number.isFinite(value)) value = fallback;
@@ -932,6 +934,21 @@ function abDynamicPaginationScript(cols: number): string {
       });
     });
   }
+  function syncVisibleTitles() {
+    var titles = {};
+    currentQuestionPages.forEach(function (page) {
+      page.page.querySelectorAll('.ab-group').forEach(function (group) {
+        var input = group.querySelector('.ab-group__label');
+        if (input && group.dataset.group) titles[group.dataset.group] = input.value;
+      });
+    });
+    currentAnswerPages.forEach(function (page) {
+      page.page.querySelectorAll('.ab-group').forEach(function (group) {
+        var label = group.querySelector('.ab-group__label');
+        if (label && group.dataset.group) label.textContent = titles[group.dataset.group] || '';
+      });
+    });
+  }
   function paginate() {
     var titles = collectTitles();
     area.innerHTML = '';
@@ -939,6 +956,8 @@ function abDynamicPaginationScript(cols: number): string {
     var aTokens = Array.prototype.slice.call(answerSource.children);
     var questionPages = paginateTokens(qTokens, 'question');
     var answerPages = paginateTokens(aTokens, 'answer');
+    currentQuestionPages = questionPages;
+    currentAnswerPages = answerPages;
     area.querySelectorAll('.ab-group').forEach(function (group) {
       var input = group.querySelector('.ab-group__label');
       if (input && titles[group.dataset.group] != null) input.value = titles[group.dataset.group];
@@ -956,11 +975,16 @@ function abDynamicPaginationScript(cols: number): string {
   }
   if (a) a.addEventListener('input', updateFonts);
   if (b) b.addEventListener('input', updateFonts);
+  area.addEventListener('input', function (event) {
+    var input = event.target && event.target.closest ? event.target.closest('.ab-group__label') : null;
+    if (input) syncVisibleTitles();
+  });
   area.addEventListener('change', function (event) {
     var select = event.target && event.target.closest ? event.target.closest('.ab-group__history') : null;
     if (!select) return;
     var input = select.parentElement && select.parentElement.querySelector('.ab-group__label');
     if (input) input.value = select.value;
+    syncVisibleTitles();
   });
   area.addEventListener('blur', function (event) {
     var input = event.target && event.target.closest ? event.target.closest('.ab-group__label') : null;
@@ -1018,9 +1042,10 @@ export function buildABPrintHtml(cards: FlashCard[], options: ABPrintOptions = {
       const key = card.groupKey || '__default__'
       if (key !== currentKey) {
         currentKey = key
+        const groupLabel = card.groupLabel || ''
         chunks.push(answer
-          ? '<div class="ab-group" data-group="' + escHtml(key) + '"><span class="ab-group__label"></span></div>'
-          : '<div class="ab-group" data-group="' + escHtml(key) + '"><input class="ab-group__label" type="text" placeholder="" aria-label="分组标题"><select class="ab-group__history" aria-label="选择历史标题"><option value="">历史标题</option></select><button type="button" class="ab-group__random" data-group="' + escHtml(key) + '">随机</button></div>')
+          ? '<div class="ab-group" data-group="' + escHtml(key) + '"><span class="ab-group__label">' + escHtml(groupLabel) + '</span></div>'
+          : '<div class="ab-group" data-group="' + escHtml(key) + '"><input class="ab-group__label" type="text" value="' + escHtml(groupLabel) + '" placeholder="" aria-label="分组标题"><select class="ab-group__history" aria-label="选择历史标题"><option value="">历史标题</option></select><button type="button" class="ab-group__random" data-group="' + escHtml(key) + '">随机</button></div>')
       }
       const text = card.type === 'sentence' && sentencePrompt === 'translate'
         ? (card.translation || '—')
