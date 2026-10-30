@@ -2,13 +2,14 @@ import './Nav.css'
 import { Dropdown } from '../ui'
 import type { MenuItemType } from '../ui'
 
-export type TabKey = 'search' | 'lists' | 'settings' | 'achievements' | 'records' | 'study' | 'goal'
+export type TabKey = 'search' | 'lists' | 'settings' | 'achievements' | 'records' | 'study' | 'goal' | 'passages'
 
 // extra = 手机端收进折叠菜单的 tab（查词始终留在导航栏上）
 const TABS: { key: TabKey; label: string; extra?: boolean }[] = [
   { key: 'search', label: '查词' },
   { key: 'lists',  label: '学习列表', extra: true },
   { key: 'achievements', label: '学习成果', extra: true },
+  { key: 'passages', label: '短文', extra: true },
   { key: 'goal', label: '目标', extra: true },
 ]
 
@@ -43,12 +44,13 @@ interface NavProps {
 export function Nav({ active, onChange, dueToday }: NavProps) {
   const visibleActive = active === 'records' ? 'achievements' : active
 
-  // 手机端折叠菜单里装着学习列表 / 学习成果 / 目标 / 设置，落在这些页面上时「更多」按钮要高亮
-  const moreActive = active === 'lists' || active === 'achievements' || active === 'goal' || active === 'settings' || active === 'records'
+  // 手机端折叠菜单里装着学习列表 / 学习成果 / 短文 / 目标 / 设置，落在这些页面上时「更多」按钮要高亮
+  const moreActive = active === 'lists' || active === 'achievements' || active === 'goal' || active === 'settings' || active === 'records' || active === 'passages'
   const moreItems: MenuItemType[] = [
       { key: 'lists', label: '学习列表' },
-     { key: 'achievements', label: '学习成果' },
-     { key: 'goal', label: '目标' },
+      { key: 'achievements', label: '学习成果' },
+       { key: 'passages', label: '短文' },
+      { key: 'goal', label: '目标' },
      { key: 'settings', label: '设置', icon: gearIcon },
   ]
 

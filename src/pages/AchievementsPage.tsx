@@ -3,7 +3,8 @@ import type { StudyListApi } from '../hooks/useStudyList'
 import type { LearningAchievement, VocabLibraryInfo } from '../types/vocab'
 import { useLearningAchievements } from '../hooks/useLearningRecords'
 import { PageHeader } from '../components/PageHeader'
-import { Button, Popconfirm, Select, Tag } from '../ui'
+import { LetterTimeline } from '../components/LetterTimeline'
+import { Button, ENGLISH_WORD_INPUT_PROPS, Input, Popconfirm, Select, Tag } from '../ui'
 import { primaryVocabIdForWord } from '../utils/vocabOrder'
 import './AchievementsPage.css'
 
@@ -47,6 +48,20 @@ function recentDaysOf(item: LearningAchievement, now: number) {
 function recentDaysText(days: number | null) {
   if (days === null) return '超出 ' + RECENT_WINDOW_DAYS + ' 天'
   return days === 0 ? '今天' : days + ' 天前'
+}
+
+function normalizeWordSearch(input: string) {
+  return input.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+function displayTextOf(word: string) {
+  return /\s/.test(word)
+    ? word.trim().replace(/\s+/g, ' ').replace(/[A-Za-z]/, letter => letter.toUpperCase())
+    : word
+}
+
+function initialOf(word: string) {
+  return (/^[^a-zA-Z]*([a-zA-Z])/.exec(word)?.[1] ?? '#').toUpperCase()
 }
 
 interface AchievementsPageProps {
@@ -120,6 +135,7 @@ function CountCell({
 
 export function AchievementsPage({ libraries, getLabelById }: AchievementsPageProps) {
   const [selectedLibrary, setSelectedLibrary] = useState(ALL_LIBRARIES)
+  const [wordSearch, setWordSearch] = useState('')
   const [sort, setSort] = useState<SortState>({ key: 'word', dir: 'asc' })
   const [editing, setEditing] = useState(false)
   const achievements = useLearningAchievements(selectedLibrary)
@@ -147,10 +163,16 @@ export function AchievementsPage({ libraries, getLabelById }: AchievementsPagePr
     void achievements.adjustCount(word, kind, delta)
   }
 
+  const filteredItems = useMemo(() => {
+    const query = normalizeWordSearch(wordSearch)
+    if (!query) return achievements.items
+    return achievements.items.filter(item => normalizeWordSearch(item.word).includes(query))
+  }, [achievements.items, wordSearch])
+
   // 排序：最近学习按时间戳（没有记录的排最后）；次数相同退回字母 a-z，保证顺序稳定
   const sortedItems = useMemo(() => {
     const factor = sort.dir === 'asc' ? 1 : -1
-    return achievements.items.slice().sort((a, b) => {
+    return filteredItems.slice().sort((a, b) => {
       if (sort.key === 'word') return factor * a.word.localeCompare(b.word, 'en')
       if (sort.key === 'recent') {
         const left = a.lastAt ?? -Infinity
@@ -163,7 +185,57 @@ export function AchievementsPage({ libraries, getLabelById }: AchievementsPagePr
       if (diff !== 0) return factor * diff
       return a.word.localeCompare(b.word, 'en')
     })
-  }, [achievements.items, sort])
+  }, [filteredItems, sort])
+
+  /** 当前筛选结果超过 20 个词时，按当前列表顺序生成首字母导航。 */
+  const letterNav = useMemo(() => {
+    if (sortedItems.length <= 20) return []
+    const letters: string[] = []
+    for (const item of sortedItems) {
+      const letter = initialOf(item.word)
+      if (!letters.includes(letter)) letters.push(letter)
+    }
+    return letters
+  }, [sortedItems])
+
+  /** 每个首字母只给第一个词加锚点，避免同一字母出现重复 id。 */
+  const letterAnchorWords = useMemo(() => {
+    const seen = new Set<string>()
+    const anchors = new Set<string>()
+    for (const item of sortedItems) {
+      const letter = initialOf(item.word)
+      if (!seen.has(letter)) {
+        seen.add(letter)
+        anchors.add(item.word)
+      }
+    }
+    return anchors
+  }, [sortedItems])
+  const [activeLetter, setActiveLetter] = useState('')
+
+  useEffect(() => {
+    setActiveLetter(letterNav[0] ?? '')
+  }, [letterNav])
+
+  useEffect(() => {
+    if (letterNav.length === 0) return
+    const updateActiveLetter = () => {
+      const anchor = 120
+      let current = letterNav[0]
+      for (const letter of letterNav) {
+        const row = document.getElementById('achievement-letter-' + letter)
+        if (row && row.getBoundingClientRect().top <= anchor) current = letter
+      }
+      setActiveLetter(current)
+    }
+    updateActiveLetter()
+    window.addEventListener('scroll', updateActiveLetter, { passive: true })
+    window.addEventListener('resize', updateActiveLetter)
+    return () => {
+      window.removeEventListener('scroll', updateActiveLetter)
+      window.removeEventListener('resize', updateActiveLetter)
+    }
+  }, [letterNav])
 
   // 可排序的表头：点标题就地排序，箭头显示在标题旁边；提示文案跟着维度走
   const SortHeader = ({ sortKey, label }: { sortKey: SortKey; label: string }) => {
@@ -190,7 +262,19 @@ export function AchievementsPage({ libraries, getLabelById }: AchievementsPagePr
         <label className="field-label" htmlFor="achievements-library">按词库筛选</label>
         <Select id="achievements-library" className="achievements-filter__select" value={selectedLibrary}
           options={options} onChange={setSelectedLibrary} aria-label="按词库筛选学习成果" />
-        <span className="achievements-filter__result">共 {achievements.items.length} 个词</span>
+        <Input
+          {...ENGLISH_WORD_INPUT_PROPS}
+          className="achievements-filter__search"
+          value={wordSearch}
+          placeholder="搜索单词"
+          aria-label="按单词筛选学习成果"
+          allowClear
+          onClear={() => setWordSearch('')}
+          onChange={event => setWordSearch(event.target.value)}
+        />
+        <span className="achievements-filter__result">
+          {wordSearch.trim() ? `找到 ${sortedItems.length} / 共 ${achievements.items.length} 个词` : `共 ${achievements.items.length} 个词`}
+        </span>
         <Button
           size="small"
           type={editing ? 'primary' : 'default'}
@@ -235,10 +319,22 @@ export function AchievementsPage({ libraries, getLabelById }: AchievementsPagePr
       {!achievements.loading && !achievements.error && achievements.items.length === 0 && (
        <p className="empty">还没有学习记录。完成会拼、会读或知意等操作后，成果会永久保存在这里。</p>
       )}
+      {!achievements.loading && !achievements.error && achievements.items.length > 0 && sortedItems.length === 0 && (
+        <p className="empty">没有匹配「{wordSearch.trim()}」的单词，清空关键词可查看全部成果。</p>
+      )}
 
-      {!achievements.loading && achievements.items.length > 0 && (
-        <div className="card achievements-table-wrap">
-          <table className="achievements-table">
+      {!achievements.loading && sortedItems.length > 0 && (
+        <div className="achievements-list-shell">
+          {letterNav.length > 0 && (
+            <LetterTimeline
+              letters={letterNav}
+              activeLetter={activeLetter}
+              onSelect={letter => document.getElementById('achievement-letter-' + letter)?.scrollIntoView({ block: 'start' })}
+              ariaLabel="按首字母跳转学习成果"
+            />
+          )}
+          <div className="card achievements-table-wrap">
+            <table className="achievements-table">
             <thead><tr>
               <th><SortHeader sortKey="word" label="单词" /></th><th>词库</th>
               <th className="achievements-table__number"><SortHeader sortKey="spelling" label="会拼" /></th>
@@ -247,11 +343,13 @@ export function AchievementsPage({ libraries, getLabelById }: AchievementsPagePr
               <th className="achievements-table__number"><SortHeader sortKey="recent" label="最近学习" /></th></tr></thead>
             <tbody>
              {sortedItems.map(item => {
-               const recentDays = recentDaysOf(item, now)
-               return (
-                <tr key={item.word} className="achievements-table__row">
+                const recentDays = recentDaysOf(item, now)
+                const letter = initialOf(item.word)
+                return (
+                 <tr key={item.word} id={letterAnchorWords.has(item.word) ? 'achievement-letter-' + letter : undefined}
+                   className="achievements-table__row">
                  <td className="achievements-table__cell-word">
-                   <strong className="achievements-table__word">{item.word}</strong>
+                    <strong className="achievements-table__word">{displayTextOf(item.word)}</strong>
                  </td>
                  <td className="achievements-table__libs"><div className="achievements-table__tags">
                   {primaryVocabIdForWord(item.word, item.sourceIds, libraries) && <Tag color="blue">{getLabelById(primaryVocabIdForWord(item.word, item.sourceIds, libraries)!)}</Tag>}
@@ -275,7 +373,8 @@ export function AchievementsPage({ libraries, getLabelById }: AchievementsPagePr
                )
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
       )}
     </div>

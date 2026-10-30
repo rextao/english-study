@@ -10,14 +10,18 @@ import { createDb } from './db.js'
 import { createKvStore } from './kv.js'
 import { createStudyHistoryStore } from './study-history.js'
 import { createAppServices } from './lists.js'
+import { createPassageStore } from './passages.js'
 
 export function createApp(env, waitUntilFn) {
   const db = createDb(env.DB)
+  const kv = createKvStore(db)
+  const history = createStudyHistoryStore(db)
   return {
     env,
     db,
-    kv: createKvStore(db),
-    history: createStudyHistoryStore(db),
+    kv,
+    history,
+    passages: createPassageStore(kv, history),
     ...createAppServices(db),
     config: {
       noNetwork: env.DICT_NO_NETWORK === '1',

@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "pinyin-pro": "^3.29.3",
+    "posthog-js": "1.439.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tesseract.js": "7.0.0"

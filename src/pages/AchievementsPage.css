@@ -7,6 +7,12 @@
 
 .achievements-filter__select { width: 240px; }
 
+.achievements-filter__search {
+  width: 240px;
+  min-width: 180px;
+  flex: 0 1 280px;
+}
+
 .achievements-filter__result {
   margin-left: auto;
   color: var(--color-text-muted);
@@ -155,6 +161,18 @@
 /* 手机端排序按钮组：桌面端排序都在表头，这排按钮平时不占地方 */
 .achievements-sort { display: none; }
 
+.achievements-list-shell {
+  position: relative;
+  display: grid;
+}
+
+.achievements-list-shell .letter-timeline,
+.achievements-list-shell .achievements-table-wrap {
+  grid-area: 1 / 1;
+}
+
+.achievements-table__row[id] { scroll-margin-top: 72px; }
+
 @media (max-width: 720px) {
   /* 这一块里凡是覆盖 .card / .card--pad 的属性都带上 .achievements-page 前缀：
      打包后 App.css 排在本文件之后，同权重会被 .card 的边框、内边距和投影压掉 */
@@ -171,6 +189,12 @@
   }
   .achievements-filter .field-label { display: none; }
   .achievements-filter__select { flex: 1; width: auto; min-width: 160px; }
+  .achievements-filter__search {
+    flex: 1 1 100%;
+    width: auto;
+    min-width: 0;
+    order: -1;
+  }
   /* 下拉收到 32px，和下面那排 chip 同高，这条工具条上只留一种高度。
      App.css 在 640px 以下把表单控件顶到 16px 是为了防 iOS 聚焦缩放，但 Select 的控件
      是 <button role="combobox">，原生缩放规则管不到按钮，16px 在这里只会让下拉比周围
@@ -182,6 +206,7 @@
     line-height: 20px;
   }
   .achievements-filter__result { margin-left: auto; }
+  .achievements-page .letter-timeline { display: none; }
 
   .achievements-sort {
     display: flex;

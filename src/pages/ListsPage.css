@@ -155,10 +155,24 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   user-select: none;
-  transition: background .15s;
+  transition: background .15s, box-shadow .15s, opacity .15s, transform .15s;
 }
 
 .word-batch__head:hover { background: var(--color-border-strong); }
+
+.word-batch__head--dragging {
+  opacity: .55;
+}
+
+.word-batch__drop-indicator {
+  height: 4px;
+  margin: 2px 8px 4px 20px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary, #2563eb);
+  box-shadow:
+    0 0 0 2px rgba(37, 99, 235, .14),
+    0 3px 10px rgba(37, 99, 235, .35);
+}
 
 .word-batch__head:focus-visible {
   outline: 2px solid var(--color-primary, #2563eb);

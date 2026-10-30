@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import type { StudyListApi } from '../hooks/useStudyList'
 import { useDictBatch } from '../hooks/useDictBatch'
 import type { StudyWordItem } from '../types/vocab'
@@ -90,6 +90,10 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
   const [moveBatchKey, setMoveBatchKey] = useState('')
   const [moving, setMoving]             = useState(false)
   const [draggingBatch, setDraggingBatch] = useState<string | null>(null)
+  const [dropTarget, setDropTarget] = useState<{
+    key: string
+    placement: 'before' | 'after'
+  } | null>(null)
   const [reordering, setReordering]     = useState(false)
 
   // 选中的列表被删掉后回退到默认列表
@@ -409,17 +413,18 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
     return [...new Set([...batchOrder, ...fallback])].filter(key => keys.has(key))
   }
 
-  async function handleBatchDrop(targetKey: string) {
+  async function handleBatchDrop(targetKey: string, placement: 'before' | 'after') {
     const sourceKey = draggingBatch
     setDraggingBatch(null)
+    setDropTarget(null)
     if (!sourceKey || sourceKey === targetKey || reordering) return
     const currentOrder = fullBatchKeys()
     const sourceIndex = currentOrder.indexOf(sourceKey)
     const targetIndex = currentOrder.indexOf(targetKey)
     if (sourceIndex < 0 || targetIndex < 0) return
-    const nextOrder = currentOrder.slice()
-    nextOrder.splice(sourceIndex, 1)
-    nextOrder.splice(nextOrder.indexOf(targetKey), 0, sourceKey)
+    const nextOrder = currentOrder.filter(key => key !== sourceKey)
+    const nextTargetIndex = nextOrder.indexOf(targetKey)
+    nextOrder.splice(placement === 'after' ? nextTargetIndex + 1 : nextTargetIndex, 0, sourceKey)
     const previousOrder = batchOrder
     setBatchOrder(nextOrder)
     setReordering(true)
@@ -578,9 +583,15 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
           {visibleBatches.map(([key, items]) => {
             const isCollapsed = collapsed.has(key)
             return (
-              <div key={key} className="word-batch">
+              <Fragment key={key}>
+                {dropTarget?.key === key && dropTarget.placement === 'before' && (
+                  <div className="word-batch__drop-indicator" aria-hidden="true" />
+                )}
+                <div className="word-batch">
                 <div
-                  className={'word-batch__head' + (isCollapsed ? ' word-batch__head--collapsed' : '')}
+                    className={'word-batch__head'
+                      + (isCollapsed ? ' word-batch__head--collapsed' : '')
+                      + (draggingBatch === key ? ' word-batch__head--dragging' : '')}
                   role="button"
                   tabIndex={0}
                   aria-expanded={!isCollapsed}
@@ -593,11 +604,25 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
                     }
                   }}
                   onDragOver={e => {
-                    if (draggingBatch && draggingBatch !== key) e.preventDefault()
+                    if (draggingBatch && draggingBatch !== key) {
+                      e.preventDefault()
+                      e.dataTransfer.dropEffect = 'move'
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      setDropTarget({
+                        key,
+                        placement: e.clientY < rect.top + rect.height / 2 ? 'before' : 'after',
+                      })
+                    }
+                  }}
+                  onDragLeave={e => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                      setDropTarget(current => current?.key === key ? null : current)
+                    }
                   }}
                   onDrop={e => {
                     e.preventDefault()
-                    void handleBatchDrop(key)
+                    const placement = dropTarget?.key === key ? dropTarget.placement : 'before'
+                    void handleBatchDrop(key, placement)
                   }}
                 >
                   {editingBatch === key ? (
@@ -627,8 +652,12 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
                           e.stopPropagation()
                           e.dataTransfer.effectAllowed = 'move'
                           setDraggingBatch(key)
+                          setDropTarget(null)
                         }}
-                        onDragEnd={() => setDraggingBatch(null)}
+                        onDragEnd={() => {
+                          setDraggingBatch(null)
+                          setDropTarget(null)
+                        }}
                       >
                         ⋮⋮
                       </Button>
@@ -660,7 +689,11 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
                     {items.map(item => renderRow(item))}
                   </ul>
                 )}
-              </div>
+                </div>
+                {dropTarget?.key === key && dropTarget.placement === 'after' && (
+                  <div className="word-batch__drop-indicator" aria-hidden="true" />
+                )}
+              </Fragment>
             )
           })}
         </div>

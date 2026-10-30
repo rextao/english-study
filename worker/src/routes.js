@@ -822,6 +822,50 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     return { status: 200, body: await app.history.achievements({ libraryId: searchParams.get('libraryId') }) }
   }
 
+  // ── 短文学习 ────────────────────────────────────────────────────────────
+  if (method === 'GET' && pathname === '/api/passages') {
+    return { status: 200, body: { passages: await app.passages.list() } }
+  }
+
+  if (method === 'POST' && pathname === '/api/passages') {
+    const title = String(body?.title || '').trim()
+    const content = String(body?.content || '').trim()
+    if (!content) return { status: 400, body: { error: 'missing passage content' } }
+    const passage = await app.passages.save({
+      title,
+      content,
+      sourceWords: body?.sourceWords,
+      groups: body?.groups,
+    })
+    return { status: 201, body: { passage } }
+  }
+
+  const passageMatch = pathname.match(/^\/api\/passages\/([^/]+)$/)
+  if (method === 'PATCH' && passageMatch) {
+    const title = String(body?.title || '').trim()
+    const content = String(body?.content || '').trim()
+    if (!content) return { status: 400, body: { error: 'missing passage content' } }
+    const existing = (await app.passages.list()).find(item => item.id === decodeURIComponent(passageMatch[1]))
+    if (!existing) return { status: 404, body: { error: 'passage not found' } }
+    const passage = await app.passages.save({
+      id: existing.id,
+      title,
+      content,
+      sourceWords: body?.sourceWords,
+      groups: body?.groups,
+    })
+    return { status: 200, body: { passage } }
+  }
+
+  const passageMarkMatch = pathname.match(/^\/api\/passages\/([^/]+)\/mark$/)
+  if (method === 'POST' && passageMarkMatch) {
+    const action = String(body?.action || '')
+    const result = await app.passages.mark(decodeURIComponent(passageMarkMatch[1]), action)
+    if (result.error === 'passage not found') return { status: 404, body: { error: result.error } }
+    if (result.error) return { status: 400, body: { error: result.error } }
+    return { status: 200, body: result }
+  }
+
   const achievementMatch = pathname.match(/^\/api\/study\/achievements\/([^/]+)$/)
   if (method === 'PATCH' && achievementMatch) {
     const word = normalizeText(decodeURIComponent(achievementMatch[1]))

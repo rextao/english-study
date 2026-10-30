@@ -286,6 +286,41 @@ export interface LearningHistoryResponse {
   total: number
 }
 
+// 短文学习
+
+export type PassageRule = 'stale' | 'low-meaning' | 'low-reading' | 'never-meaning' | 'never-reading' | 'list-batch'
+
+export interface PassageGroup {
+  id: string
+  name: string
+  enabled?: boolean
+  rule: PassageRule
+  days?: number
+  threshold?: number
+  count: number
+  libraryId?: string
+  listId?: string
+  batchKey?: string
+  words: string[]
+}
+
+export interface PassageWord {
+  word: string
+  sourceIds: string[]
+}
+
+export interface Passage {
+  id: string
+  title: string
+  content: string
+  createdAt: number
+  updatedAt: number
+  sourceWords: PassageWord[]
+  matchedWords: PassageWord[]
+  groups: PassageGroup[]
+  markedActions: Array<'reading' | 'meaning'>
+}
+
 // 打印批次（导出卡片的留档）
 
 /** 批次里的一个词；进度是读接口时从学习列表实时算的，批次文件只存 listId + word */

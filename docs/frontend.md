@@ -26,6 +26,7 @@
 - 设置：`SettingsPage.tsx`
 - 学习成果：`AchievementsPage.tsx`
 - 学习记录：`LearningRecordsPage.tsx`
+- 短文：`PassagesPage.tsx`
 
 `LibrariesPage.tsx` 和 `LearningRecordsPage.tsx` 支持嵌入设置页；新增可嵌入页面时，应把页面外壳和内容主体拆开，避免重复渲染页头。
 

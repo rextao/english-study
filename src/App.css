@@ -19,6 +19,43 @@
   padding: 0 24px;
 }
 
+/* ---------------- 分析同意条 ---------------- */
+
+/* 会话回放的同意条：固定在底部居中，压过导航（20）和弹窗遮罩（60），不参与页面布局 */
+.app__consent {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 70;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  width: min(560px, calc(100vw - 32px));
+  padding: 14px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.app__consent-text strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--color-text);
+}
+
+.app__consent-text p { line-height: 1.6; }
+
+.app__consent-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  margin-top: 2px;
+}
+
 /* ---------------- 页面容器 ---------------- */
 
 .page {
@@ -33,6 +70,14 @@
 @media (max-width: 640px) {
   .page { padding: 28px 16px 72px; }
   .app__notice { padding: 0 16px; }
+
+  .app__consent {
+    flex-direction: column;
+    gap: 10px;
+    bottom: 12px;
+  }
+
+  .app__consent-actions { align-self: flex-end; }
 
   /* iOS Safari 聚焦字号小于 16px 的输入框会自动放大页面，把表单控件顶到 16px，
      配合 index.html 里的 maximum-scale=1.0，双保险防止误触缩放 */

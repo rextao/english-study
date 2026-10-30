@@ -4,6 +4,7 @@ import { useStudyList } from './hooks/useStudyList'
 import { useStudyPlan } from './hooks/useStudyPlan'
 import { useTabRoute } from './hooks/useTabRoute'
 import { AUTH_REQUIRED_EVENT, getStoredToken, setStoredToken } from './utils/apiBase'
+import { trackPageview } from './utils/analytics'
 import { Nav } from './components/Nav'
 import { TokenGate } from './components/TokenGate'
 import { SearchPage } from './pages/SearchPage'
@@ -14,6 +15,7 @@ import { StudyPage } from './pages/StudyPage'
 import { AchievementsPage } from './pages/AchievementsPage'
 import { LearningRecordsPage } from './pages/LearningRecordsPage'
 import { GoalPage } from './pages/GoalPage'
+import { PassagesPage } from './pages/PassagesPage'
 import './App.css'
 
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(module => ({ default: module.SettingsPage })))
@@ -41,6 +43,11 @@ export default function App() {
   const [importUndoSnapshot, setImportUndoSnapshot] = useState<ImportUndoSnapshot | null>(null)
   // 当前页面记在地址栏 hash 上，刷新后不会跳回首页
   const [tab, setTab] = useTabRoute()
+
+  // 会话回放的路径：每次切 tab 上报一次 $pageview（同意前 trackPageview 内部直接跳过）
+  useEffect(() => {
+    trackPageview(tab)
+  }, [tab])
 
   // 访问令牌：云端 API 需要Bearer鉴权，首次打开填一次存 localStorage
   const [token, setToken] = useState(getStoredToken)
@@ -152,6 +159,14 @@ export default function App() {
             libraries={libraries}
             getLabelById={getLabelById}
             study={study}
+          />
+        )}
+        {tab === 'passages' && (
+          <PassagesPage
+            libraries={libraries}
+            getLabelById={getLabelById}
+            study={study}
+            onBack={() => setTab('search')}
           />
         )}
         {tab === 'goal' && (

@@ -502,3 +502,78 @@
   .ui-modal-mask { padding: 24px 12px; }
   .ui-modal { max-height: calc(100vh - 48px); }
 }
+
+/* ---------------- Drawer（右侧抽屉） ---------------- */
+
+.ui-drawer-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(24, 24, 27, .40);
+  backdrop-filter: blur(2px);
+  animation: ui-modal-fade .16s ease-out;
+}
+
+.ui-drawer {
+  display: flex;
+  flex-direction: column;
+  width: min(460px, 100vw);
+  height: 100%;
+  border-left: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  text-align: left;
+  animation: ui-drawer-slide .2s ease-out;
+}
+
+.ui-drawer:focus { outline: none; }
+.ui-drawer--wide { width: min(640px, 100vw); }
+
+.ui-drawer__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 20px 12px;
+}
+
+.ui-drawer__heading { flex: 1; min-width: 0; }
+.ui-drawer__title { font-size: 16px; font-weight: 600; color: var(--color-text); }
+.ui-drawer__desc { margin-top: 4px; font-size: 12px; line-height: 1.6; color: var(--color-text-muted); }
+
+.ui-drawer__close {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-family: inherit;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--color-text-subtle);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.ui-drawer__close:hover { background: var(--color-surface-hover); color: var(--color-text); }
+.ui-drawer__close:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+
+.ui-drawer__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 20px 4px;
+}
+
+/* 底部操作区贴着抽屉底边，内容再长也不跟着滚 */
+.ui-drawer__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px 18px;
+  border-top: 1px solid var(--color-border);
+}
+
+@keyframes ui-drawer-slide { from { opacity: .5; transform: translateX(32px); } }

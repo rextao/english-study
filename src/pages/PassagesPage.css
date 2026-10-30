@@ -1,0 +1,222 @@
+.passages-page__notice {
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.passages-page__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.passage-editor,
+.passage-match,
+.passage-history {
+  margin-bottom: 16px;
+}
+
+.passages-page__section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.passages-page__section-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.passages-page__section-head p {
+  margin: 5px 0 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.passage-picker__count,
+.passage-editor__match {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.passage-rule {
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface-sunken);
+}
+
+.passage-rule__head,
+.passage-rule__fields,
+.passage-editor__actions,
+.passage-match__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.passage-rule__head .ui-input { flex: 1; min-width: 160px; }
+.passage-rule__head .ui-checkbox { flex-shrink: 0; }
+
+.passage-rule__fields {
+  margin-top: 10px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.passage-rule__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 132px;
+}
+
+.passage-rule__field label {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.passage-rule__field > span {
+  max-width: 190px;
+  color: var(--color-text-subtle);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.passage-rule__field--rule,
+.passage-rule__field--library { min-width: 180px; }
+.passage-rule__field .ui-select { min-width: 180px; }
+.passage-rule__field .ui-input { width: 120px; }
+.passage-rule__fixed { color: var(--color-text-muted); font-size: 13px; }
+
+.passage-rule__meta {
+  margin-top: 9px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.passage-rule__words,
+.passage-match__words,
+.passage-picker__words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+/* 右侧抽屉里的目标词选择：工具行 + 分组卡片 + 末尾的当前选择汇总 */
+.passage-picker__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.passage-picker__toolbar .hint { min-width: 0; }
+.passage-picker__count { margin-right: auto; }
+
+.passage-picker__selected {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.passage-picker__selected-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.passage-picker__selected-head h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.passage-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.passage-editor .ui-textarea { min-height: 190px; }
+
+.passage-editor__actions {
+  flex-wrap: wrap;
+}
+
+.passage-editor__match { margin-left: auto; }
+
+.passage-match__summary {
+  margin-bottom: 14px;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.passage-match__actions {
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+/* 已保存短文的弹窗预览：保留换行，长文在弹窗内滚动 */
+.passage-preview {
+  max-height: 60vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  line-height: 1.7;
+  word-break: break-word;
+}
+
+.passage-history__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.passage-history__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.passage-history__item--active {
+  border-color: var(--color-primary);
+  background: var(--color-tag-bg);
+}
+
+.passage-history__main { flex: 1; min-width: 0; }
+
+.passage-history__item strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.passage-history__item p { margin: 4px 0 0; color: var(--color-text-muted); font-size: 12px; }
+
+@media (max-width: 720px) {
+  .passages-page__section-head { flex-direction: column; gap: 8px; }
+  .passages-page__actions { width: 100%; justify-content: flex-end; }
+  .passage-rule__fields { align-items: stretch; flex-direction: column; }
+  .passage-rule__field,
+  .passage-rule__field--rule,
+  .passage-rule__field--library { width: 100%; min-width: 0; }
+  .passage-rule__field .ui-select,
+  .passage-rule__field .ui-input { width: 100%; min-width: 0; }
+  .passage-editor__actions,
+  .passage-match__actions { align-items: stretch; flex-direction: column; }
+  .passage-editor__actions .ui-btn,
+  .passage-match__actions .ui-btn { width: 100%; }
+  .passage-editor__match { margin-left: 0; }
+  .passage-history__item { align-items: flex-start; }
+}

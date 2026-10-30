@@ -19,7 +19,7 @@
 
 - **Node 24**：运行 node / npm 命令前确认 `node --version` 为 24.x；项目用 `.nvmrc` 固定版本，系统默认版本不满足时先切换到 Node 24（`node:sqlite` 需要 24）。
 - **AI 锁定区不可改动**：用户用 `<!-- AI_LOCK_START -->` / `<!-- AI_LOCK_END -->` 包起来的文字，任何情况下都不要修改、删除、挪位置或改写——重排格式、批量替换、翻译、润色、压缩文档时也必须原样保留，两条标记注释本身也不要动。非要动那块区域时先问用户。
-- **零新增运行时依赖**：Worker 只用全局（`fetch` / `crypto.randomUUID` / `TextEncoder`），测试只用 `node:sqlite`；`npm i` 在沙箱里无外网会失败，也不要引 express / wrangler 之外的运行时依赖。
+- **零新增运行时依赖**：Worker 只用全局（`fetch` / `crypto.randomUUID` / `TextEncoder`），测试只用 `node:sqlite`；浏览器侧唯一的第三方分析依赖是 `posthog-js`（会话回放，见 `src/utils/analytics.ts`），别再加别的运行时依赖。
 - **UI 禁原生控件**：页面里不要出现 `<select>`、`<textarea>`、`type='checkbox'`，统一用 `src/ui` 里的 `Select` / `TextArea` / `Checkbox`。
 - **TS 严格**：`tsconfig.app.json` 开了 `strict` + `noUnusedLocals` + `noUnusedParameters` + `noFallthroughCasesInSwitch`（**没开** `noUncheckedIndexedAccess`）。
 - **验证命令**：`npm run build`（= `tsc -b && vite build`）必须 exit 0；动过 `worker/` 再跑 `npm run test:server`（跑在临时目录的 node:sqlite shim 上，不碰真实数据）。文档结构检查使用 `npm run docs:check`。
@@ -70,6 +70,7 @@ src/components/Nav.tsx         顶部导航：普通 tab = 查词 / 学习列表
                                + 右侧「英语学习」流光胶囊（角标 = plan.dueCount）+ 齿轮图标按钮（设置）；
                                TabKey 定义在此（settings / records 都不在 tab 里，visibleActive 把 records 高亮到「学习成果」）
 src/components/TokenGate.tsx   访问令牌门：首次打开 / 401 时填令牌；令牌存 localStorage（key es-api-token）
+src/components/AnalyticsConsent.tsx  回放同意条（main.tsx 里挂在 App 旁边）：没配 key 或已选过就不渲染
 src/components/PageHeader.tsx  页面标题区（title / subtitle / actions），样式在 App.css
 src/components/WordCard.tsx    词卡：音标 / 词库标签 / 中文释义 / 右上角「加入学习」小按钮；
                                卡片上不显示英文释义、也不显示例句
@@ -100,7 +101,7 @@ src/hooks/useVocabLibraries.ts 构建期打包 vocab/*.json + 标签读写 + loc
 src/hooks/useLearningRecords.ts 学习记录页的数据层：achievements / history 分页 / 删事件 / 清词 / purge
 
 src/ui/                        手写组件库：Button Select Dropdown Input(含 TextArea) Checkbox Tag Popconfirm
-                               Popover Modal + useDismiss；统一从 src/ui/index.ts 导出（它顺带 import ui.css）
+                               Popover Modal Drawer + useDismiss；统一从 src/ui/index.ts 导出（它顺带 import ui.css）
 src/utils/apiBase.ts           API 基址（恒为 ''，同源）+ getStoredToken/setStoredToken + apiFetch
                                （统一带 Bearer 头、401 时广播 AUTH_REQUIRED_EVENT）+ apiJson
 src/utils/apiCache.ts          所有只读接口共用的会话级缓存：queryApi / peekApiCache / invalidateApiCache / ApiError；
@@ -109,6 +110,9 @@ src/utils/apiCache.ts          所有只读接口共用的会话级缓存：quer
 src/utils/flashcards.ts        打印卡片：fetchCards（顺手补释义）/ pickSenses / mirrorRows / buildFlashcardsHtml；偶数页逐行左右镜像
                                / openCardWindow；卡片反面只印音标 + 中文，英文释义不上卡片
                                / renderCardsInto（打印会话 + 卡片右上角 ✕）
+src/utils/analytics.ts         PostHog 会话回放：initAnalytics / getAnalyticsConsent / setAnalyticsConsent / trackPageview；
+                               默认 opt-out（用户点同意条前不采集、不录像），输入框统一 maskAllInputs 打码，
+                               同意状态存 localStorage `es-analytics-consent`；没配 VITE_POSTHOG_KEY 就整个跳过
 src/utils/translations.ts      中文词义工具：translationOptions / selectedTranslationOptions
                                / formatTranslationOptions；formatTranslationWithCustom 把自定义词义并进摘要
 
@@ -259,6 +263,8 @@ PrintBatch       { id, printedAt, kind: 'start'|'review', scope?, title, wordCou
 
 环境变量（Worker 侧）：`API_TOKEN`（secret，鉴权令牌）、`BAIDU_TRANSLATE_API_KEY` / `BAIDU_TRANSLATE_APP_ID`（secrets，百度翻译）、`BAIDU_TRANSLATE_API_URL`（可选，测试 / 自定义网关）、`DICT_NO_NETWORK=1`（只吃缓存）、`DICT_NETWORK_TIMEOUT_MS`（默认 10000）、`DICT_TZ_OFFSET_HOURS`（默认 8，见复习算法）。`wrangler.toml` 的 `[vars]` 里已配 `DICT_TZ_OFFSET_HOURS=8`。
 
+前端构建期变量（vite 注入，见 `.env.example`，本地写进 `.env.local` 不进 git）：`VITE_POSTHOG_KEY`（PostHog Project API Key，留空则不启用回放）、`VITE_POSTHOG_HOST`（默认 `https://us.i.posthog.com`）。这两个变量会打进 bundle，只能放 Project API Key 这类公开 key，不能放 secret。
+
 ## D1 数据结构（`worker/schema.sql`）
 
 ```
@@ -346,7 +352,7 @@ GET /api/dict → ensureEntry(word, force) → resolveEntry(word, force) → { e
 ## UI 层约定
 
 - 组件一律 `import { X } from '../ui'`；`src/ui/index.ts` 会顺带引入 `ui.css`。API 命名对齐 antd（`size` / `block` / `allowClear` / `options` / `okText`…），将来换真 antd 基本只改 import。
-- z-index 约定：`.ui-select__list` / `.ui-menu` = 30，`.ui-popover` = 40，`.ui-modal-mask` = 60。
+- z-index 约定：`.ui-select__list` / `.ui-menu` = 30，`.ui-popover` = 40，`.ui-drawer-mask` = 50（右侧抽屉），`.ui-modal-mask` = 60。
 - 白色主题。全局 token 在 `src/index.css` 的 `:root`；组件库私有 token 在 `src/ui/ui.css` 的 `:root`（`--ui-*`）。
 - 每个页面 / 组件配同名 `.css`，只放局部类；跨页面复用的类放 `App.css`。加载态用 `.ui-spin`。
 

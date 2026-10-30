@@ -1750,6 +1750,42 @@ check('迁移建出 status 索引',
 
 globalThis.fetch = oldFetch
 
+// ── 短文学习：严格匹配、保存与批量熟悉度标记 ─────────────────────────────────
+
+console.log('')
+console.log('短文学习')
+
+const passageCtx = makeContext()
+use(passageCtx)
+r = await call('POST', '/api/passages', {
+  title: 'Strict matching',
+  content: 'Apple, decided to decide while deciding.',
+  sourceWords: [
+    { word: 'apple', sourceIds: ['a2-key-2020'] },
+    { word: 'decide', sourceIds: ['a2-key-2020'] },
+    { word: 'journey', sourceIds: [] },
+  ],
+  groups: [{ id: 'g1', name: '测试组', rule: 'stale', days: 14, count: 3, words: ['apple', 'decide', 'journey'] }],
+})
+const passage = r.body?.passage
+check('短文保存成功并严格匹配完整单词',
+  r.status === 201
+  && passage?.matchedWords?.map(item => item.word).join(',') === 'apple,decide', passage)
+
+r = await call('GET', '/api/passages')
+check('短文列表可读回', r.status === 200 && r.body?.passages?.[0]?.id === passage?.id, r.body)
+
+r = await call('POST', '/api/passages/' + encodeURIComponent(passage.id) + '/mark', { action: 'reading' })
+check('短文可以批量标记会读且不需要学习列表', r.status === 200 && r.body?.marked === 2, r.body)
+r = await call('POST', '/api/passages/' + encodeURIComponent(passage.id) + '/mark', { action: 'reading' })
+check('短文会读标记幂等', r.status === 200 && r.body?.marked === 0, r.body)
+r = await call('POST', '/api/passages/' + encodeURIComponent(passage.id) + '/mark', { action: 'meaning' })
+check('短文可以批量标记知意', r.status === 200 && r.body?.marked === 2, r.body)
+r = await call('GET', '/api/study/achievements')
+const passageAchievements = achievementItems(r.body)
+const appleAchievement = passageAchievements.find(item => item.word === 'apple')
+check('短文标记进入成果统计但不依赖学习列表', appleAchievement?.readingCount === 1 && appleAchievement?.rememberedCount === 1, appleAchievement)
+
 // ── Bearer 鉴权（走真正的 Worker fetch 入口） ─────────────────────────────
 
 console.log('')
