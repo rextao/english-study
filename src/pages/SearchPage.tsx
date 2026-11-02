@@ -72,12 +72,14 @@ interface SearchPageProps {
   study: StudyListApi
   /** 点「+ 新建列表」跳到设置页的学习列表分区统一管理 */
   onManageLists: () => void
+  /** 进入横屏背单词模式（给小朋友的全屏独立页） */
+  onStartRecite: () => void
   /** 批量导入的撤销快照（存在 App 状态中枢，跨页保留） */
   undoSnapshot: ImportUndoSnapshot | null
   onUndoSnapshotChange: (snapshot: ImportUndoSnapshot | null) => void
 }
 
-export function SearchPage({ libraries, getLabelById, study, onManageLists, undoSnapshot, onUndoSnapshotChange }: SearchPageProps) {
+export function SearchPage({ libraries, getLabelById, study, onManageLists, onStartRecite, undoSnapshot, onUndoSnapshotChange }: SearchPageProps) {
   const [input, setInput] = useState('')
   // 还有没撤销的导入时，回到查词页直接落在批量导入视图，撤销入口一眼可见
   const [mode, setMode] = useState<'search' | 'import'>(() => (undoSnapshot ? 'import' : 'search'))
@@ -287,6 +289,7 @@ export function SearchPage({ libraries, getLabelById, study, onManageLists, undo
                 options={listOptions}
                 onChange={setTargetList}
               />
+              <Button className="search-hero__recite" type="primary" onClick={onStartRecite}>开始背单词</Button>
           </div>
         )}
       </div>

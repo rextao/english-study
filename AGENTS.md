@@ -66,6 +66,14 @@ src/pages/LearningRecordsPage.tsx  学习记录页：学习 / 打卡日志明细
                                也仍挂在 #/records 上独立成页（导航里没有，从成果页进，带 onBack 和页头）；
                                默认先只显示物理删除不可找回的红字提示（revealed=false 时不发请求），确认后才拉列表
 
+src/pages/RecitePage.tsx         横屏背单词（tab=recite）：给小朋友的全屏独立页，不渲染导航、没有返回按钮也没有退出按钮，
+                              只能从查词首页右上角「开始背单词」进，背完一轮或没有词时才出现「返回首页」；
+                              词从学习计划映射（选词策略待设计），卡片只显示英文（中文与音标不显示），
+                              句子字号按可视区自适应到尽可能大；卡片左右是翻页按钮（当前词没点过会 / 不会时
+                              右键禁用、不能往下翻，往左回看不受限），右上角只有环形进度（外环 = 任务进度，内环 = 已判词中「会」的比例）；
+                              左下「不会」右下「会」，背完出结算（会 / 不会 + 不会的词）；
+                              语音输出（onSpeak）目前是占位，会 / 不会只在本地推进卡片，不落库不改排期
+
 src/components/Nav.tsx         顶部导航：普通 tab = 查词 / 学习列表 / 学习成果（列表角标 = totalItems）
                                + 右侧「英语学习」流光胶囊（角标 = plan.dueCount）+ 齿轮图标按钮（设置）；
                                TabKey 定义在此（settings / records 都不在 tab 里，visibleActive 把 records 高亮到「学习成果」）
@@ -77,7 +85,7 @@ src/components/WordCard.tsx    词卡：音标 / 词库标签 / 中文释义 / �
 src/components/StudyGoal.tsx   目标模块：目标词库（useStudyGoal）vs 已开始学的词 → 达成度 +「目标外的获得」；
                                buildFormIndex 做词形宽松匹配
 
-src/hooks/useTabRoute.ts       hash 路由（#/search #/lists #/settings #/achievements #/records #/study），刷新与前进后退都停在原页；
+src/hooks/useTabRoute.ts       hash 路由（#/search #/lists #/settings #/achievements #/records #/study #/recite），刷新与前进后退都停在原页；
                                LEGACY_TABS 把 #/import → #/search、#/libraries → #/settings，老书签不会失效
 src/hooks/useSearch.ts         useVocabMatch：词 → 命中的词库 id 列表（纯内存 Map，不走网络）
 src/hooks/useDictionary.ts     单词查询 GET /api/dict；走共享读缓存 apiCache（TTL 5 分钟），同一个词反复查不再打接口；

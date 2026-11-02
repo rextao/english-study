@@ -1,0 +1,371 @@
+/* 背单词：给小朋友的全屏横屏背诵页。不渲染顶部导航也没有返回按钮，
+   右上角只有环形进度 + 退出叉；卡片只露英文，句子字号按可视区自适应到尽可能大。
+   版式按平板横屏设计，手机 / 竖屏靠自适应，竖屏给一条横屏提示。 */
+
+.recite {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-surface-sunken);
+}
+
+/* ---------------- 右上角：环形进度 ---------------- */
+
+.recite__corner {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.recite__ring-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.recite__ring {
+  position: relative;
+  width: 76px;
+  height: 76px;
+}
+
+.recite__ring svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.recite__ring circle {
+  transition: stroke-dashoffset .3s ease;
+}
+
+.recite__ring-num {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--color-text);
+}
+
+.recite__ring-sep {
+  margin: 0 1px;
+  color: var(--color-text-subtle);
+}
+
+.recite__ring-cap {
+  font-size: 11.5px;
+  line-height: 1.2;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+
+/* ---------------- 竖屏提示：只在竖屏出现，避开右上角环形 ---------------- */
+
+.recite__rotate-hint { display: none; }
+
+@media (orientation: portrait) {
+  .recite__rotate-hint {
+    display: flex;
+    align-self: center;
+    align-items: center;
+    justify-content: center;
+    margin-top: 12px;
+    max-width: calc(100% - 132px);
+    padding: 7px 14px;
+    border-radius: var(--radius-full);
+    background: var(--color-primary-soft);
+    color: var(--color-primary-dark);
+    font-size: 13px;
+    text-align: center;
+  }
+}
+
+/* ---------------- 中间：单词卡片 + 喇叭 ---------------- */
+
+.recite__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(16px, 3vh, 32px);
+  /* 顶部给右上角环形让位，下面留给底部两个大按钮 */
+  padding: 112px 24px 12px;
+  min-height: 0;
+}
+
+.recite__word-area {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: clamp(12px, 2vw, 24px);
+  width: 100%;
+  min-height: 0;
+}
+
+/* 翻页按钮让出来的位置，自适应字号量的是这一块 */
+.recite__card-slot {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+}
+
+.recite__nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  flex: 0 0 auto;
+  width: clamp(56px, 7vw, 84px);
+  height: clamp(56px, 9vh, 84px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: transform .12s ease, color .15s, border-color .15s, box-shadow .15s;
+}
+
+.recite__nav svg { width: 34%; height: 34%; }
+
+.recite__nav:hover:not(:disabled) { color: var(--color-text); border-color: var(--color-border-strong); box-shadow: var(--shadow-sm); }
+
+.recite__nav:active:not(:disabled) { transform: scale(.94); }
+
+.recite__nav:disabled { opacity: .35; cursor: default; }
+
+.recite__nav:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+
+.recite__card {
+  width: fit-content;
+  max-width: 100%;
+  padding: clamp(20px, 4vh, 44px) clamp(22px, 4vw, 48px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+  animation: recite-card-in .28s ease both;
+}
+
+/* 结算 / 空页是成块的内容，不跟着句子自适应宽度 */
+.recite__card--panel {
+  width: min(680px, 100%);
+}
+
+@keyframes recite-card-in {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: none; }
+}
+
+/* 兜底字号；JS 会在重绘前按可视区改成内联字号 */
+.recite__word {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -.03em;
+  word-break: break-word;
+}
+
+.recite__speak {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  flex: 0 0 auto;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--color-primary);
+  cursor: pointer;
+  transition: transform .15s ease;
+}
+
+.recite__speak:hover .recite__speak-ring { box-shadow: var(--shadow-md); }
+
+.recite__speak:active { transform: scale(.93); }
+
+.recite__speak:focus-visible { outline: none; }
+
+.recite__speak:focus-visible .recite__speak-ring { box-shadow: var(--ui-focus-ring); }
+
+.recite__speak-ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(64px, 8vw, 84px);
+  height: clamp(64px, 8vw, 84px);
+  border: 1px solid #d8e6fd;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-soft);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow .15s ease;
+}
+
+.recite__speak-ring svg { width: 40%; height: 40%; }
+
+.recite__speak-label {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+/* ---------------- 底部两角：不会 / 会 ---------------- */
+
+.recite__bar {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 24px;
+  flex: 0 0 auto;
+  padding: 8px clamp(20px, 5vw, 64px) clamp(22px, 4vh, 40px);
+}
+
+.recite__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: clamp(148px, 32vw, 290px);
+  min-height: clamp(62px, 9vh, 86px);
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: clamp(20px, 3vw, 30px);
+  cursor: pointer;
+  transition: transform .12s ease, background .15s ease, box-shadow .15s ease;
+}
+
+.recite__mark svg { width: clamp(22px, 2.4vw, 32px); height: clamp(22px, 2.4vw, 32px); }
+
+.recite__mark:active { transform: scale(.97); }
+
+.recite__mark:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+
+.recite__mark--no {
+  color: #b42318;
+  background: #fdeeed;
+  border-color: #f6cdc9;
+}
+
+.recite__mark--no:hover { background: #fbe3e1; box-shadow: var(--shadow-sm); }
+
+.recite__mark--yes {
+  color: #067a4d;
+  background: #ecfaf2;
+  border-color: #bfe9d4;
+}
+
+.recite__mark--yes:hover { background: #ddf4ea; box-shadow: var(--shadow-sm); }
+
+/* ---------------- 背完结算 / 空态 ---------------- */
+
+.recite__done-title,
+.recite__empty-title {
+  font-size: clamp(26px, 4.5vw, 44px);
+  font-weight: 700;
+  letter-spacing: -.025em;
+}
+
+.recite__done-stats {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.recite__done-stat {
+  min-width: clamp(118px, 17vw, 168px);
+  padding: 16px 22px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+
+.recite__done-stat b {
+  display: block;
+  font-size: clamp(34px, 5.5vw, 52px);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.recite__done-stat span { font-size: 15px; }
+
+.recite__done-stat--yes {
+  background: #ecfaf2;
+  border-color: #bfe9d4;
+  color: #067a4d;
+}
+
+.recite__done-stat--no {
+  background: #fdeeed;
+  border-color: #f6cdc9;
+  color: #b42318;
+}
+
+/* 翻过去没判会 / 不会的词：只在内的中性统计 */
+.recite__done-stat--skip {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
+  color: var(--color-text-muted);
+}
+
+.recite__done-unknown {
+  margin-top: 20px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.recite__done-unknown-words {
+  margin-top: 6px;
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.recite__done-ops,
+.recite__empty-ops {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.recite__empty-emoji {
+  font-size: 44px;
+  line-height: 1;
+}
+
+.recite__empty-desc {
+  margin-top: 10px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+/* 矮横屏（手机横放）：收紧间距，环形缩小 */
+@media (max-height: 560px) {
+  .recite__corner { top: 10px; right: 12px; gap: 8px; }
+  .recite__ring { width: 62px; height: 62px; }
+  .recite__ring-num { font-size: 14px; }
+  .recite__ring-cap { font-size: 10.5px; }
+  .recite__main { padding: 96px 20px 8px; }
+  .recite__card { padding: 16px 24px; }
+  .recite__bar { padding-bottom: 16px; }
+}

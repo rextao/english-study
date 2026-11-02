@@ -85,6 +85,13 @@
 
 .search-target .ui-select { width: 126px; }
 
+/* 首页右上角的背诵入口：全屏横屏模式，给小朋友用 */
+.search-hero__recite {
+  margin-top: 10px;
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-sm);
+}
+
 .search-hints {
   display: flex;
   align-items: center;
@@ -124,8 +131,13 @@
   }
   .search-target {
     position: static;
+    flex-direction: row;
+    flex-basis: 100%;
+    justify-content: center;
     align-items: center;
     margin-top: 0;
     flex-shrink: 0;
   }
+
+  .search-hero__recite { margin-top: 0; }
 }

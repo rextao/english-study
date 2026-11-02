@@ -186,6 +186,10 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
   )
   const allVisibleSelected = visibleWords.length > 0 && visibleWords.every(w => selected.has(w.word))
 
+  // 全部分组是否都已折叠：据此决定按钮显示「折叠全部」还是「展开全部」
+  const allCollapsed = visibleBatches.length > 0
+    && visibleBatches.every(([key]) => collapsed.has(key))
+
   // 新数据优先用加入列表时保存的快照，旧数据再回退词典缓存
   const wordTexts = useMemo(() => words.map(w => w.word), [words])
   const dict      = useDictBatch(wordTexts)
@@ -257,6 +261,15 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
       else next.add(key)
       return next
     })
+  }
+
+  /** 一键折叠 / 展开当前筛选出的全部分组 */
+  function toggleCollapseAll() {
+    if (allCollapsed) {
+      setCollapsed(new Set())
+      return
+    }
+    setCollapsed(new Set(visibleBatches.map(([key]) => key)))
   }
 
   function renderRow(item: StudyWordItem) {
@@ -492,6 +505,16 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
                 分组
               </Checkbox>
             </span>
+            {showBatches && visibleBatches.length > 0 && (
+              <Button
+                size="small"
+                aria-pressed={allCollapsed}
+                title={allCollapsed ? '展开全部分组' : '折叠全部分组'}
+                onClick={toggleCollapseAll}
+              >
+                {allCollapsed ? '展开全部' : '折叠全部'}
+              </Button>
+            )}
             <Input
               className="lists-toolbar__filter"
               size="small"

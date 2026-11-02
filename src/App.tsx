@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useVocabLibraries } from './hooks/useVocabLibraries'
 import { useStudyList } from './hooks/useStudyList'
 import { useStudyPlan } from './hooks/useStudyPlan'
@@ -16,6 +16,8 @@ import { AchievementsPage } from './pages/AchievementsPage'
 import { LearningRecordsPage } from './pages/LearningRecordsPage'
 import { GoalPage } from './pages/GoalPage'
 import { PassagesPage } from './pages/PassagesPage'
+import { RecitePage } from './pages/RecitePage'
+import type { ReciteWord } from './pages/RecitePage'
 import './App.css'
 
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(module => ({ default: module.SettingsPage })))
@@ -43,6 +45,17 @@ export default function App() {
   const [importUndoSnapshot, setImportUndoSnapshot] = useState<ImportUndoSnapshot | null>(null)
   // 当前页面记在地址栏 hash 上，刷新后不会跳回首页
   const [tab, setTab] = useTabRoute()
+
+  /** 背单词页的词：把学习计划里在学的词条映射成卡片要用的精简结构（选词策略以后再设计） */
+  const reciteWords = useMemo<ReciteWord[]>(() => plan.plan.items
+    .filter(item => item.suspendedAt == null)
+    .map(item => ({
+      word: item.word,
+      type: item.type,
+      displayText: item.type === 'sentence' && item.displayText?.trim() ? item.displayText.trim() : undefined,
+      phonetic: item.phonetic,
+      translation: item.translation,
+    })), [plan.plan])
 
   // 会话回放的路径：每次切 tab 上报一次 $pageview（同意前 trackPageview 内部直接跳过）
   useEffect(() => {
@@ -92,6 +105,17 @@ export default function App() {
     )
   }
 
+  // 背单词是给小朋友的全屏模式：不渲染导航、没有返回按钮，只能从查词首页的入口进
+  if (tab === 'recite') {
+    return (
+      <RecitePage
+        words={reciteWords}
+        onExit={() => setTab('search')}
+        onGoStudy={() => setTab('study')}
+      />
+    )
+  }
+
   return (
     <div className="app">
       <Nav
@@ -115,6 +139,7 @@ export default function App() {
             getLabelById={getLabelById}
             study={study}
             onManageLists={goToListSettings}
+            onStartRecite={() => setTab('recite')}
             undoSnapshot={importUndoSnapshot}
             onUndoSnapshotChange={setImportUndoSnapshot}
           />
