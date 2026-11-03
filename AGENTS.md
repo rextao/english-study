@@ -147,6 +147,11 @@ worker/schema.sql              全量建表 SQL（wrangler d1 execute 一次性�
 worker/test/d1-shim.mjs        node:sqlite 模拟 D1 接口（prepare→bind→all/first/run + batch 事务）
 worker/test/api.test.mjs       282 项断言：直接驱动 handleApi + 走真正 workerIndex.fetch 的鉴权用例
 scripts/migrate-to-d1.mjs      本地 study-history.sqlite → migration.sql（INSERT 语句），wrangler d1 execute 导入
+scripts/study-cli.mjs          本地 CLI（npm run study）：列学习列表 / 列分组（复用 studyWordGroups.ts）/ 按词或分组导出打印 HTML / 默认写打印记录；
+                               线上地址 / 令牌从 .env.local 的 STUDY_API_BASE / STUDY_API_TOKEN 读取（命令行不可覆盖）；
+                               复用 src/utils/flashcards.ts 的 fetchCards 与排版（Node 24 直接 import .ts；
+                               该文件别用 enum / 参数属性等不可擦除语法），
+                               通过线上 /api 取词与留档；新命令加在 COMMANDS 表
 
 vocab/format.md                词库统一格式（唯一规范来源）
 vocab/ket.json                 剑桥 A2 Key，id=a2-key-2020，1661 条词条
@@ -410,6 +415,7 @@ GET /api/dict → ensureEntry(word, force) → resolveEntry(word, force) → { e
 | 补齐队列速率 | 服务端 `worker/src/prefetch.js` 的 `PREFETCH_CONCURRENCY` / `PREFETCH_PACE_MS` |
 | API 路由 / 新增接口 | `worker/src/routes.js`（handleApi）+ 测试 `worker/test/api.test.mjs` + 上面的接口表 |
 | D1 表结构 | `worker/schema.sql`（改了要重新 `wrangler d1 execute`；已有数据的库另写 `worker/migrations/*.sql`，且必须在上线前跑） |
+| 本地 CLI / 脚本调用线上 API | `scripts/study-cli.mjs`（COMMANDS 表）+ README「本地命令行」小节 |
 | 部署配置 | `wrangler.toml`（Worker 名 / assets / D1 绑定 / vars） |
 | 词库格式规范 | `vocab/format.md`（改了要同步 `src/types/vocab.ts`） |
 | 设计 token / 通用类 | `src/index.css`、`src/App.css`、`src/ui/ui.css` |

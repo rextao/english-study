@@ -60,6 +60,34 @@ npm run db:local:sync
 | `npm run docs:check` | 检查项目文档入口、关键路径和本机绝对路径引用 |
 | `npm run migrate:to-d1` | 把本地历史 sqlite 生成 migration.sql（已迁移过就不用再跑） |
 | `npm run deploy` | 构建 + `wrangler deploy`（Worker + 静态资源一起发） |
+| `npm run study -- help` | 本地命令行：调用线上 API 列学习列表、导出打印稿 |
+
+### 本地命令行（可选）
+
+`npm run study` 通过线上 `/api` 操作学习数据，目前支持列出学习列表和把词导出成可打印的 HTML：
+
+在项目根目录 `.env.local` 里配置线上地址和令牌（该文件已被 gitignore，不会进 git；shell 环境变量优先）：
+
+```bash
+STUDY_API_BASE=https://study.rextao666.xyz
+STUDY_API_TOKEN=<Worker 的 API_TOKEN>
+```
+
+```bash
+npm run study -- lists
+npm run study -- groups
+npm run study -- print --words "apple,banana"
+npm run study -- print --list 默认列表 --group "10 月 30 日"
+npm run study -- print --list 默认列表 --mode card --layout 3x4
+```
+
+`groups` 按学习页「挑选要打印的单词」的同一套规则列出每个列表的分组（含「今天 / 昨天」后缀），`--group` 用分组键或分组名都能选；只给 `--group` 不给 `--list` 时会扫描所有列表，同名分组落在多个列表里会报错让你指定 `--list`。`--group` 和 `--words` 互斥。分组只按列表里当前存在的词计算，已被移出列表的词不会出现在 `groups` 里；旧打印记录里的这类词会被标记为 missing，整批打卡时跳过。
+
+只给 `--words` 时，CLI 会按词自动判断属于哪个学习列表；跨列表或一个词属于多个列表时会明确报错，让你用 `--list` 指定。
+打印稿固定保存在当前目录的 `prints/` 下（已加入 gitignore），标题为当天年月日，文件名为时间戳（`prints/YYYYMMDD-HHMMSS.html`）。
+默认生成 A/B 双页打印稿（和网页打印落地页一致），也可以 `--mode card` 切回正反面卡片；HTML 用浏览器打开后直接打印或另存 PDF。
+默认会在线上留一条打印记录（相当于网页里点一次打印），加 `--no-record` 只生成本地文件（词条快照缺音标或释义时仍可能补一次词典缓存）；`--json` 让 stdout 只输出机器可读结果，方便其他脚本调用。
+`STUDY_API_TOKEN` 是真实密钥，只放在 `.env.local` 或环境变量里；脚本本身不保存令牌。
 
 ## 部署（一次性配置）
 

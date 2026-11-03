@@ -3,7 +3,7 @@ import { pinyin } from 'pinyin-pro'
 // 打印卡片：A4 横向双面排版，偶数页按行左右镜像。
 // 每组按“单词正面 → 音标与翻译反面”相邻输出，双面打印时奇数页是正面、偶数页是反面。
 
-import { apiFetch } from './apiBase'
+import { apiFetch } from './apiBase.ts'
 
 export interface FlashCard {
   word: string
@@ -75,6 +75,17 @@ export interface ABPrintOptions {
   bFontSize?: number
   /** A/B 页每行列数，目前支持 1 或 2 列。 */
   cols?: 1 | 2
+}
+
+/** 周计划 A/B：把当前单词按每周次数与每天词数随机分到各次练习。 */
+export interface WeeklyABPrintOptions {
+  title?: string
+  printId?: number
+  frequency?: number
+  wordsPerDay?: number
+  aFontSize?: number
+  bFontSize?: number
+  selectedSpelling?: string[]
 }
 
 function escHtml(input: unknown): string {
@@ -827,6 +838,31 @@ const AB_PRINT_CSS = [
   '.ab-translation { margin-top: .8mm; min-width: 0; font-size: calc(var(--ab-b-font-size) * .5); color: #334155; overflow-wrap: anywhere; word-break: break-word; }',
   '.ab-circles { display: flex; gap: 1.5mm; align-items: center; }',
   '.ab-complete { display: inline-block; width: 6mm; height: 6mm; border: 1.2px solid #334155; border-radius: 1mm; background: #fff; }',
+  '.weekly-page { width: 210mm; min-height: 297mm; padding: 10mm 12mm; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.15); page-break-after: always; }',
+  '.weekly-page:last-child { page-break-after: auto; }',
+  '.weekly-plan { display: flex; flex-direction: column; gap: 7mm; }',
+  '.weekly-week { display: flex; flex-direction: column; break-inside: avoid; padding-bottom: 6mm; margin-bottom: 1mm; border-bottom: 1.2px solid #64748b; }',
+  '.weekly-week:last-child { border-bottom: 0; }',
+  '.weekly-week__label { display: none; }',
+  '.weekly-group { display: flex; flex-direction: column; gap: 3mm; min-width: 0; padding: 4mm 0; }',
+  '.weekly-group + .weekly-group { border-top: 1px dashed #cbd5e1; }',
+  '.weekly-group__title { display: flex; align-items: center; gap: 2mm; margin: 0; padding: 1mm 0 0; color: #1f2937; font-size: 16px; line-height: 1.25; }',
+  '.weekly-group__title::before { content: ""; display: block; width: 3mm; height: 3mm; flex: 0 0 3mm; border-radius: 50%; background: #2563eb; }',
+  '.weekly-module { width: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0; background: transparent; }',
+  '.weekly-module__title { display: flex; align-items: baseline; gap: 2mm; margin: 0 0 2mm; color: #475569; font-size: 11px; font-weight: 700; letter-spacing: .08em; }',
+  '.weekly-module__title::after { content: ""; height: 1px; flex: 1; background: #e2e8f0; }',
+  '.weekly-reading-words { display: flex; flex-wrap: wrap; gap: 2mm 5mm; align-content: start; }',
+  '.weekly-word { display: block; max-width: 100%; border: 0; border-radius: 0; padding: 1mm 0; background: transparent; color: #1f2937; font: inherit; font-size: var(--weekly-word-size, 20px); font-weight: 600; line-height: 1.25; text-align: left; overflow-wrap: anywhere; word-break: break-word; white-space: normal; cursor: pointer; }',
+  '.weekly-word--sentence { flex: 1 1 100%; }',
+  '.weekly-word.is-spelling { color: #1d4ed8; }',
+  '.weekly-spelling-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2mm 4mm; min-height: 8mm; }',
+  '.weekly-spelling-item { min-height: 7mm; color: #1f2937; font-size: 17px; font-weight: 600; line-height: 1.25; }',
+  '.weekly-spelling-empty { color: #94a3b8; font-size: 12px; }',
+  '.weekly-answer .weekly-module { background: transparent; }',
+  '.weekly-answer-item { display: grid; grid-template-columns: minmax(0, 1fr); gap: .5mm; padding: 1mm 0; border-bottom: 0; font-size: 12px; line-height: 1.2; }',
+  '.weekly-answer-item strong { font-size: 17px; }',
+  '.weekly-answer-item span { color: #475569; }',
+  '@media print { html, body { background: #fff; } #ab-controls { display: none; } #ab-pages { display: block; padding: 0; } .weekly-page { width: 210mm; min-height: 297mm; padding: 10mm 12mm; box-shadow: none; } .weekly-word { border: 0; padding: 1mm 0; background: transparent; color: #1f2937; text-align: left; } .weekly-word.is-spelling { color: #1f2937; background: transparent; } .weekly-spelling-empty { display: none; } }',
   '@media print { @page { size: A4 portrait; margin: 0; } body { background: #fff; } #ab-controls { display: none; } #ab-pages { display: block; padding: 0; } .ab-page { width: 210mm; height: 297mm; min-height: 297mm; padding: 2mm 5mm 4mm; box-shadow: none; } .ab-group__random, .ab-group__history { display: none; } }',
 ].join('\n')
 
@@ -1067,11 +1103,149 @@ export function buildABPrintHtml(cards: FlashCard[], options: ABPrintOptions = {
 
   const printId = options.printId ?? ''
   const dynamicHtml = '<!DOCTYPE html><html lang="zh-CN" data-print-id="' + escHtml(printId) + '"><head><meta charset="UTF-8"><title>' + escHtml(title) + '</title><style>' + AB_PRINT_CSS + '</style></head><body>' +
-    '<div id="ab-controls"><button type="button" onclick="window.print()">打印</button><button type="button" onclick="window.opener && window.opener.__switchPrintMode && window.opener.__switchPrintMode(Number(document.documentElement.dataset.printId), \'card\')">卡片模式</button><label>A页字号 <input id="ab-a-font" type="number" min="18" max="90" value="' + aFontSize + '"></label><label>B页字号 <input id="ab-b-font" type="number" min="14" max="60" value="' + bFontSize + '"></label></div><main id="ab-pages"></main><div id="ab-source" aria-hidden="true"><div id="ab-question-source" class="ab-page__body" style="--ab-cols:' + cols + '">' + questionSource + '</div><div id="ab-answer-source" class="ab-page__body" style="--ab-cols:' + cols + '">' + answerSource + '</div></div><script>' + abDynamicPaginationScript(cols) + '</script></body></html>'
+    '<div id="ab-controls"><button type="button" onclick="window.print()">打印</button><button type="button" onclick="window.opener && window.opener.__switchPrintMode && window.opener.__switchPrintMode(Number(document.documentElement.dataset.printId), \'card\')">卡片模式</button><button type="button" onclick="window.opener && window.opener.__switchPrintMode && window.opener.__switchPrintMode(Number(document.documentElement.dataset.printId), \'weekly\')">周计划 A/B</button><label>A页字号 <input id="ab-a-font" type="number" min="18" max="90" value="' + aFontSize + '"></label><label>B页字号 <input id="ab-b-font" type="number" min="14" max="60" value="' + bFontSize + '"></label></div><main id="ab-pages"></main><div id="ab-source" aria-hidden="true"><div id="ab-question-source" class="ab-page__body" style="--ab-cols:' + cols + '">' + questionSource + '</div><div id="ab-answer-source" class="ab-page__body" style="--ab-cols:' + cols + '">' + answerSource + '</div></div><script>' + abDynamicPaginationScript(cols) + '</script></body></html>'
   return dynamicHtml
 
   return '<!DOCTYPE html><html lang="zh-CN" data-print-id="' + escHtml(printId) + '"><head><meta charset="UTF-8"><title>' + escHtml(title) + '</title><style>' + AB_PRINT_CSS + '</style></head><body>' +
     '<div id="ab-controls"><button type="button" onclick="window.print()">打印</button><button type="button" onclick="window.opener && window.opener.__switchPrintMode && window.opener.__switchPrintMode(Number(document.documentElement.dataset.printId), \'card\')">卡片模式</button><label>A页字号 <input id="ab-a-font" type="number" min="18" max="90" value="' + aFontSize + '"></label><label>B页字号 <input id="ab-b-font" type="number" min="14" max="60" value="' + bFontSize + '"></label></div><main id="ab-pages">' + pageHtml.join('') + '</main><script>(function(){var area=document.getElementById(\'ab-pages\');if(!area)return;var root=document.documentElement;var a=document.getElementById(\'ab-a-font\');var b=document.getElementById(\'ab-b-font\');function setVar(el,name,fallback,min,max){var value=Number(el&&el.value);if(!Number.isFinite(value))value=fallback;value=Math.max(min,Math.min(max,Math.round(value)));root.style.setProperty(name,value+\'px\');}function updateFonts(){setVar(a,\'--ab-a-font-size\',40,18,90);setVar(b,\'--ab-b-font-size\',28,14,60);}function fontState(){return {aFontSize:Number(a&&a.value),bFontSize:Number(b&&b.value)};}if(a)a.addEventListener(\'input\',updateFonts);if(b)b.addEventListener(\'input\',updateFonts);updateFonts();var key=\'english-study-print-titles\';function read(){try{var v=JSON.parse(localStorage.getItem(key)||\'[]\');return Array.isArray(v)?v.filter(function(x){return typeof x===\'string\'&&x.trim();}):[];}catch(_){return [];}}function write(value){var text=String(value||\'\').trim();if(!text)return;var list=read().filter(function(x){return x!==text;});list.unshift(text);try{localStorage.setItem(key,JSON.stringify(list.slice(0,30)));}catch(_){}}function fill(){var list=read();area.querySelectorAll(\'.ab-group__history\').forEach(function(select){select.innerHTML=\'<option value="">历史标题</option>\';list.forEach(function(text){var option=document.createElement(\'option\');option.value=text;option.textContent=text;select.appendChild(option);});});}fill();area.addEventListener(\'change\',function(e){var select=e.target&&e.target.closest?e.target.closest(\'.ab-group__history\'):null;if(!select)return;var input=select.parentElement&&select.parentElement.querySelector(\'.ab-group__label\');if(input)input.value=select.value;});area.addEventListener(\'blur\',function(e){var input=e.target&&e.target.closest?e.target.closest(\'.ab-group__label\'):null;if(input){write(input.value);fill();}},true);area.addEventListener(\'keydown\',function(e){if(e.key!==\'Enter\')return;var input=e.target&&e.target.closest?e.target.closest(\'.ab-group__label\'):null;if(!input)return;e.preventDefault();write(input.value);fill();input.focus();});area.addEventListener(\'click\',function(e){var button=e.target&&e.target.closest?e.target.closest(\'.ab-group__random\'):null;if(!button)return;try{if(window.opener&&window.opener.__randomPrintGroup)window.opener.__randomPrintGroup(Number(document.documentElement.dataset.printId),button.getAttribute(\'data-group\'),fontState());}catch(_){}});})();</script></body></html>'
+}
+
+function shuffleCards(cards: FlashCard[]): FlashCard[] {
+  const result = cards.slice()
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const current = result[i]
+    result[i] = result[j]
+    result[j] = current
+  }
+  return result
+}
+
+/** 生成按周分组的 A/B 打印稿；A 页可点击单词决定哪些词需要拼写。 */
+export function buildWeeklyABPrintHtml(cards: FlashCard[], options: WeeklyABPrintOptions = {}): string {
+  const title = options.title || '每周英语练习'
+  const frequency = clamp(options.frequency ?? 3, 1, 7)
+  const wordsPerDay = clamp(options.wordsPerDay ?? 15, 1, 100)
+  const selected = new Set((options.selectedSpelling ?? []).map(keyOf))
+  // 先分别打乱，再把单词放在句子前面，避免打印页出现“单词、句子、单词”的交错顺序。
+  const pool = shuffleCards(cards.filter(card => card.type !== 'sentence'))
+    .concat(shuffleCards(cards.filter(card => card.type === 'sentence')))
+  const ordinalNames = ['一', '二', '三', '四', '五', '六', '七']
+  const cardLabel = (card: FlashCard) => card.displayText || card.word
+  const groups: { key: string; label: string; cards: FlashCard[] }[] = []
+  const distribute = <T,>(items: T[], index: number): T[] => {
+    const result: T[] = []
+    for (let itemIndex = index; itemIndex < items.length; itemIndex += frequency) {
+      result.push(items[itemIndex])
+    }
+    return result
+  }
+  const wordsPerWeek = frequency * wordsPerDay
+  for (let start = 0, week = 1; start < pool.length || (start === 0 && pool.length === 0); start += wordsPerWeek, week++) {
+    const weekCards = pool.slice(start, start + wordsPerWeek)
+    const weekWords = weekCards.filter(card => card.type !== 'sentence')
+    const weekSentences = weekCards.filter(card => card.type === 'sentence')
+    for (let day = 0; day < frequency; day++) {
+      // 单词和句子分别均匀分配；每次内部仍先显示单词，再显示句子。
+      const dayCards = distribute(weekWords, day).concat(distribute(weekSentences, day))
+      if (dayCards.length > 0 || pool.length === 0) {
+        groups.push({ key: 'week-' + week + '-day-' + day, label: '本周第' + ordinalNames[day] + '次', cards: dayCards })
+      }
+    }
+    if (pool.length === 0) break
+  }
+
+  const renderAnswers = (group: { key: string; label: string; cards: FlashCard[] }, spelling: boolean) => group.cards
+    .filter(card => !spelling || selected.has(keyOf(card.word)))
+    .map(card => '<div class="weekly-answer-item" data-weekly-answer="' + escHtml(card.word) + '"><strong>' + escHtml(cardLabel(card)) + '</strong><span>' + escHtml(card.phonetic || '—') + '</span><span>' + escHtml(card.translation || '—') + '</span></div>')
+    .join('')
+
+  const renderGroup = (group: { key: string; label: string; cards: FlashCard[] }, answer: boolean) => {
+    const reading = group.cards.map(card => answer
+      ? '<div class="weekly-answer-item"><strong>' + escHtml(cardLabel(card)) + '</strong><span>' + escHtml(card.phonetic || '—') + '</span><span>' + escHtml(card.translation || '—') + '</span></div>'
+      : '<button type="button" class="weekly-word' + (card.type === 'sentence' ? ' weekly-word--sentence' : '') + (selected.has(keyOf(card.word)) ? ' is-spelling' : '') + '" data-weekly-word="' + escHtml(card.word) + '" data-weekly-label="' + escHtml(cardLabel(card)) + '" data-weekly-phonetic="' + escHtml(card.phonetic || '—') + '" data-weekly-translation="' + escHtml(card.translation || '—') + '">' + escHtml(cardLabel(card)) + '</button>').join('')
+    const spelling = answer
+      ? renderAnswers(group, true)
+      : group.cards.filter(card => selected.has(keyOf(card.word)))
+        .map(card => '<div class="weekly-spelling-item">' + escHtml(cardLabel(card)) + '</div>').join('')
+    return '<section class="weekly-group" data-weekly-group="' + escHtml(group.key) + '">' +
+      '<h2 class="weekly-group__title">' + escHtml(group.label) + '</h2>' +
+      '<div class="weekly-module"><h3 class="weekly-module__title">会读</h3><div class="weekly-reading-words' + (answer ? ' weekly-answer' : '') + '">' + reading + '</div></div>' +
+      '<div class="weekly-module"><h3 class="weekly-module__title">学习拼写</h3><div class="weekly-spelling-list' + (answer ? ' weekly-answer' : '') + '" data-weekly-spelling-list>' + spelling + (spelling ? '' : '<span class="weekly-spelling-empty">点击上面的单词加入拼写练习</span>') + '</div></div>' +
+      '</section>'
+  }
+
+  const weeks: { week: number; groups: typeof groups }[] = []
+  for (const group of groups) {
+    const match = /^week-(\d+)-/.exec(group.key)
+    const week = Number(match?.[1] || 1)
+    let current = weeks.find(item => item.week === week)
+    if (!current) {
+      current = { week, groups: [] }
+      weeks.push(current)
+    }
+    current.groups.push(group)
+  }
+
+  const renderWeek = (week: { week: number; groups: typeof groups }, answer: boolean) =>
+    '<section class="weekly-week" style="--weekly-frequency:' + frequency + '">' +
+    week.groups.map(group => renderGroup(group, answer)).join('') + '</section>'
+
+  const renderPage = (pageWeeks: typeof weeks, answer: boolean) =>
+    '<section class="weekly-page ' + (answer ? 'weekly-answer' : 'weekly-question') + '"><div class="weekly-plan">' +
+    pageWeeks.map(week => renderWeek(week, answer)).join('') + '</div></section>'
+
+  // 每页保留完整周行，避免同一周被拆到两页。
+  const pageWeeks: typeof weeks[] = []
+  for (let i = 0; i < weeks.length; i += 3) pageWeeks.push(weeks.slice(i, i + 3))
+  if (pageWeeks.length === 0) pageWeeks.push([])
+  const pages = pageWeeks.map(page => renderPage(page, false) + renderPage(page, true)).join('')
+  const printId = options.printId ?? ''
+  const selectedJson = JSON.stringify([...selected]).replace(/</g, '\\u003c')
+  const dynamicScript = `(function(){
+    var root=document;
+    var printId=Number(document.documentElement.dataset.printId);
+    var selected=new Set(${selectedJson});
+    function key(value){return String(value||'').trim().replace(/\\s+/g,' ').toLowerCase();}
+    function sync(){
+      root.querySelectorAll('.weekly-question [data-weekly-group]').forEach(function(group){
+        var words=[];
+        group.querySelectorAll('.weekly-word.is-spelling').forEach(function(button){words.push({key:button.getAttribute('data-weekly-word')||'',label:button.getAttribute('data-weekly-label')||''});});
+        var list=group.querySelector('[data-weekly-spelling-list]');
+        if(!list)return;
+        list.innerHTML='';
+        if(words.length===0)list.innerHTML='<span class="weekly-spelling-empty">点击上面的单词加入拼写练习</span>';
+        words.forEach(function(word){var item=document.createElement('div');item.className='weekly-spelling-item';item.textContent=word.label;list.appendChild(item);});
+        var answerGroup=Array.from(root.querySelectorAll('.weekly-answer [data-weekly-group]')).find(function(item){return item.getAttribute('data-weekly-group')===group.getAttribute('data-weekly-group');});
+        var answerList=answerGroup&&answerGroup.querySelector('[data-weekly-spelling-list]');
+        if(!answerList)return;
+        answerList.innerHTML='';
+        words.forEach(function(word){
+          var source=Array.from(group.querySelectorAll('.weekly-word')).find(function(button){return (button.getAttribute('data-weekly-word')||'')===word.key;});
+          if(!source)return;
+          var answer=document.createElement('div');answer.className='weekly-answer-item';
+          answer.innerHTML='<strong>'+word.label.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</strong><span>'+String(source.getAttribute('data-weekly-phonetic')||'—').replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</span><span>'+String(source.getAttribute('data-weekly-translation')||'—').replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</span>';
+          answerList.appendChild(answer);
+        });
+      });
+    }
+    root.addEventListener('click',function(event){
+      var button=event.target&&event.target.closest?event.target.closest('.weekly-word'):null;
+      if(!button)return;
+      var word=button.getAttribute('data-weekly-word')||'';var k=key(word);
+      if(selected.has(k)){selected.delete(k);button.classList.remove('is-spelling');}else{selected.add(k);button.classList.add('is-spelling');}
+      sync();
+    });
+    var apply=root.getElementById('weekly-apply');
+    if(apply)apply.addEventListener('click',function(){
+      var frequency=Number(root.getElementById('weekly-frequency').value)||3;
+      var words=Number(root.getElementById('weekly-words-per-day').value)||15;
+      try{if(window.opener&&window.opener.__updateWeeklyPrint)window.opener.__updateWeeklyPrint(printId,frequency,words,[...selected]);}catch(_){}
+    });
+    sync();
+  }());`
+  return '<!DOCTYPE html><html lang="zh-CN" data-print-id="' + escHtml(printId) + '"><head><meta charset="UTF-8"><title>' + escHtml(title) + '</title><style>' + AB_PRINT_CSS + '</style></head><body>' +
+    '<div id="ab-controls"><button type="button" onclick="window.print()">打印</button><button type="button" onclick="window.opener && window.opener.__switchPrintMode && window.opener.__switchPrintMode(Number(document.documentElement.dataset.printId), \'ab\')">普通 A/B 模式</button><button type="button" class="active">周计划 A/B</button><label>每周次数 <input id="weekly-frequency" type="number" min="1" max="7" value="' + frequency + '"></label><label>每天词数 <input id="weekly-words-per-day" type="number" min="1" max="100" value="' + wordsPerDay + '"></label><button type="button" id="weekly-apply">重新分组</button></div><main id="ab-pages">' + pages + '</main><script>' + dynamicScript + '</script></body></html>'
 }
 
 /** 把 A/B 双页打印稿渲进已打开的打印窗口。 */
@@ -1217,7 +1391,8 @@ export interface PrintControls {
 
 /** 主窗口处理「把这个词从本次打印里删掉」的回调，true = 已重新渲染 */
 export type RemoveCardHandler = (printId: number, word: string, controls: PrintControls) => boolean
-type PrintModeHandler = (printId: number, mode: 'card' | 'ab') => boolean
+type PrintModeHandler = (printId: number, mode: 'card' | 'ab' | 'weekly') => boolean
+type WeeklyPrintHandler = (printId: number, frequency: number, wordsPerDay: number, selectedSpelling: string[]) => boolean
 type RandomPrintGroupHandler = (
   printId: number,
   groupKey: string,
@@ -1312,6 +1487,7 @@ function installRemoveCardHandler(): void {
   const opener = window as Window & {
     __removePrintCard?: RemoveCardHandler
     __switchPrintMode?: PrintModeHandler
+    __updateWeeklyPrint?: WeeklyPrintHandler
     __randomPrintGroup?: RandomPrintGroupHandler
   }
   opener.__removePrintCard = (printId: number, word: string, controls: PrintControls): boolean => {
@@ -1326,12 +1502,32 @@ function installRemoveCardHandler(): void {
     session.win.scrollTo(top)
     return true
   }
-  opener.__switchPrintMode = (printId: number, mode: 'card' | 'ab'): boolean => {
+  opener.__switchPrintMode = (printId: number, mode: 'card' | 'ab' | 'weekly'): boolean => {
     const session = printSessions.get(printId)
     if (!session || session.win.closed) return false
     const top = session.win.scrollY()
     if (mode === 'card') session.win.render(buildFlashcardsHtml(session.cards, { ...session.options, printId }))
+    else if (mode === 'weekly') session.win.render(buildWeeklyABPrintHtml(session.cards, { title: session.options.title, printId }))
     else session.win.render(buildABPrintHtml(session.cards, { title: session.options.title, sentencePrompt: session.sentencePrompt, cols: session.options.cols === 1 ? 1 : 2, printId }))
+    session.win.scrollTo(top)
+    return true
+  }
+  opener.__updateWeeklyPrint = (
+    printId: number,
+    frequency: number,
+    wordsPerDay: number,
+    selectedSpelling: string[],
+  ): boolean => {
+    const session = printSessions.get(printId)
+    if (!session || session.win.closed) return false
+    const top = session.win.scrollY()
+    session.win.render(buildWeeklyABPrintHtml(session.cards, {
+      title: session.options.title,
+      printId,
+      frequency,
+      wordsPerDay,
+      selectedSpelling,
+    }))
     session.win.scrollTo(top)
     return true
   }
@@ -1387,7 +1583,7 @@ export function renderPrintLandingInto(
   cards: FlashCard[],
   options: FlashcardOptions = {},
   sentencePrompt: 'sentence' | 'translate' = 'sentence',
-  initialMode: 'card' | 'ab' = 'ab',
+  initialMode: 'card' | 'ab' | 'weekly' = 'weekly',
 ): void {
   const printId = ++printSeq
   for (const [id, session] of printSessions) {
@@ -1396,5 +1592,6 @@ export function renderPrintLandingInto(
   printSessions.set(printId, { cards: cards.slice(), options, win, sentencePrompt })
   installRemoveCardHandler()
   if (initialMode === 'card') win.render(buildFlashcardsHtml(cards, { ...options, printId }))
+  else if (initialMode === 'weekly') win.render(buildWeeklyABPrintHtml(cards, { title: options.title, printId }))
   else win.render(buildABPrintHtml(cards, { title: options.title, sentencePrompt, cols: options.cols === 1 ? 1 : 2, printId }))
 }

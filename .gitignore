@@ -22,3 +22,6 @@ data/*.zip
 
 # 本地缓存目录：sqlite 已迁移进 D1，目录仅剩本地调试产物，一律不进 git
 cache/*
+
+# study CLI 导出的打印稿，默认落在当前目录的 prints/
+prints/

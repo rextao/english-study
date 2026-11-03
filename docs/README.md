@@ -12,6 +12,7 @@
 | `frontend.md` | 页面、路由、hook、UI 约定 | 前端结构变化时 |
 | `backend.md` | Worker、API、D1 和外部服务约定 | 后端结构变化时 |
 | `decisions/` | 不容易从代码直接看出的设计决策 | 做出或推翻重要决策时 |
+| `recite-redesign/` | 开始背单词模块的分模块设计方案 | 方案确认或实现后 |
 | `handoff.md` | 当前未完成工作的短交接 | 跨 session 工作时 |
 
 ## 动态更新机制

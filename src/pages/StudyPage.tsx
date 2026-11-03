@@ -570,7 +570,7 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
       renderPrintLandingInto(win, cards, {
         cols: abCols,
         title,
-      }, sentencePrompt, 'ab')
+      }, sentencePrompt, 'weekly')
       return true
     } catch {
       win.fail('打印稿生成失败，请确认云端服务可用')
