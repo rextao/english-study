@@ -11,6 +11,7 @@ import { createKvStore } from './kv.js'
 import { createStudyHistoryStore } from './study-history.js'
 import { createAppServices } from './lists.js'
 import { createPassageStore } from './passages.js'
+import { createReciteStore } from './recite.js'
 
 export function createApp(env, waitUntilFn) {
   const db = createDb(env.DB)
@@ -22,6 +23,7 @@ export function createApp(env, waitUntilFn) {
     kv,
     history,
     passages: createPassageStore(kv, history),
+    recite: createReciteStore(db),
     ...createAppServices(db),
     config: {
       noNetwork: env.DICT_NO_NETWORK === '1',

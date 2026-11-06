@@ -4,7 +4,7 @@ import posthog from 'posthog-js'
  * PostHog 会话回放（浏览器侧唯一的第三方分析依赖）。
  *
  * 设计要点：
- * - key 走构建期环境变量 `VITE_POSTHOG_KEY`（见 `.env.example`）。没配就整个模块静默跳过，
+ * - key 走构建期环境变量 `VITE_POSTHOG_KEY`（vite 从 `.dev.vars` 读取）。没配就整个模块静默跳过，
  *   不影响任何现有功能，界面也不会出现同意条。
  * - 同意之前不初始化：不写 cookie、不发请求；点「允许」之后才 init 并开始会话回放。
  * - 配置里再兜一层 `opt_out_capturing_by_default`，即使将来有人提前 init 也不会采集。

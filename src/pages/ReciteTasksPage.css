@@ -1,0 +1,126 @@
+/* 背词任务配置二级页：一周一行，第 1 列日期跨整周，后面每次学习一行 */
+.recite-tasks__head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.recite-tasks__title { font-size: 16px; margin: 0; }
+.recite-tasks__hint { color: var(--color-text-subtle); font-size: 13px; }
+
+.recite-tasks__scroll { overflow-x: auto; }
+
+.recite-tasks__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  table-layout: fixed;
+}
+
+.recite-tasks__col-week { width: 172px; }
+.recite-tasks__col-times { width: 110px; }
+.recite-tasks__col-read, .recite-tasks__col-spell { width: auto; }
+
+.recite-tasks__table thead th {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-subtle);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.recite-tasks__row > .recite-tasks__week-cell,
+.recite-tasks__row > td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+  text-align: left;
+}
+
+/* 每周第一行用稍粗的分隔线，把一周一块隔开 */
+.recite-tasks__table tbody:first-child .recite-tasks__week-cell,
+.recite-tasks__table tbody:first-child td { border-top: 0; }
+.recite-tasks__table tbody .recite-tasks__week-cell,
+.recite-tasks__table tbody td { border-top: 1px solid var(--color-border-strong); }
+
+.recite-tasks__week-cell { font-weight: 400; }
+.recite-tasks__week-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+
+/* 没开始的任务整行可点，打开配置弹窗改这一周的单词 */
+.recite-tasks__row--clickable { cursor: pointer; }
+.recite-tasks__row--clickable:hover .recite-tasks__week-cell,
+.recite-tasks__row--clickable:hover td {
+  background: var(--color-surface-hover);
+}
+
+.recite-tasks__week-cell .ui-btn { margin-top: 8px; }
+
+.recite-tasks__times-cell { white-space: nowrap; }
+.recite-tasks__times { font-weight: 600; margin-right: 6px; }
+
+/* td 保持 table-cell，词条折行交给里面的 div */
+.recite-tasks__words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-content: flex-start;
+}
+
+.recite-tasks__none { color: var(--color-text-subtle); }
+
+/* 单词小圆片：单词后面直接跟上这次的判定标记，不用再点开看 */
+.recite-tasks__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-sunken);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.recite-tasks__chip .recite-tasks__mark { padding: 0 6px; font-size: 11px; }
+
+/* 背的单词那列：词条折行，右侧靠着一个保存按钮 */
+.recite-tasks__cell-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: flex-start;
+}
+.recite-tasks__row-save { margin-left: auto; flex-shrink: 0; }
+
+.recite-tasks__row--empty .recite-tasks__empty-cell { vertical-align: middle; }
+.recite-tasks__empty-text { color: var(--color-text-subtle); font-size: 13px; margin-right: 10px; }
+
+.recite-tasks__marks { display: inline-flex; align-items: center; gap: 4px; }
+.recite-tasks__mark {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+}
+.recite-tasks__mark--known,
+.recite-tasks__mark--correct { background: var(--ui-success-bg); color: var(--ui-success-text); }
+.recite-tasks__mark--unknown,
+.recite-tasks__mark--skipped { background: var(--ui-danger-bg); color: var(--ui-danger-strong); }
+
+@media (max-width: 720px) {
+  .recite-tasks__col-week { width: 132px; }
+  .recite-tasks__col-times { width: 84px; }
+  .recite-tasks__chip { font-size: 12px; padding: 1px 8px; }
+}

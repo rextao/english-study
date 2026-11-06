@@ -195,6 +195,7 @@
 }
 
 .study-plan__title { font-size: 16px; font-weight: 600; }
+.study-plan__lead { display: inline-flex; align-items: center; gap: 10px; }
 
 .study-plan__nav {
   display: flex;
@@ -245,6 +246,7 @@
   justify-content: center;
   gap: 3px;
   min-height: 54px;
+  position: relative;
   padding: 6px 2px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -281,6 +283,40 @@
 }
 
 .study-cal__day--today .study-cal__date { color: var(--color-primary-dark); }
+
+/* 已配置背词任务的周：格子右上角一个「背」角标，颜色区分已完成 / 进行中 / 已配置未开始 */
+.study-cal__task-tag {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  padding: 0 3px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: var(--color-surface);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 12px;
+  white-space: nowrap;
+}
+
+.study-cal__recite--active { color: var(--ui-gold-text); }
+.study-cal__recite--done { color: var(--ui-success-text); }
+.study-cal__recite--todo { color: var(--color-text-muted); }
+
+/* 背词标记图例：说明格子右上角「背」角标的三种颜色 */
+.study-cal__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  margin-top: 10px;
+  color: var(--color-text-subtle);
+  font-size: 12px;
+}
+
+.study-cal__legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.study-cal__task-tag--inline { position: static; }
 
 .study-cal__count {
   display: inline-flex;
@@ -321,6 +357,7 @@
 }
 
 .study-day__rel { font-size: 12px; color: var(--color-text-subtle); }
+.study-day__recite { font-size: 12px; color: var(--color-text-subtle); }
 
 .study-day__ops {
   display: flex;

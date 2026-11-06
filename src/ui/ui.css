@@ -146,12 +146,11 @@
 }
 .ui-select--open .ui-select__arrow { transform: translateY(1px) rotate(225deg); }
 
+/* 下拉层固定在视口上（坐标由 Select 按控件位置与剩余空间内联给出）：
+   弹窗 / 滚动容器里展开时不会把容器撑出滚动条，也不会被裁掉 */
 .ui-select__list {
-  position: absolute;
+  position: fixed;
   z-index: 30;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
   list-style: none;
   margin: 0;
   padding: 5px;

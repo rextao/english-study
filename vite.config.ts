@@ -1,5 +1,32 @@
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+
+// 本地环境变量只有 .dev.vars 一份：wrangler dev 自动读整份，vite 默认不读它。
+// 这里把其中的 VITE_* 补进 process.env，vite 启动时会按前缀注入 import.meta.env；
+// 非 VITE_ 的密钥（API_TOKEN / 百度 / TTS）不会进前端 bundle。
+function injectViteEnvFromDevVars() {
+  let text: string
+  try {
+    text = readFileSync(new URL('./.dev.vars', import.meta.url), 'utf8')
+  } catch {
+    return
+  }
+  for (const line of text.split(/\r?\n/)) {
+    const match = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/)
+    if (!match) continue
+    const key = match[1]
+    if (!key.startsWith('VITE_') || process.env[key] !== undefined) continue
+    let value = match[2].trim()
+    if (
+      (value.startsWith('"') && value.endsWith('"'))
+      || (value.startsWith("'") && value.endsWith("'"))
+    ) value = value.slice(1, -1)
+    process.env[key] = value
+  }
+}
+
+injectViteEnvFromDevVars()
 
 export default defineConfig({
   plugins: [react()],

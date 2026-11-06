@@ -2,7 +2,7 @@
 /**
  * 本地命令行：通过线上 Worker 的 /api 操作学习数据，并把词导出成可直接打印的 HTML。
  *
- * 用法见 `npm run study -- help`。线上地址和令牌从项目根目录 .env.local 的
+ * 用法见 `npm run study -- help`。线上地址和令牌从项目根目录 .dev.vars 的
  * STUDY_API_BASE / STUDY_API_TOKEN 读取（shell 环境变量优先），不走命令行参数；
  * 令牌不写日志、不写进生成的 HTML。
  *
@@ -13,9 +13,9 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
 
 // ── 线上服务配置：命令行不接受 --base / --token ──────────────────────────
-// 默认 Worker 根地址，末尾不要带 /；.env.local 或环境变量里的 STUDY_API_BASE 优先。
+// 默认 Worker 根地址，末尾不要带 /；.dev.vars 或环境变量里的 STUDY_API_BASE 优先。
 const DEFAULT_API_BASE = 'https://study.rextao666.xyz'
-// 访问令牌只从 STUDY_API_TOKEN 读取（项目 .env.local，已被 gitignore），不写进代码。
+// 访问令牌只从 STUDY_API_TOKEN 读取（项目 .dev.vars，已被 gitignore），不写进代码。
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DEFAULT_LIST_ID = 'default'
@@ -42,7 +42,7 @@ const USAGE = `本地调用线上背单词服务（Node 24+）
   print                 导出可打印的 HTML，默认同时在线上留一条打印记录
   help                  显示这份帮助
 
-配置（项目根目录 .env.local，环境变量优先）：
+配置（项目根目录 .dev.vars，环境变量优先）：
   STUDY_API_BASE        Worker 根地址，默认 https://study.rextao666.xyz
   STUDY_API_TOKEN       Worker 的 API_TOKEN
 
@@ -109,28 +109,26 @@ function parseArgs(argv) {
   return { flags, positional }
 }
 
-/** 只读取项目根目录 .env.local / .env 里的 STUDY_* 配置；shell 环境变量优先 */
+/** 只读取项目根目录 .dev.vars 里的 STUDY_* 配置；shell 环境变量优先 */
 async function loadStudyEnv() {
   const keys = new Set(['STUDY_API_BASE', 'STUDY_API_TOKEN'])
-  for (const name of ['.env.local', '.env']) {
-    let text
-    try {
-      text = await readFile(join(ROOT, name), 'utf8')
-    } catch {
-      continue
-    }
-    for (const line of text.split(/\r?\n/)) {
-      const match = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/)
-      if (!match) continue
-      const key = match[1]
-      if (!keys.has(key) || process.env[key] !== undefined) continue
-      let value = match[2].trim()
-      if (
-        (value.startsWith('"') && value.endsWith('"'))
-        || (value.startsWith("'") && value.endsWith("'"))
-      ) value = value.slice(1, -1)
-      process.env[key] = value
-    }
+  let text
+  try {
+    text = await readFile(join(ROOT, '.dev.vars'), 'utf8')
+  } catch {
+    return
+  }
+  for (const line of text.split(/\r?\n/)) {
+    const match = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/)
+    if (!match) continue
+    const key = match[1]
+    if (!keys.has(key) || process.env[key] !== undefined) continue
+    let value = match[2].trim()
+    if (
+      (value.startsWith('"') && value.endsWith('"'))
+      || (value.startsWith("'") && value.endsWith("'"))
+    ) value = value.slice(1, -1)
+    process.env[key] = value
   }
 }
 
@@ -148,7 +146,7 @@ function createApi({ base, token }) {
       response = await nativeFetch(base + path, { ...init, headers })
     } catch (error) {
       const reason = error?.cause?.code || error?.cause?.message || error?.message || String(error)
-      throw new CliError(`连不上 ${base}（${reason}）。检查 .env.local 里的 STUDY_API_BASE 和网络。`)
+      throw new CliError(`连不上 ${base}（${reason}）。检查 .dev.vars 里的 STUDY_API_BASE 和网络。`)
     }
     const text = await response.text()
     let data = null
@@ -158,7 +156,7 @@ function createApi({ base, token }) {
       // 非 JSON：交给下面的状态码分支报错
     }
     if (response.status === 401) {
-      throw new CliError('访问令牌无效（HTTP 401）。检查 .env.local 里的 STUDY_API_TOKEN 是否等于 Worker 的 API_TOKEN。')
+      throw new CliError('访问令牌无效（HTTP 401）。检查 .dev.vars 里的 STUDY_API_TOKEN 是否等于 Worker 的 API_TOKEN。')
     }
     if (!response.ok) {
       const message = data?.error || data?.message || `HTTP ${response.status}`
@@ -642,10 +640,10 @@ function resolveConfig() {
   const base = String(process.env.STUDY_API_BASE || DEFAULT_API_BASE).trim().replace(/\/+$/, '')
   const token = String(process.env.STUDY_API_TOKEN || '').trim()
   if (!base) {
-    throw new CliError('还没有配置 API 地址：在项目根目录 .env.local 里填写 STUDY_API_BASE。')
+    throw new CliError('还没有配置 API 地址：在项目根目录 .dev.vars 里填写 STUDY_API_BASE。')
   }
   if (!token) {
-    throw new CliError('缺少 STUDY_API_TOKEN：在项目根目录 .env.local 里配置（值就是 Worker secret 里的 API_TOKEN）。')
+    throw new CliError('缺少 STUDY_API_TOKEN：在项目根目录 .dev.vars 里配置（值就是 Worker secret 里的 API_TOKEN）。')
   }
   let url
   try {

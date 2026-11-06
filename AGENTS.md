@@ -1,6 +1,6 @@
 # AGENTS.md — 项目地图（给 AI 读）
 
-读完这一份就能直接动手改代码，不必再全量扫源码。面向人的使用说明在 `README.md`；两份分工：README 讲「怎么用」，这份讲「怎么改」。详细架构和动态文档维护规则在 `docs/README.md`，只在任务相关时按需读取。
+读完这一份就能直接动手改代码，不必再全量扫源码。面向人的使用说明在 `README.md`；两份分工：README 讲「怎么用」，这份讲「怎么改」。`docs/` 只放设计决策与临时交接（规则见 `docs/README.md`），架构事实就地写在本文件，不再往文档目录同步。
 
 ## 协作方式（给 AI：优先并行子 agent）
 
@@ -23,7 +23,7 @@
 - **UI 禁原生控件**：页面里不要出现 `<select>`、`<textarea>`、`type='checkbox'`，统一用 `src/ui` 里的 `Select` / `TextArea` / `Checkbox`。
 - **TS 严格**：`tsconfig.app.json` 开了 `strict` + `noUnusedLocals` + `noUnusedParameters` + `noFallthroughCasesInSwitch`（**没开** `noUncheckedIndexedAccess`）。
 - **验证命令**：`npm run build`（= `tsc -b && vite build`）必须 exit 0；动过 `worker/` 再跑 `npm run test:server`（跑在临时目录的 node:sqlite shim 上，不碰真实数据）。文档结构检查使用 `npm run docs:check`。
-- **密钥不进 git**：`API_TOKEN` / 百度翻译密钥只能通过 `npx wrangler secret put <NAME>` 配成 Worker secret；沙箱连不了外网，部署 / 建表 / 迁数据 / 配密钥由用户在本机执行。
+- **密钥不进 git**：`API_TOKEN` / 百度翻译密钥 / Google TTS 密钥（`GOOGLE_TTS_API_KEY`）只能通过 `npx wrangler secret put <NAME>` 配成 Worker secret；沙箱连不了外网，部署 / 建表 / 迁数据 / 配密钥由用户在本机执行。
 - **D1 写路径**：学习列表 / 词条与学习进度使用定向 SQL 和行级 INSERT / UPDATE / DELETE；不要在请求路径整库 load 或重写。全库读取仅留在测试断言辅助中。小型配置仍可用 kv JSON；打印记录目前有 60 条上限，若单批次规模明显增长，再评估拆成关系表。
 
 ## 目录地图（一行一职责）
@@ -31,7 +31,8 @@
 ```
 src/main.tsx                   挂载 React，引入 index.css
 src/App.tsx                    状态中枢：useVocabLibraries / useStudyList / useStudyPlan / useTabRoute 都在这里，
-                               按 tab 渲染五个页面并把 props 往下传；TokenGate（令牌门）也在这里挂——
+                               按 tab 渲染各页面并把 props 往下传；背词会话也在这里拉（切到 #/recite 时 start）；
+                               TokenGate（令牌门）也在这里挂——
                                localStorage 无令牌或任何请求 401 时整页只渲染令牌输入
 src/App.css                    通用类：.page/--narrow/--wide(1080) .card/--pad .callout/--success/--error/--warn
                                .hint .empty/--inline .field-label .page-header
@@ -53,6 +54,11 @@ src/pages/LibrariesPage.tsx    词库标签页（已并进设置页）：只显�
 src/pages/StudyPage.tsx        英语学习页：StudyGoal + 挑词弹窗（Modal，勾词 → 打印卡片 + plan.startWords）
                                + 月历复习计划：「按天 / 按周」粒度切换（mode，只存组件 state），
                                按天选一天 / 按周选整周，逾期折叠进今天或本周，只有当前这天 / 这周可打卡
+                               + 复习计划标题旁「配置背词任务」按钮 → 跳二级页 #/recite/tasks（ReciteTasksPage，可返回）；
+                               月历格子右上角「背」小角标：完成的那天标绿（完成日期来自 /api/recite/history），今天以后按整周进度标金（进行中）/ 灰（未开始），
+                               今天之前没完成的日子不显示，整周已完成的未来格子也不再提示；日历下方一行图例说明这三种颜色，
+                               角标悬停有 title、格子 aria-label 写明进度；
+                               复习面板头部用 Tag 标「未配置背词 / 背词 X/Y · 学习中」
                                + 打印记录：每导出一次卡片留一条档，可整批打卡 / 删记录（usePrintBatches）
 
 src/pages/SettingsPage.tsx     设置页（tab=settings）：顶部「词库配置 / 学习列表 / 学习记录 / 查询链路」子菜单切换；
@@ -60,23 +66,39 @@ src/pages/SettingsPage.tsx     设置页（tab=settings）：顶部「词库配�
                                不可用的步骤灰色标「跳过」并给原因（密钥未配 = Worker secret 没配）；
                                词库配置 = LibrariesPage embedded，学习记录 = LearningRecordsPage embedded
 src/pages/AchievementsPage.tsx     学习成果页（tab=achievements）：目标达成度统计
-src/pages/GoalPage.tsx             目标页（若仍由路由或旧入口引用，先确认调用方再修改或删除）
+src/pages/GoalPage.tsx             目标页（tab=goal，导航「更多」里有入口）：长期里程碑时间轴 + 单词目标四项进度；
+                               周期与目标词数全在 src/config/goalMilestones.ts，页面不写死阶段数量
 src/pages/LearningRecordsPage.tsx  学习记录页：学习 / 打卡日志明细 + 筛选 + 批量删除；
                                默认 embedded 进设置页「学习记录」分区（不画 .page 外壳和页头），
                                也仍挂在 #/records 上独立成页（导航里没有，从成果页进，带 onBack 和页头）；
                                默认先只显示物理删除不可找回的红字提示（revealed=false 时不发请求），确认后才拉列表
 
-src/pages/RecitePage.tsx         横屏背单词（tab=recite）：给小朋友的全屏独立页，不渲染导航、没有返回按钮也没有退出按钮，
-                              只能从查词首页右上角「开始背单词」进，背完一轮或没有词时才出现「返回首页」；
-                              词从学习计划映射（选词策略待设计），卡片只显示英文（中文与音标不显示），
-                              句子字号按可视区自适应到尽可能大；卡片左右是翻页按钮（当前词没点过会 / 不会时
-                              右键禁用、不能往下翻，往左回看不受限），右上角只有环形进度（外环 = 任务进度，内环 = 已判词中「会」的比例）；
-                              左下「不会」右下「会」，背完出结算（会 / 不会 + 不会的词）；
-                              语音输出（onSpeak）目前是占位，会 / 不会只在本地推进卡片，不落库不改排期
+src/pages/RecitePage.tsx         横屏背单词（tab=recite）：给小朋友的全屏独立页，不渲染导航，也没有返回 / 退出按钮；
+                              只能从查词首页右上角「开始背单词」进；普通卡只显示英文（中文与音标不显示），
+                              拼写卡显示中文 + 虚拟键盘；点「会 / 不会」先写服务端草稿
+                              /api/recite/sessions/:id/drafts（不推进轮次，家长换设备也能读），
+                              最后一张后进完成动画页（彩带 + 奖杯 + 会 / 不会 / 拼写统计）；
+                              卡片右上角喇叭 = utils/speech.ts 播放 Google TTS 发音（拼写卡判定前不出声），
+                              按钮始终渲染；请求 / 播放失败把原因（缺密钥 / 断网 / 超时 / 浏览器拦截）写在页面上
+src/pages/ReciteParentPage.tsx   家长端（#/recite/parent，保留的独立页，已没有 UI 入口）：按日期列出待保存 / 已保存的背诵记录，
+                              逐词显示 会 / 不会 / 拼写正确 / 拼写跳过；「保存记录」才统一提交 commit，推进轮次与次数。
+                              家长确认的主入口在 #/recite/tasks 的任务列表行内直接判定与保存（不再弹窗）
+src/pages/ReciteTasksPage.tsx   背词任务配置二级页（#/recite/tasks，从英语学习页进，页头可返回）：一周一行，本周到 12 周后；
+                              第 1 列日期区间（周一开始，只有本周标「本周」），无任务的周给「配置本周 / 这一周任务」按钮，
+                              有任务的周按每次一行展开：第 2 列「第 N 次」（已完成 / 学习中 Tag），第 3 列读的词，第 4 列背的词；
+                              已完成的次数在单词后直接显示判定（读的列只显知意，背的列知意 + 拼写，来自 fetchReciteHistory 60 条）；
+                              进行中的那一次读 sessions/active 的卡片与草稿同样在行内显示（没判定的单词不显示标记），行右侧「保存」直接 commit（30 张一批）；
+                              没开始的那一次（todo）整行可点，点行只改这一行的词（整周任务已开始也能改没开始的这一次）；
+                              行内「修改配置」改整周，只在整周还没开始时出现；
+                              保存后重读任务列表 / history / sessions/active 三份数据。
+src/pages/PassagesPage.tsx       短文页（tab=passages）：短文正文 + 生词分组（分批 / 很久没复习 / 知意或会读次数少 / 从未知意或会读），
+                               文中生词点开看释义、可打「会读 / 知意」标记；数据层 src/hooks/usePassages.ts
+src/config/goalMilestones.ts     目标里程碑与各周期累计词数（改目标只改这里，GoalPage 自动重算）
 
 src/components/Nav.tsx         顶部导航：普通 tab = 查词 / 学习列表 / 学习成果（列表角标 = totalItems）
                                + 右侧「英语学习」流光胶囊（角标 = plan.dueCount）+ 齿轮图标按钮（设置）；
                                TabKey 定义在此（settings / records 都不在 tab 里，visibleActive 把 records 高亮到「学习成果」）
+                               recite-parent / recite-tasks 也高亮到「英语学习」
 src/components/TokenGate.tsx   访问令牌门：首次打开 / 401 时填令牌；令牌存 localStorage（key es-api-token）
 src/components/AnalyticsConsent.tsx  回放同意条（main.tsx 里挂在 App 旁边）：没配 key 或已选过就不渲染
 src/components/PageHeader.tsx  页面标题区（title / subtitle / actions），样式在 App.css
@@ -84,9 +106,19 @@ src/components/WordCard.tsx    词卡：音标 / 词库标签 / 中文释义 / �
                                卡片上不显示英文释义、也不显示例句
 src/components/StudyGoal.tsx   目标模块：目标词库（useStudyGoal）vs 已开始学的词 → 达成度 +「目标外的获得」；
                                buildFormIndex 做词形宽松匹配
+src/components/ReciteTaskPanel.tsx 背词任务配置弹窗（受控 Modal）：标题只显示这一周的日期区间（如 11.9—11.15），
+                               每次单词数 / 每周学习次数（默认 15 / 3，次数是 1–7 下拉框）/ 学习列表 / 选择单词 排成一行，不分组；
+                               弹窗内视图切换的选词器（每个分组表头固定写「全选」，点一次全勾、再点清空这一组；单词后的（N）表示本周其他次数也选了它，不禁选）；点某一行进来时（focusSession）只改第 N 次的词、其他次数原样保留（此时隐藏每次词数 / 次数，标题仍是这一周的日期区间）；
+                               选词「确定」、回填已有任务、改每次词数 / 次数都自动生成任务预览（无「预览任务」按钮），保存按钮在弹窗右下角，弹窗只做配置、没有进入学习的入口
+                               （学习只从查词页右上角「开始背单词」进）。配置哪一周完全由点开的那一行决定，弹窗内不再有
+                               「配置目标周」选择器；整周任务已开始时只有没开始的那一次还能改（保存带 session），其余锁成只读。保存走 saveReciteTask（带 weekStart）
+                               现在只挂在 ReciteTasksPage 内，学习页本身不再弹这个窗
+src/components/ReciteTaskConfirm.tsx 家长确认弹窗（**已无调用方、死代码，待删**）：行内保存改造前的旧实现，
+                              功能已由 ReciteTasksPage 的行内判定 + 行右侧「保存」按钮取代
 
 src/hooks/useTabRoute.ts       hash 路由（#/search #/lists #/settings #/achievements #/records #/study #/recite），刷新与前进后退都停在原页；
-                               LEGACY_TABS 把 #/import → #/search、#/libraries → #/settings，老书签不会失效
+                               二级页 #/recite/parent、#/recite/tasks 走独立 hash；LEGACY_TABS 把 #/import → #/search、
+                               #/libraries → #/settings，老书签不会失效
 src/hooks/useSearch.ts         useVocabMatch：词 → 命中的词库 id 列表（纯内存 Map，不走网络）
 src/hooks/useDictionary.ts     单词查询 GET /api/dict；走共享读缓存 apiCache（TTL 5 分钟），同一个词反复查不再打接口；
                                服务端回错误状态码 → 'error'（这次没抓到释义），请求根本没发出去 → 'no-server'
@@ -123,6 +155,9 @@ src/utils/analytics.ts         PostHog 会话回放：initAnalytics / getAnalyti
                                同意状态存 localStorage `es-analytics-consent`；没配 VITE_POSTHOG_KEY 就整个跳过
 src/utils/translations.ts      中文词义工具：translationOptions / selectedTranslationOptions
                                / formatTranslationOptions；formatTranslationWithCustom 把自定义词义并进摘要
+src/utils/speech.ts            背单词发音：speak / stopSpeech / speechErrorMessage（错误翻成页面提示）；
+                              /api/tts 的 base64 MP3 解成 Blob URL 复用（会话内按词缓存，换词掐掉上一段）；
+                              fetchSpeechStatus（/api/tts/status）只留作诊断，喇叭显隐不再看它
 
 worker/src/index.js            Worker 入口：/api/* 先校验 Bearer 令牌（safeEqual 恒定时间比较，health 免鉴权）
                                再进 handleApi；其余请求交给 env.ASSETS（vite 构建产物，SPA 回落）
@@ -139,16 +174,19 @@ worker/src/lists.js            列表领域服务：syncListTranslation / select
 worker/src/study-lists.js      lists / list_words 两张表的 store（行 ↔ StudyWordItem 映射；业务路径按列表 / 词条定向读写）
 worker/src/study-history.js    learning_events / meaning_profiles store：内容寻址词义身份 + 聚合 + 软删
 worker/src/kv.js               kv 表（标签 / 目标 / 打印批次 / 补齐状态整份 JSON 一行）+ dict_cache 表（一词一行）
+worker/src/passages.js         短文 store：正文 + 生词分组快照整份存 kv（key study-passages，最多 100 篇）
+worker/src/recite.js           背词任务 / 会话 / 卡片：选词预览、稳定随机、草稿、commit（内部只调 review.js）
+                              listTasks 返回全部任务（按 week_start 排序，供配置二级页与学习页月历标记）
 worker/src/text.js             normalizeText / capitalizeSentence（全库唯一主键规则）
 worker/src/sha256.js           纯 JS 同步 SHA-256（Workers 没有 node:crypto 的同步 createHash；
                                输出与 node:crypto 一致，迁移来的旧 meaning_key 能对上）
 worker/schema.sql              全量建表 SQL（wrangler d1 execute 一次性执行；含 DROP 废弃的 sync_snapshot）
 
 worker/test/d1-shim.mjs        node:sqlite 模拟 D1 接口（prepare→bind→all/first/run + batch 事务）
-worker/test/api.test.mjs       282 项断言：直接驱动 handleApi + 走真正 workerIndex.fetch 的鉴权用例
+worker/test/api.test.mjs       350+ 项断言：直接驱动 handleApi + 走真正 workerIndex.fetch 的鉴权用例
 scripts/migrate-to-d1.mjs      本地 study-history.sqlite → migration.sql（INSERT 语句），wrangler d1 execute 导入
 scripts/study-cli.mjs          本地 CLI（npm run study）：列学习列表 / 列分组（复用 studyWordGroups.ts）/ 按词或分组导出打印 HTML / 默认写打印记录；
-                               线上地址 / 令牌从 .env.local 的 STUDY_API_BASE / STUDY_API_TOKEN 读取（命令行不可覆盖）；
+                               线上地址 / 令牌从 .dev.vars 的 STUDY_API_BASE / STUDY_API_TOKEN 读取（命令行不可覆盖）；
                                复用 src/utils/flashcards.ts 的 fetchCards 与排版（Node 24 直接 import .ts；
                                该文件别用 enum / 参数属性等不可擦除语法），
                                通过线上 /api 取词与留档；新命令加在 COMMANDS 表
@@ -157,6 +195,7 @@ vocab/format.md                词库统一格式（唯一规范来源）
 vocab/ket.json                 剑桥 A2 Key，id=a2-key-2020，1661 条词条
 vocab/parse_a2_key.py          pdftotext 文本 → 词库 JSON；正则与该 PDF 版式绑定，不通用
 506886-a2-key-2020-vocabulary-list.pdf   词库原始 PDF
+vite.config.ts                 vite：5173 / 监听所有网卡 / /api 代理到 8788；启动时把 .dev.vars 里的 VITE_* 注入前端
 wrangler.toml                  部署配置：name=english-study、[assets] binding=ASSETS、D1 绑定 DB、DICT_TZ_OFFSET_HOURS=8
 ```
 
@@ -176,13 +215,19 @@ App.tsx（唯一状态中枢，避免切 tab 后数据不同步）
                                              │    ├ learning_events / learning_event_meanings（打标日志，study-history.js）
                                              │    ├ meaning_profiles（内容寻址词义画像）
                                              │    ├ kv（标签 / 目标 / 打印批次 / 补齐状态，kv.js）
-                                             │    └ dict_cache（词典缓存，kv.js）
+                                             │    ├ dict_cache（词典缓存，kv.js）
+                                             │    ├ tts_cache（单词发音 MP3，tts.js）
+                                             │    ├ recite_tasks / recite_task_words / recite_sessions /
+                                             │    │   recite_cards / recite_card_drafts（背词，recite.js）
+                                             │    └ kv 里的 study-passages（短文，passages.js）
                                              └ 外部：dictionaryapi.dev / 百度大模型文本翻译 API（缓存没有才走）
 
 vocab/*.json ──import.meta.glob(eager, 构建期打包)──▶ useVocabLibraries
 ```
 
-页面内的局部状态：`useDictionary` + `useStudy` 在 SearchPage；`useDictBatch` 在 ListsPage；`useDictPrefetch` 在 ImportPage（查词页以 embedded 形式渲染时也归 SearchPage）；`useStudyGoal` 在 StudyGoal 组件内部；`useDictSources`（查词链路）在 SettingsPage；`usePrintBatches` 在 StudyPage 内部（只有那一页要打印记录）；`useLearningRecords` 在 LearningRecordsPage 内部（设置页嵌入与 #/records 独立页共用同一个组件，不额外挂状态）。
+页面内的局部状态：`useDictionary` + `useStudy` 在 SearchPage；`useDictBatch` 在 ListsPage；`useDictPrefetch` 在 ImportPage（查词页以 embedded 形式渲染时也归 SearchPage）；`useStudyGoal` 在 StudyGoal 组件内部；`useDictSources`（查词链路）在 SettingsPage；`usePrintBatches` 在 StudyPage 内部（只有那一页要打印记录）；`usePassages` 在 PassagesPage 内部；`useRecite` 的读写函数由 App / ReciteParentPage / ReciteTasksPage / ReciteTaskPanel 各自调用（服务端是唯一状态源，不往 App 里加背词数据）；`useLearningRecords` 在 LearningRecordsPage 内部（设置页嵌入与 #/records 独立页共用同一个组件，不额外挂状态）。
+
+`useTabRoute` 的合法 tab：search / lists / settings / achievements / records / study / goal / passages / recite / recite-parent（`#/recite/parent`）/ recite-tasks（`#/recite/tasks`），LEGACY_TABS 兼容 `#/import` → search、`#/libraries` → settings。新增页面要同时改这里、`Nav.tsx` 的 `TabKey` / `TABS` 和 `App.tsx` 分支。
 
 ## 类型契约（`src/types/vocab.ts`）
 
@@ -239,6 +284,8 @@ PrintBatch       { id, printedAt, kind: 'start'|'review', scope?, title, wordCou
 | `POST /api/dict/repair` `{words?, force?}` | 扫学习列表里缺音标 / 缺释义的词并排队 | useDictPrefetch.repair |
 | `GET /api/dict/sources` | `{network, cache:{total,complete}, external:[...]}`；**没有 local 字段**（云端无本地词典）；百度密钥状态只读（secret 不可经 API 写） | useDictSources |
 | `GET /api/cache/stats` | 缓存统计 | — |
+| `GET /api/tts/status` | `{available, configured, voice, language, limit}`；没配 `GOOGLE_TTS_API_KEY` 或断网时 available=false；仅诊断用，页面不据此隐藏喇叭 | speech.ts |
+| `GET /api/tts?text=word` | Google TTS 合成 → `{text, mime, audio(base64 MP3), cached}`；命中 `tts_cache` 不再走外网，文本上限 160 字符 | speech.ts（RecitePage 喇叭） |
 | `GET /api/lists` | 所有列表（含 default） | useStudyList |
 | `POST /api/lists` `{name}` | 新建列表，重名报错 | useStudyList |
 | `PATCH /api/lists/:id` `{name}` | 重命名 | useStudyList |
@@ -273,10 +320,22 @@ PrintBatch       { id, printedAt, kind: 'start'|'review', scope?, title, wordCou
 | `PATCH /api/vocab-labels/:id` `{label}` | 改标签（拦空值、重名、超 40 字） | useVocabLibraries |
 | `DELETE /api/vocab-labels/:id` | 重置为默认 | useVocabLibraries |
 | `GET /api/vocab-print-labels` + 同构 POST/PATCH/DELETE | 打印标签（与显示标签同构的一组接口） | useVocabLibraries |
+| `GET \| PUT /api/recite/task` `{weekStart?, perSessionCount, sessionCount, selections, spellingWords, session?}` | 周任务读写；PUT 在本周已有会话时 409 `TASK_STARTED`；带 `session`（1-based）时只替换这一次的词，这一次没开始时即使整周已开始也能改，这一次已学过 / 正在学 → 409 `SESSION_STARTED` | useRecite |
+| `GET /api/recite/tasks` | 全部周任务列表（按 week_start 排序），供配置二级页与学习页月历标记 | ReciteTasksPage / StudyPage |
+| `POST /api/recite/preview` | 只算不存：容量截断、学习成果逆序自动填充、非法选词 | ReciteTaskPanel |
+| `GET /api/recite/sessions/active` | 家长端读当前待确认会话 + 草稿；**只读，不建会话** | ReciteParentPage / ReciteTasksPage |
+| `GET /api/recite/history?limit=` | 已保存的背诵记录（最多 60 条，含每张卡的判定与 weekStart） | ReciteParentPage / ReciteTasksPage |
+| `POST /api/recite/sessions/start` | 取 / 建 active 会话（进入页面本身不消耗次数） | useRecite |
+| `GET \| POST /api/recite/sessions/:id/drafts` | 学生端「会 / 不会 / 拼写」草稿；不推进轮次、不累计次数 | useRecite.saveReciteDraft |
+| `POST /api/recite/sessions/:id/commit` `{answers}` | 家长确认后统一落库；单次上限 60 张，前端按 30 张一批 | useRecite.commitReciteSession |
+| `POST /api/recite/sessions/:id/cards/:cardId/(result\|spelling)` | 单卡提交（commit 内部复用，按 requestId 幂等） | useRecite.answerReciteCard |
+| `GET /api/passages` · `POST /api/passages` · `PATCH /api/passages/:id` | 短文读写（正文 + 生词分组） | usePassages |
+| `POST /api/passages/:id/mark` `{action: reading\|meaning}` | 短文里的词打会读 / 知意 | usePassages |
+| `PATCH /api/study/achievements/:word` `{kind}` | 学习成果页改单词的知意 / 会读状态 | AchievementsPage |
 
 环境变量（Worker 侧）：`API_TOKEN`（secret，鉴权令牌）、`BAIDU_TRANSLATE_API_KEY` / `BAIDU_TRANSLATE_APP_ID`（secrets，百度翻译）、`BAIDU_TRANSLATE_API_URL`（可选，测试 / 自定义网关）、`DICT_NO_NETWORK=1`（只吃缓存）、`DICT_NETWORK_TIMEOUT_MS`（默认 10000）、`DICT_TZ_OFFSET_HOURS`（默认 8，见复习算法）。`wrangler.toml` 的 `[vars]` 里已配 `DICT_TZ_OFFSET_HOURS=8`。
 
-前端构建期变量（vite 注入，见 `.env.example`，本地写进 `.env.local` 不进 git）：`VITE_POSTHOG_KEY`（PostHog Project API Key，留空则不启用回放）、`VITE_POSTHOG_HOST`（默认 `https://us.i.posthog.com`）。这两个变量会打进 bundle，只能放 Project API Key 这类公开 key，不能放 secret。
+前端构建期变量（vite 从 `.dev.vars` 只取 `VITE_*` 注入）：`VITE_POSTHOG_KEY`（PostHog Project API Key，留空则不启用回放）、`VITE_POSTHOG_HOST`（默认 `https://us.i.posthog.com`）。这两个变量会打进 bundle，只能放 Project API Key 这类公开 key，不能放 secret。
 
 ## D1 数据结构（`worker/schema.sql`）
 
@@ -291,6 +350,11 @@ D1 english-study-sync（wrangler.toml 绑定为 DB；沿用同步时代建好的
   kv                    一整份 JSON 存一行：vocab-labels / study-goal / print-batches / prefetch-state
   dict_cache            一个词一行 entry_json + status（`ok` / `partial`；冗余列，只为统计和
                         运维查询，行为判断仍以 entry_json 里的 status 为准）
+  recite_tasks          周任务（week_start 唯一；per_session_count / session_count / capacity / config_version）
+  recite_task_words     任务词池快照（主键 task_id+word；词、中文、list_id、position、spelling_enabled）
+  recite_sessions       一次学习（task_id+session_index 唯一；status / cursor / completed_at）
+  recite_cards          卡片与结果（session_id+position 唯一；card_type / result / request_id 唯一）
+  recite_card_drafts    学生端暂存的判定（主键 session_id+card_id；不推进轮次，家长 commit 后删除）
 
 STRICT 表。schema 由 `npx wrangler d1 execute english-study-sync --remote --file=worker/schema.sql`
 一次性建好，Worker 运行时不做 DDL。本地 `cache/study-history.sqlite` 已迁移进 D1
@@ -336,6 +400,24 @@ applyReview() 是打卡的唯一实现：列表打卡（/api/lists/:id/review）
 **时区**：Workers 进程时区是 UTC，「今天 0 点」必须按用户时区算——`startOfDay` / `startOfWeek` 加 `DICT_TZ_OFFSET_HOURS`（默认 +8）偏移后取 UTC 0 点再减回来。改这块先跑测试：测试把偏移设成本机时区，用本地 `startOfDayMs` 逐值对照。
 
 `nextDueAt` / `state` / `weekStart` 都是读接口时算的派生字段，不写进表。到期判断只比「天」。前端 StudyPage 把逾期词折叠进「今天 / 本周」，且只有当前这一天 / 这一周允许打卡。
+
+## 背词任务（recite，`worker/src/recite.js`）
+
+```
+配置端 #/recite/tasks：ReciteTasksPage 一周一行列表 → 某周无任务时弹 ReciteTaskPanel 选词 →
+      POST /api/recite/preview（只算）→ PUT /api/recite/task（存快照）
+      容量 = 每次单词数 × 学习次数；超出部分丢弃（不删学习列表），不足按学习成果最近学习逆序自动填充
+      任务词池：每词一张 meaning 卡；spelling_enabled 的词再加一张 spelling 卡
+      顺序按 stableHash(taskId|sessionIndex|word|type) 排，避开连续 3 张拼写卡
+学生端 #/recite：POST sessions/start → 点会 / 不会 / 拼写只 POST sessions/:id/drafts（不推进轮次）
+家长端：入口在 #/recite/tasks 任务列表行内——进行中的那一次直接显示草稿判定，行右侧「保存」提交 commit；
+      已完成的次数在单词后直接显示判定（history 按周 / 第几次归组 + sessions/active 的卡片与草稿）
+      → 点「保存」POST sessions/:id/commit（30 张一批，requestId 幂等）
+```
+
+背词不新增第二套排期：`stage` / `nextDueAt` / `state` 仍只从 `list_words` + `review.js` 派生。任务已开始
+（存在 active / completed 会话）后改词池一律 409，已完成的会话与卡片顺序作为历史保留。设计取舍见
+`docs/decisions/001-recite-sessions.md`。
 
 ## 词典链路（云端：缓存 → 外部）
 
@@ -433,6 +515,8 @@ npx wrangler d1 execute english-study-sync --remote --file=worker/schema.sql
 npx wrangler d1 execute english-study-sync --remote --file=worker/migrations/001-dict-cache-status.sql
 # 学习数据定向查询索引与默认列表初始化（一次性，上线新版本前跑）
 npx wrangler d1 execute english-study-sync --remote --file=worker/migrations/002-study-query-indexes.sql
+# 背单词喇叭的发音缓存表（一次性；不跑也能发音，只是不缓存）
+npx wrangler d1 execute english-study-sync --remote --file=worker/migrations/006-tts-cache.sql
 
 # 迁移完成后再发布使用新结构的 Worker
 npx wrangler deploy                            # 部署 Worker + 静态资源（dist）
@@ -446,12 +530,14 @@ npx wrangler d1 execute english-study-sync --remote --file=migration.sql
 npx wrangler secret put API_TOKEN
 npx wrangler secret put BAIDU_TRANSLATE_API_KEY
 npx wrangler secret put BAIDU_TRANSLATE_APP_ID
+npx wrangler secret put GOOGLE_TTS_API_KEY          # 背单词喇叭；不配时点喇叭会提示缺这个密钥
 
 # 本地开发（读写的是一份独立的本地 D1，落在 .wrangler/state，不碰线上库）
-npm run dev                                    # wrangler dev(8787) + vite(5173)，vite 的 /api 代理到 8787
+npm run dev                                    # wrangler dev(8788) + vite(5173)，vite 的 /api 代理到 8788
 npm run db:local:sync                          # 从远端导出表结构和数据，创建或刷新本地 D1
-# 本地 wrangler dev 的 secret / vars 读 .dev.vars（不进 git）：API_TOKEN 必填（本地随便设一个），
-# 没有它 /api/* 直接 500；DICT_NO_NETWORK=1 可断网只吃缓存；百度密钥填了本地查词才有中文
+# 本地 wrangler dev 的 secret / vars 读 .dev.vars（不进 git，且只给 wrangler 用）：API_TOKEN 必填（本地随便设一个），
+# 没有它 /api/* 直接 500；DICT_NO_NETWORK=1 可断网只吃缓存；百度密钥 / GOOGLE_TTS_API_KEY 填了本地才有中文和发音。
+# 同一份 .dev.vars 也供 vite（只取 VITE_*）和 study CLI（只取 STUDY_*）读取。
 ```
 
 ## 验证清单

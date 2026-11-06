@@ -179,6 +179,16 @@ function printable(entry: CachedEntry | undefined): boolean {
   return !!entry.phonetic && !!entry.translation
 }
 
+/**
+ * 把音标统一成 /.../：加入学习列表时的旧快照可能没有首尾斜杠，直接显示不像音标；
+ * 本身已带斜杠的（含句子逐词拼接出的音标）原样保留。
+ */
+function normalizePhonetic(value: string | undefined): string | undefined {
+  const text = String(value ?? '').trim()
+  if (!text) return undefined
+  return text.includes('/') ? text : '/' + text + '/'
+}
+
 /** 自动挑释义时最多印几条，印太多卡片就看不清了 */
 const AUTO_SENSE_LIMIT = 3
 
@@ -276,7 +286,7 @@ export async function fetchCards(
         ? item.displayText.trim()
         : undefined,
       type: item.type,
-      phonetic: item.phonetic || entry?.phonetic,
+      phonetic: normalizePhonetic(item.phonetic || entry?.phonetic),
       translation: item.translation || entry?.translation,
       libraryLabels: item.libraryLabels
         ?.map(label => label.trim())
@@ -851,9 +861,13 @@ const AB_PRINT_CSS = [
   '.weekly-module { width: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0; background: transparent; }',
   '.weekly-module__title { display: flex; align-items: baseline; gap: 2mm; margin: 0 0 2mm; color: #475569; font-size: 11px; font-weight: 700; letter-spacing: .08em; }',
   '.weekly-module__title::after { content: ""; height: 1px; flex: 1; background: #e2e8f0; }',
-  '.weekly-reading-words { display: flex; flex-wrap: wrap; gap: 2mm 5mm; align-content: start; }',
-  '.weekly-word { display: block; max-width: 100%; border: 0; border-radius: 0; padding: 1mm 0; background: transparent; color: #1f2937; font: inherit; font-size: var(--weekly-word-size, 20px); font-weight: 600; line-height: 1.25; text-align: left; overflow-wrap: anywhere; word-break: break-word; white-space: normal; cursor: pointer; }',
-  '.weekly-word--sentence { flex: 1 1 100%; }',
+  '.weekly-reading-words { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2mm 5mm; align-content: start; }',
+  '.weekly-sentences { display: flex; flex-direction: column; gap: 2mm; margin-top: 3mm; }',
+  '.weekly-word { display: grid; grid-template-columns: 8mm minmax(0, 1fr); column-gap: 2mm; align-items: baseline; max-width: 100%; border: 0; border-radius: 0; padding: 1mm 0; background: transparent; color: #1f2937; font: inherit; font-size: var(--weekly-word-size, 20px); font-weight: 600; line-height: 1.25; text-align: left; overflow-wrap: anywhere; word-break: break-word; white-space: normal; cursor: pointer; }',
+  '.weekly-word--sentence { display: block; }',
+  '.weekly-index { color: #94a3b8; font-weight: 400; font-size: .8em; }',
+  '.weekly-answer__head { display: flex; align-items: baseline; gap: 2mm; }',
+  '.weekly-answer-item .weekly-index { color: #64748b; font-size: 13px; }',
   '.weekly-word.is-spelling { color: #1d4ed8; }',
   '.weekly-spelling-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2mm 4mm; min-height: 8mm; }',
   '.weekly-spelling-item { min-height: 7mm; color: #1f2937; font-size: 17px; font-weight: 600; line-height: 1.25; }',
@@ -1161,16 +1175,23 @@ export function buildWeeklyABPrintHtml(cards: FlashCard[], options: WeeklyABPrin
     .join('')
 
   const renderGroup = (group: { key: string; label: string; cards: FlashCard[] }, answer: boolean) => {
-    const reading = group.cards.map(card => answer
+    // 单词带序号排两列；句子单独一列整行显示，避免长短句把两列网格撑乱。
+    const wordCards = group.cards.filter(card => card.type !== 'sentence')
+    const sentenceCards = group.cards.filter(card => card.type === 'sentence')
+    const readingWords = wordCards.map((card, index) => answer
+      ? '<div class="weekly-answer-item"><div class="weekly-answer__head"><span class="weekly-index">' + (index + 1) + '</span><strong>' + escHtml(cardLabel(card)) + '</strong></div><span>' + escHtml(card.phonetic || '—') + '</span><span>' + escHtml(card.translation || '—') + '</span></div>'
+      : '<button type="button" class="weekly-word' + (selected.has(keyOf(card.word)) ? ' is-spelling' : '') + '" data-weekly-word="' + escHtml(card.word) + '" data-weekly-label="' + escHtml(cardLabel(card)) + '" data-weekly-phonetic="' + escHtml(card.phonetic || '—') + '" data-weekly-translation="' + escHtml(card.translation || '—') + '"><span class="weekly-index">' + (index + 1) + '</span>' + escHtml(cardLabel(card)) + '</button>').join('')
+    const readingSentences = sentenceCards.map(card => answer
       ? '<div class="weekly-answer-item"><strong>' + escHtml(cardLabel(card)) + '</strong><span>' + escHtml(card.phonetic || '—') + '</span><span>' + escHtml(card.translation || '—') + '</span></div>'
-      : '<button type="button" class="weekly-word' + (card.type === 'sentence' ? ' weekly-word--sentence' : '') + (selected.has(keyOf(card.word)) ? ' is-spelling' : '') + '" data-weekly-word="' + escHtml(card.word) + '" data-weekly-label="' + escHtml(cardLabel(card)) + '" data-weekly-phonetic="' + escHtml(card.phonetic || '—') + '" data-weekly-translation="' + escHtml(card.translation || '—') + '">' + escHtml(cardLabel(card)) + '</button>').join('')
+      : '<button type="button" class="weekly-word weekly-word--sentence' + (selected.has(keyOf(card.word)) ? ' is-spelling' : '') + '" data-weekly-word="' + escHtml(card.word) + '" data-weekly-label="' + escHtml(cardLabel(card)) + '" data-weekly-phonetic="' + escHtml(card.phonetic || '—') + '" data-weekly-translation="' + escHtml(card.translation || '—') + '">' + escHtml(cardLabel(card)) + '</button>').join('')
+    const reading = '<div class="weekly-reading-words' + (answer ? ' weekly-answer' : '') + '">' + readingWords + '</div>' + (readingSentences ? '<div class="weekly-sentences' + (answer ? ' weekly-answer' : '') + '">' + readingSentences + '</div>' : '')
     const spelling = answer
       ? renderAnswers(group, true)
       : group.cards.filter(card => selected.has(keyOf(card.word)))
         .map(card => '<div class="weekly-spelling-item">' + escHtml(cardLabel(card)) + '</div>').join('')
     return '<section class="weekly-group" data-weekly-group="' + escHtml(group.key) + '">' +
       '<h2 class="weekly-group__title">' + escHtml(group.label) + '</h2>' +
-      '<div class="weekly-module"><h3 class="weekly-module__title">会读</h3><div class="weekly-reading-words' + (answer ? ' weekly-answer' : '') + '">' + reading + '</div></div>' +
+      '<div class="weekly-module"><h3 class="weekly-module__title">会读</h3>' + reading + '</div>' +
       '<div class="weekly-module"><h3 class="weekly-module__title">学习拼写</h3><div class="weekly-spelling-list' + (answer ? ' weekly-answer' : '') + '" data-weekly-spelling-list>' + spelling + (spelling ? '' : '<span class="weekly-spelling-empty">点击上面的单词加入拼写练习</span>') + '</div></div>' +
       '</section>'
   }

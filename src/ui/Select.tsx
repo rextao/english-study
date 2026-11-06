@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import type { KeyboardEvent, ReactNode } from 'react'
 import { useDismiss } from './useDismiss'
 import type { ComponentSize } from './Button'
@@ -24,6 +24,43 @@ export interface SelectProps {
   'aria-label'?: string
 }
 
+/** 下拉层与控件的间距、最大 / 最小高度 */
+const LIST_GAP = 6
+const LIST_MAX_HEIGHT = 260
+const LIST_MIN_HEIGHT = 120
+
+interface ListRect {
+  top: number
+  left: number
+  width: number
+  maxHeight: number
+}
+
+/**
+ * 下拉层的视口坐标：下方放不下就向上展开，横向夹在视口里。
+ * 因为层固定按视口定位，放进弹窗 / 滚动容器也不会把容器撑出滚动条或被裁掉。
+ */
+function measureList(control: HTMLElement | null): ListRect | null {
+  if (!control) return null
+  const rect = control.getBoundingClientRect()
+  const below = window.innerHeight - rect.bottom - LIST_GAP - 8
+  const above = rect.top - LIST_GAP - 8
+  const openUp = below < Math.min(LIST_MAX_HEIGHT, LIST_MIN_HEIGHT) && above > below
+  const maxHeight = Math.max(LIST_MIN_HEIGHT / 2, Math.min(LIST_MAX_HEIGHT, openUp ? above : below))
+  return {
+    top: openUp ? rect.top - LIST_GAP - maxHeight : rect.bottom + LIST_GAP,
+    left: Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8)),
+    width: rect.width,
+    maxHeight,
+  }
+}
+
+function sameRect(a: ListRect | null, b: ListRect | null) {
+  if (a === b) return true
+  if (!a || !b) return false
+  return a.top === b.top && a.left === b.left && a.width === b.width && a.maxHeight === b.maxHeight
+}
+
 /** 单选下拉。键盘与 ARIA 行为对齐 select-only combobox（WAI-ARIA 1.2）。 */
 export function Select({
   value,
@@ -40,8 +77,11 @@ export function Select({
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
   const rootRef = useRef<HTMLDivElement | null>(null)
+  const controlRef = useRef<HTMLButtonElement | null>(null)
   const listRef = useRef<HTMLUListElement | null>(null)
   const listId = useId()
+  /** 展开时按视口算出的下拉层坐标，没算好之前先藏起来，避免闪一下错位 */
+  const [listRect, setListRect] = useState<ListRect | null>(null)
 
   const selectedIndex = options.findIndex((option) => option.value === value)
   const selected = selectedIndex >= 0 ? options[selectedIndex] : undefined
@@ -54,6 +94,22 @@ export function Select({
     if (!open) return
     setActiveIndex(selectedIndex >= 0 ? selectedIndex : options.findIndex((option) => !option.disabled))
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  // 展开期间跟着滚动 / 缩放重新定位（捕获阶段监听，容器内部滚动也算）
+  useLayoutEffect(() => {
+    if (!open) { setListRect(null); return }
+    function update() {
+      const next = measureList(controlRef.current)
+      setListRect(current => (sameRect(current, next) ? current : next))
+    }
+    update()
+    window.addEventListener('scroll', update, true)
+    window.addEventListener('resize', update)
+    return () => {
+      window.removeEventListener('scroll', update, true)
+      window.removeEventListener('resize', update)
+    }
   }, [open])
 
   // 高亮项滚动进可视区域
@@ -145,6 +201,7 @@ export function Select({
   return (
     <div className={classes} ref={rootRef}>
       <button
+        ref={controlRef}
         type="button"
         id={id}
         className="ui-select__control"
@@ -165,7 +222,20 @@ export function Select({
       </button>
 
       {open && (
-        <ul className="ui-select__list" id={listId} role="listbox" ref={listRef} aria-label={ariaLabel}>
+        <ul
+          className="ui-select__list"
+          id={listId}
+          role="listbox"
+          ref={listRef}
+          aria-label={ariaLabel}
+          style={{
+            top: listRect?.top ?? 0,
+            left: listRect?.left ?? 0,
+            width: listRect?.width,
+            maxHeight: listRect?.maxHeight,
+            visibility: listRect ? 'visible' : 'hidden',
+          }}
+        >
           {options.length === 0 && <li className="ui-select__empty">暂无选项</li>}
           {options.map((option, index) => (
             <li

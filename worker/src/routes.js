@@ -31,6 +31,7 @@ import {
 } from './lists.js'
 import { progressRow } from './study-lists.js'
 import { enqueuePrefetch, enqueuePhoneticPrefetch, enqueueFullPhoneticPrefetch, currentPrefetchState } from './prefetch.js'
+import { synthesizeSpeech, ttsStatus, MAX_TTS_TEXT_LENGTH } from './tts.js'
 
 /**
  * 列表名：lists 表里有这一行就用行里的名字；没有时只有默认列表兜底，
@@ -301,6 +302,15 @@ export async function handleApi(method, pathname, searchParams, body, app) {
 
   if (method === 'GET' && pathname === '/api/cache/stats') {
     return { status: 200, body: await cacheStats(app) }
+  }
+
+  // GET /api/tts?text=word  — 单词发音（Google TTS，base64 MP3）；GET /api/tts/status 只看能不能用
+  if (method === 'GET' && pathname === '/api/tts/status') {
+    return { status: 200, body: { ...ttsStatus(app), limit: MAX_TTS_TEXT_LENGTH } }
+  }
+
+  if (method === 'GET' && pathname === '/api/tts') {
+    return synthesizeSpeech(app, searchParams.get('text'))
   }
 
   // GET /api/dict/sources  — 查词链路状态：能不能联网、缓存多少、百度密钥配没配
@@ -779,6 +789,111 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     if (!word) return { status: 400, body: { error: 'missing ?word=' } }
     const found = (await app.listsStore.listIdsForWord(word)).map(row => row.list_id)
     return { status: 200, body: { word, listIds: found } }
+  }
+
+  // ── Recite：配置端任务与学生端会话 ───────────────────────────────────────
+  // GET /api/recite/tasks — 全部背词任务，配置页按周列表和学习页月历标记共用
+  if (method === 'GET' && pathname === '/api/recite/tasks') {
+    return { status: 200, body: { tasks: await app.recite.listTasks() } }
+  }
+
+  if (method === 'GET' && pathname === '/api/recite/task') {
+    const rawWeek = searchParams.get('weekStart')
+    let current = null
+    if (rawWeek === null) {
+      current = await app.recite.currentTask(env)
+    } else {
+      const weekStart = Number(rawWeek)
+      if (!Number.isFinite(weekStart)) return { status: 400, body: { error: 'weekStart 无效' } }
+      current = await app.recite.getTask(weekStart)
+    }
+    return { status: 200, body: { task: await app.recite.taskPayload(current) } }
+  }
+
+  if (method === 'POST' && pathname === '/api/recite/preview') {
+    try {
+      const result = await app.recite.preview({
+        env,
+        weekStart: body?.weekStart,
+        perSessionCount: body?.perSessionCount,
+        sessionCount: body?.sessionCount,
+        selections: body?.selections,
+        excludeWords: body?.excludeWords,
+      })
+      return { status: 200, body: { ok: true, ...result } }
+    } catch (error) {
+      return { status: 400, body: { ok: false, error: error?.message || '选词预览失败' } }
+    }
+  }
+
+  // PUT /api/recite/task — 带 session 时只改这一次学习的单词，整周任务已经开始也能改没开始的那一次
+  if (method === 'PUT' && pathname === '/api/recite/task') {
+    try {
+      const result = body?.session != null
+        ? await app.recite.saveSessionWords({
+            env,
+            weekStart: body?.weekStart,
+            session: body?.session,
+            selections: body?.selections,
+            spellingWords: body?.spellingWords,
+          })
+        : await app.recite.saveTask({
+            env,
+            weekStart: body?.weekStart,
+            perSessionCount: body?.perSessionCount,
+            sessionCount: body?.sessionCount,
+            selections: body?.selections,
+            excludeWords: body?.excludeWords,
+            spellingWords: body?.spellingWords,
+          })
+      return { status: 200, body: { ok: true, ...result } }
+    } catch (error) {
+      const started = error?.code === 'TASK_STARTED' || error?.code === 'SESSION_STARTED'
+      return { status: started ? 409 : 400, body: { ok: false, error: error?.message || '任务保存失败' } }
+    }
+  }
+
+  // GET /api/recite/sessions/active  — 家长端读当前待确认会话（含草稿）
+  if (method === 'GET' && pathname === '/api/recite/sessions/active') {
+    return { status: 200, body: await app.recite.activeSession(env) }
+  }
+
+  // GET /api/recite/history?limit=  — 已保存的背诵记录（哪天背了哪些词、结果如何）
+  if (method === 'GET' && pathname === '/api/recite/history') {
+    return { status: 200, body: await app.recite.history(searchParams.get('limit')) }
+  }
+
+  if (method === 'POST' && pathname === '/api/recite/sessions/start') {
+    try {
+      const result = await app.recite.startSession(app, env)
+      return { status: 200, body: result }
+    } catch (error) {
+      return { status: 500, body: { ok: false, error: error?.message || '学习任务启动失败' } }
+    }
+  }
+
+  // 点会 / 不会先落草稿（不推进轮次），家长换设备也能读回并确认
+  const reciteDraftsMatch = pathname.match(/^\/api\/recite\/sessions\/([^/]+)\/drafts$/)
+  if (reciteDraftsMatch) {
+    const sessionId = decodeURIComponent(reciteDraftsMatch[1])
+    if (method === 'GET') return await app.recite.getDrafts(sessionId)
+    if (method === 'POST') return await app.recite.saveDraft(sessionId, body)
+  }
+
+  // 家长确认后统一提交：一次请求按卡片顺序落库，复习轮次在此时才推进
+  const reciteCommitMatch = pathname.match(/^\/api\/recite\/sessions\/([^/]+)\/commit$/)
+  if (method === 'POST' && reciteCommitMatch) {
+    return await app.recite.commitSession(app, decodeURIComponent(reciteCommitMatch[1]), body)
+  }
+
+  const reciteResultMatch = pathname.match(/^\/api\/recite\/sessions\/([^/]+)\/cards\/([^/]+)\/(result|spelling)$/)
+  if (method === 'POST' && reciteResultMatch) {
+    const sessionId = decodeURIComponent(reciteResultMatch[1])
+    const cardId = decodeURIComponent(reciteResultMatch[2])
+    const bodyInput = reciteResultMatch[3] === 'spelling'
+      ? { ...body, result: body?.result || (body?.answer ? 'correct' : 'skipped') }
+      : body
+    return await app.recite.answerCard(app, sessionId, cardId, bodyInput)
   }
 
   // ── Study plan ────────────────────────────────────────────────────────

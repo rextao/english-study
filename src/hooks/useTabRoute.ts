@@ -1,13 +1,25 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { TabKey } from '../components/Nav'
 
-const TAB_KEYS: TabKey[] = ['search', 'lists', 'settings', 'achievements', 'records', 'study', 'goal', 'passages', 'recite']
+const TAB_KEYS: TabKey[] = [
+  'search', 'lists', 'settings', 'achievements', 'records', 'study', 'goal', 'passages', 'recite', 'recite-parent',
+  'recite-tasks',
+]
 const DEFAULT_TAB: TabKey = 'search'
+
+/** 家长确认页与背词配置页用更好读的二级路径，其余还是 #/<tab> */
+function tabHash(tab: TabKey) {
+  if (tab === 'recite-parent') return '#/recite/parent'
+  if (tab === 'recite-tasks') return '#/recite/tasks'
+  return '#/' + tab
+}
 
 /** 老书签兼容：批量导入并进了查词页，词库页并进了设置页 */
 const LEGACY_TABS: Record<string, TabKey> = {
   import: 'search',
   libraries: 'settings',
+  'recite/parent': 'recite-parent',
+  'recite/tasks': 'recite-tasks',
 }
 
 /** 从 #/lists 这种 hash 里取出页面名，认不出来就回落到查词页 */
@@ -29,7 +41,7 @@ export function useTabRoute(): [TabKey, (next: TabKey) => void] {
 
   // 首次进入时把地址栏补成规范形式（空 hash 或非法 hash），用 replace 不留历史记录
   useEffect(() => {
-    const normalized = '#/' + parseHash()
+    const normalized = tabHash(parseHash())
     if (window.location.hash !== normalized) {
       window.history.replaceState(null, '', normalized)
     }
@@ -45,7 +57,7 @@ export function useTabRoute(): [TabKey, (next: TabKey) => void] {
   // 点导航是一次新的跳转，用 push，这样后退键能回到上一个页面
   const go = useCallback((next: TabKey) => {
     setTab(next)
-    const target = '#/' + next
+    const target = tabHash(next)
     if (window.location.hash !== target) {
       window.history.pushState(null, '', target)
     }

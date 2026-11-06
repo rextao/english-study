@@ -15,6 +15,7 @@
 #     npx wrangler secret put API_TOKEN
 #     npx wrangler secret put BAIDU_TRANSLATE_API_KEY
 #     npx wrangler secret put BAIDU_TRANSLATE_APP_ID
+#     npx wrangler secret put GOOGLE_TTS_API_KEY   # 背单词页的喇叭（Google Cloud Text-to-Speech）
 name = "english-study"
 main = "./worker/src/index.js"
 compatibility_date = "2026-10-08"

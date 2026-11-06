@@ -108,8 +108,97 @@ CREATE TABLE IF NOT EXISTS dict_cache (
   status TEXT NOT NULL DEFAULT 'partial'
 ) STRICT;
 
+-- 开始背单词：周任务、学习会话和卡片状态。任务词池与学习列表词条分开，
+-- 只保存任务快照和会话进度，不替代 list_words 的复习排期。
+CREATE TABLE IF NOT EXISTS recite_tasks (
+  id TEXT PRIMARY KEY,
+  week_start INTEGER NOT NULL UNIQUE,
+  week_end INTEGER NOT NULL,
+  per_session_count INTEGER NOT NULL,
+  session_count INTEGER NOT NULL,
+  capacity INTEGER NOT NULL,
+  config_version INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS recite_task_words (
+  task_id TEXT NOT NULL REFERENCES recite_tasks(id) ON DELETE CASCADE,
+  word TEXT NOT NULL,
+  list_id TEXT NOT NULL,
+  position INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  display_text TEXT,
+  translation TEXT,
+  source_type TEXT NOT NULL,
+  source_group TEXT,
+  source_last_at INTEGER,
+  spelling_enabled INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (task_id, word)
+) STRICT;
+CREATE INDEX IF NOT EXISTS idx_recite_task_words_position ON recite_task_words(task_id, position);
+
+CREATE TABLE IF NOT EXISTS recite_sessions (
+  id TEXT PRIMARY KEY,
+  task_id TEXT NOT NULL REFERENCES recite_tasks(id) ON DELETE CASCADE,
+  session_index INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  cursor INTEGER NOT NULL DEFAULT 0,
+  card_count INTEGER NOT NULL DEFAULT 0,
+  completed_count INTEGER NOT NULL DEFAULT 0,
+  started_at INTEGER,
+  completed_at INTEGER,
+  completion_request_id TEXT UNIQUE,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  UNIQUE(task_id, session_index)
+) STRICT;
+CREATE INDEX IF NOT EXISTS idx_recite_sessions_task_status ON recite_sessions(task_id, status, session_index);
+
+CREATE TABLE IF NOT EXISTS recite_cards (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL REFERENCES recite_sessions(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL,
+  word TEXT NOT NULL,
+  list_id TEXT NOT NULL,
+  card_type TEXT NOT NULL,
+  display_text TEXT,
+  translation TEXT,
+  answer TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  result TEXT,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  request_id TEXT UNIQUE,
+  answered_at INTEGER,
+  UNIQUE(session_id, position)
+) STRICT;
+CREATE INDEX IF NOT EXISTS idx_recite_cards_session_status ON recite_cards(session_id, status, position);
+
+-- 点「会 / 不会」先落草稿：不推进轮次，家长换设备也能读回计数并确认
+CREATE TABLE IF NOT EXISTS recite_card_drafts (
+  session_id TEXT NOT NULL REFERENCES recite_sessions(id) ON DELETE CASCADE,
+  card_id TEXT NOT NULL REFERENCES recite_cards(id) ON DELETE CASCADE,
+  result TEXT NOT NULL,
+  answer TEXT,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (session_id, card_id)
+) STRICT;
+
 -- /api/dict/sources 的缓存统计按 status 计数，不必再读整张表的 entry_json 逐条解析
 CREATE INDEX IF NOT EXISTS idx_dict_cache_status ON dict_cache(status);
+
+-- 单词发音缓存（Google TTS 合成的 MP3，base64 存一行）；按「音色|文本」命中
+CREATE TABLE IF NOT EXISTS tts_cache (
+  cache_key TEXT PRIMARY KEY,
+  text TEXT NOT NULL,
+  mime TEXT NOT NULL DEFAULT 'audio/mpeg',
+  audio_base64 TEXT NOT NULL,
+  cached_at INTEGER NOT NULL
+) STRICT;
+
+CREATE INDEX IF NOT EXISTS idx_tts_cache_cached_at ON tts_cache(cached_at);
 
 -- 快照同步机制已随「后端上云」退役，旧表直接丢弃
 DROP TABLE IF EXISTS sync_snapshot;

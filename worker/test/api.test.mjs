@@ -1524,7 +1524,7 @@ r = await call('GET', '/api/dict?word=apple')
 check('命中 my_words.csv 时直接返回本地中文词义',
   r.body?.translation?.includes('苹果')
   && r.body?.source === 'my-words'
-  && r.body?.phonetic === "'æpl"
+  && r.body?.phonetic === "/'æpl/"
   && !r.body.translation.includes('\\n')
   && r.body.senses.length >= 2, r.body)
 check('命中 my_words.csv 时不调用任何外部词典 API', fetchCalls.length === 0, fetchCalls)
@@ -1750,6 +1750,61 @@ check('迁移建出 status 索引',
 
 globalThis.fetch = oldFetch
 
+// ── 单词发音（Google TTS，mock 上游，不访问真实网络）──────────────────────
+
+console.log('')
+console.log('单词发音')
+
+const ttsCtx = makeContext({
+  DICT_NO_NETWORK: '0',
+  GOOGLE_TTS_API_KEY: 'tts-test-key',
+  GOOGLE_TTS_API_URL: 'http://tts.mock/synthesize',
+})
+use(ttsCtx)
+
+r = await call('GET', '/api/tts/status')
+check('配好密钥后喇叭可用',
+  r.status === 200 && r.body?.available === true && r.body?.configured === true
+  && r.body?.limit === 160, r.body)
+
+const ttsCalls = []
+globalThis.fetch = async (url, options = {}) => {
+  const target = String(url)
+  ttsCalls.push({ url: target, options })
+  if (!target.startsWith('http://tts.mock/synthesize')) throw new Error('unexpected mock URL: ' + target)
+  return { ok: true, status: 200, async json() { return { audioContent: 'SUQzBAAAAAAA' } } }
+}
+
+r = await call('GET', '/api/tts?text=apple')
+check('合成接口返回 base64 MP3',
+  r.status === 200 && r.body?.audio === 'SUQzBAAAAAAA' && r.body?.mime === 'audio/mpeg'
+  && r.body?.cached === false, r.body)
+const ttsBody = JSON.parse(ttsCalls[0]?.options?.body || '{}')
+check('TTS 请求带文本、英文音色和 MP3 编码',
+  ttsBody.input?.text === 'apple' && ttsBody.voice?.languageCode === 'en-US'
+  && ttsBody.audioConfig?.audioEncoding === 'MP3', ttsBody)
+check('TTS 密钥走查询参数', String(ttsCalls[0]?.url).includes('key=tts-test-key'), ttsCalls[0]?.url)
+
+ttsCalls.length = 0
+r = await call('GET', '/api/tts?text=apple')
+check('同一个词第二次直接读 D1 缓存，不再打外网',
+  r.status === 200 && r.body?.cached === true && ttsCalls.length === 0,
+  { body: r.body, calls: ttsCalls.length })
+
+r = await call('GET', '/api/tts?text=')
+check('空文本直接拒绝', r.status === 400, r.body)
+r = await call('GET', '/api/tts?text=' + 'a'.repeat(200))
+check('超长文本直接拒绝', r.status === 400 && r.body?.limit === 160, r.body)
+
+globalThis.fetch = oldFetch
+
+use(makeContext({ DICT_NO_NETWORK: '0' }))
+r = await call('GET', '/api/tts/status')
+check('没配密钥时喇叭标记为不可用',
+  r.status === 200 && r.body?.available === false && r.body?.configured === false, r.body)
+r = await call('GET', '/api/tts?text=apple')
+check('没配密钥时合成接口回 503', r.status === 503, r.body)
+
 // ── 短文学习：严格匹配、保存与批量熟悉度标记 ─────────────────────────────────
 
 console.log('')
@@ -1785,6 +1840,266 @@ r = await call('GET', '/api/study/achievements')
 const passageAchievements = achievementItems(r.body)
 const appleAchievement = passageAchievements.find(item => item.word === 'apple')
 check('短文标记进入成果统计但不依赖学习列表', appleAchievement?.readingCount === 1 && appleAchievement?.rememberedCount === 1, appleAchievement)
+
+// ── 开始背单词：任务容量、成果填充、会话恢复和卡片幂等 ─────────────────────
+
+console.log('')
+console.log('开始背单词')
+
+const reciteCtx = makeContext()
+use(reciteCtx)
+r = await call('POST', '/api/lists', { name: 'Recite test' })
+const reciteListId = r.body?.id
+r = await call('POST', '/api/lists/' + reciteListId + '/import', {
+  items: [
+    { text: 'apple', translation: '苹果' },
+    { text: 'banana', translation: '香蕉' },
+  ],
+})
+check('背词任务测试词准备完成', r.body?.added === 2, r.body)
+r = await call('POST', '/api/lists/' + reciteListId + '/start', { words: ['banana'], startedAt: Date.now() - 10 * 86400000 })
+check('背词成果候选准备完成', r.body?.started === 1, r.body)
+r = await call('POST', '/api/lists/' + reciteListId + '/review', { words: ['banana'], action: 'done' })
+check('背词成果候选有最近学习时间', r.body?.ok === true, r.body)
+
+r = await call('POST', '/api/recite/preview', {
+  perSessionCount: 2,
+  sessionCount: 1,
+  selections: [{ listId: reciteListId, word: 'apple' }],
+})
+check('背词任务容量不足从学习成果自动填充',
+  r.status === 200 && r.body?.autoFilled?.some(item => item.word === 'banana')
+  && r.body?.gap === 0, r.body)
+
+r = await call('PUT', '/api/recite/task', {
+  perSessionCount: 2,
+  sessionCount: 1,
+  selections: [{ listId: reciteListId, word: 'apple' }],
+  spellingWords: ['apple'],
+})
+check('保存背词任务和拼写配置', r.status === 200 && r.body?.task?.words?.length === 2, r.body)
+r = await call('GET', '/api/recite/task')
+check('背词任务可读回且保存拼写标记',
+  r.status === 200 && r.body?.task?.words?.some(item => item.word === 'apple' && item.spellingEnabled), r.body)
+const singleWeekStart = r.body?.task?.weekStart
+
+r = await call('GET', '/api/recite/tasks')
+check('背词任务列表一次取齐本周任务',
+  r.status === 200 && Array.isArray(r.body?.tasks)
+  && r.body.tasks.length === 1
+  && r.body.tasks[0].weekStart === singleWeekStart
+  && r.body.tasks[0].words?.length === 2
+  && r.body.tasks[0].completedSessions === 0, r.body)
+// 单周读回与列表里的同一周保持一致
+const singleWeekTask = (await call('GET', '/api/recite/task?weekStart=' + r.body.tasks[0].weekStart)).body?.task
+check('背词任务列表与单周读回一致',
+  singleWeekTask?.id === r.body.tasks[0].id && singleWeekTask?.words?.length === 2, singleWeekTask)
+
+r = await call('POST', '/api/recite/sessions/start')
+let recitePayload = r.body
+check('背词学习会话直接开始',
+  r.status === 200 && recitePayload?.session?.status === 'active' && recitePayload?.card?.id, recitePayload)
+const firstCardId = recitePayload?.card?.id
+const firstRequestId = 'recite-test-' + firstCardId
+const firstResult = recitePayload?.card?.cardType === 'spelling' ? 'correct' : 'known'
+r = await call('POST', '/api/recite/sessions/' + recitePayload.session.sessionId + '/cards/' + firstCardId + '/' + (firstResult === 'correct' ? 'spelling' : 'result'), {
+  result: firstResult,
+  answer: firstResult === 'correct' ? recitePayload.card.word : undefined,
+  requestId: firstRequestId,
+})
+check('背词卡片提交成功', r.status === 200 && r.body?.ok === true, r.body)
+const duplicateFirst = await call('POST', '/api/recite/sessions/' + recitePayload.session.sessionId + '/cards/' + firstCardId + '/' + (firstResult === 'correct' ? 'spelling' : 'result'), {
+  result: firstResult,
+  answer: firstResult === 'correct' ? recitePayload.card.word : undefined,
+  requestId: firstRequestId,
+})
+check('背词卡片重复提交幂等', duplicateFirst.status === 200 && duplicateFirst.body?.alreadyProcessed === true, duplicateFirst.body)
+
+while (r.body?.nextCard) {
+  const card = r.body.nextCard
+  const result = card.cardType === 'spelling' ? 'correct' : 'known'
+  r = await call('POST', '/api/recite/sessions/' + recitePayload.session.sessionId + '/cards/' + card.id + '/' + (result === 'correct' ? 'spelling' : 'result'), {
+    result,
+    answer: result === 'correct' ? card.word : undefined,
+    requestId: 'recite-test-' + card.id,
+  })
+}
+check('背词最后一张完成会话', r.status === 200 && r.body?.completed === true && r.body?.summary?.status === 'completed', r.body)
+
+console.log('')
+console.log('背词单行改词')
+
+const rowCtx = makeContext()
+use(rowCtx)
+r = await call('POST', '/api/lists', { name: 'Recite row test' })
+const rowListId = r.body?.id
+r = await call('POST', '/api/lists/' + rowListId + '/import', {
+  items: [
+    { text: 'apple', translation: '苹果' },
+    { text: 'banana', translation: '香蕉' },
+    { text: 'cherry', translation: '樱桃' },
+    { text: 'dog', translation: '狗' },
+    { text: 'egg', translation: '鸡蛋' },
+    { text: 'fish', translation: '鱼' },
+  ],
+})
+check('单行改词词条准备完成', r.body?.added === 6, r.body)
+r = await call('PUT', '/api/recite/task', {
+  perSessionCount: 2,
+  sessionCount: 2,
+  selections: ['apple', 'banana', 'cherry', 'dog'].map(word => ({ listId: rowListId, word })),
+  spellingWords: [],
+})
+const rowWeekStart = r.body?.task?.weekStart
+check('单行改词任务两行就绪',
+  r.status === 200
+  && (r.body?.task?.words || []).map(item => item.word).join() === 'apple,banana,cherry,dog', r.body)
+
+// 第一次学完 → 整周任务已经开始，第二次还没开始
+r = await call('POST', '/api/recite/sessions/start')
+const rowSessionId = r.body?.session?.sessionId
+const rowCards = r.body?.cards || []
+r = await call('POST', '/api/recite/sessions/' + rowSessionId + '/commit', {
+  answers: rowCards.map(card => ({ cardId: card.id, result: 'known', requestId: 'recite-row-' + card.id })),
+})
+check('单行改词第一次学习已完成', r.status === 200 && r.body?.completed === true, r.body)
+
+r = await call('PUT', '/api/recite/task', {
+  weekStart: rowWeekStart,
+  perSessionCount: 2,
+  sessionCount: 2,
+  selections: [{ listId: rowListId, word: 'apple' }],
+  spellingWords: [],
+})
+check('整周已开始后整周保存被拒绝', r.status === 409, r.body)
+
+r = await call('POST', '/api/recite/preview', {
+  perSessionCount: 2,
+  sessionCount: 1,
+  selections: [{ listId: rowListId, word: 'egg' }],
+  excludeWords: ['apple', 'banana'],
+})
+check('单行预览的自动填充避开其他次数的词',
+  r.status === 200
+  && !(r.body?.autoFilled || []).some(item => item.word === 'apple' || item.word === 'banana'), r.body)
+
+r = await call('PUT', '/api/recite/task', {
+  weekStart: rowWeekStart,
+  session: 2,
+  selections: [
+    { listId: rowListId, word: 'apple' },
+    { listId: rowListId, word: 'egg' },
+  ],
+  spellingWords: [],
+})
+check('单行改词不允许和别的次数重复', r.status === 400 && /apple/.test(r.body?.error || ''), r.body)
+
+r = await call('PUT', '/api/recite/task', {
+  weekStart: rowWeekStart,
+  session: 2,
+  selections: [
+    { listId: rowListId, word: 'egg' },
+    { listId: rowListId, word: 'fish' },
+  ],
+  spellingWords: ['egg'],
+})
+const rowWords = (r.body?.task?.words || []).map(item => item.word)
+check('整周已开始仍可改没开始的那一次',
+  r.status === 200 && rowWords.join() === 'apple,banana,egg,fish', r.body)
+check('单行改词后拼写配置落在这一行',
+  (r.body?.task?.words || []).some(item => item.word === 'egg' && item.spellingEnabled), r.body)
+
+r = await call('PUT', '/api/recite/task', {
+  weekStart: rowWeekStart,
+  session: 1,
+  selections: [{ listId: rowListId, word: 'cherry' }, { listId: rowListId, word: 'dog' }],
+  spellingWords: [],
+})
+check('已学过的次数不能改词', r.status === 409, r.body)
+
+console.log('')
+console.log('背词家长确认统一提交')
+
+const commitCtx = makeContext()
+use(commitCtx)
+r = await call('POST', '/api/lists', { name: 'Recite commit test' })
+const commitListId = r.body?.id
+r = await call('POST', '/api/lists/' + commitListId + '/import', {
+  items: [
+    { text: 'apple', translation: '苹果' },
+    { text: 'banana', translation: '香蕉' },
+  ],
+})
+check('统一提交词条准备完成', r.body?.added === 2, r.body)
+r = await call('PUT', '/api/recite/task', {
+  perSessionCount: 2,
+  sessionCount: 1,
+  selections: [
+    { listId: commitListId, word: 'apple' },
+    { listId: commitListId, word: 'banana' },
+  ],
+  spellingWords: [],
+})
+check('统一提交任务保存完成', r.status === 200 && r.body?.task?.words?.length === 2, r.body)
+r = await call('POST', '/api/recite/sessions/start')
+const commitSessionId = r.body?.session?.sessionId
+const commitCards = r.body?.cards || []
+check('统一提交前卡片全部未落库',
+  r.status === 200 && Boolean(commitSessionId) && commitCards.length === 2
+  && commitCards.every(card => card.status === 'pending'), r.body)
+for (const card of commitCards) {
+  r = await call('POST', '/api/recite/sessions/' + commitSessionId + '/drafts', {
+    cardId: card.id,
+    result: 'known',
+    attempts: 0,
+  })
+}
+check('点会 / 不会先写服务端草稿',
+  r.status === 200 && r.body?.counts?.known === 2, r.body)
+r = await call('GET', '/api/recite/sessions/' + commitSessionId + '/drafts')
+check('草稿能换设备读回',
+  r.status === 200 && r.body?.drafts?.length === 2
+  && r.body?.counts?.known === 2, r.body)
+r = await call('GET', '/api/recite/sessions/active')
+check('家长端能读到当前待确认会话',
+  r.status === 200 && r.body?.session?.sessionId === commitSessionId
+  && r.body?.drafts?.length === 2, r.body)
+r = await call('GET', '/api/study/plan')
+const draftPlanApple = (r.body?.items || []).find(item => item.word === 'apple')
+check('草稿不推进复习轮次',
+  !draftPlanApple || (draftPlanApple.stage === 0 && draftPlanApple.reviewCount === 0), draftPlanApple)
+const draftList = (await call('GET', '/api/recite/sessions/' + commitSessionId + '/drafts')).body?.drafts || []
+const commitAnswers = draftList.map(draft => ({
+  cardId: draft.cardId,
+  result: draft.result,
+  answer: draft.answer,
+  attempts: draft.attempts,
+  requestId: 'recite-commit-test|' + draft.cardId,
+}))
+r = await call('POST', '/api/recite/sessions/' + commitSessionId + '/commit', { answers: commitAnswers })
+check('家长确认后一次性提交完成会话',
+  r.status === 200 && r.body?.completed === true
+  && r.body?.summary?.status === 'completed' && r.body?.summary?.knownCount === 2, r.body)
+const repeatCommit = await call('POST', '/api/recite/sessions/' + commitSessionId + '/commit', { answers: commitAnswers })
+check('重复确认幂等不重复计数',
+  repeatCommit.status === 200 && repeatCommit.body?.summary?.knownCount === 2, repeatCommit.body)
+r = await call('GET', '/api/study/plan')
+const commitPlanApple = (r.body?.items || []).find(item => item.word === 'apple')
+check('统一提交后才推进复习轮次',
+  commitPlanApple?.stage === 1 && commitPlanApple?.reviewCount === 1
+  && commitPlanApple?.rememberedCount === 1, commitPlanApple)
+r = await call('GET', '/api/recite/sessions/' + commitSessionId + '/drafts')
+check('确认后清空草稿',
+  r.status === 200 && r.body?.drafts?.length === 0, r.body)
+r = await call('GET', '/api/recite/history')
+check('家长端能看到已保存的背诵记录',
+  r.status === 200 && r.body?.records?.[0]?.cards?.length === 2
+  && r.body.records[0].cards.every(card => card.result === 'known'), r.body)
+check('背诵记录带上周归属',
+  r.status === 200 && r.body?.records?.[0]?.weekStart === singleWeekStart, r.body)
+r = await call('GET', '/api/recite/sessions/active')
+check('保存后不再有待确认会话',
+  r.status === 200 && r.body?.session === null, r.body)
 
 // ── Bearer 鉴权（走真正的 Worker fetch 入口） ─────────────────────────────
 

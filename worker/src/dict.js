@@ -22,6 +22,18 @@ export const MAX_BATCH_SEARCH_ITEMS = 200
 /** 控制外部接口并发，避免批量导入时瞬间触发免费词典或百度限流。 */
 export const BATCH_SEARCH_CONCURRENCY = 2
 
+// ── 音标格式 ──────────────────────────────────────────────────────────────
+
+/**
+ * 把音标统一成 /.../：dictionaryapi 顶层 phonetic 与 ECDICT 旧快照都没有首尾斜杠，
+ * 直接显示不像音标；本身已带斜杠的（含句子逐词拼接出的音标）原样保留。
+ */
+function wrapPhonetic(value) {
+  const text = String(value ?? '').trim()
+  if (!text) return undefined
+  return text.includes('/') ? text : '/' + text + '/'
+}
+
 // ── 释义展示与拆分工具 ──────────────────────────────────────────────────────
 
 const TRANSLATION_POS_LABELS = {
@@ -109,7 +121,7 @@ export function isBadTranslation(text, word) {
 export function normalizeEntry(word, raw, app) {
   const src = raw && typeof raw === 'object' ? raw : {}
   const w = normalizeText(word || src.word)
-  const phonetic = String(src.phonetic ?? '').trim() || undefined
+  const phonetic = wrapPhonetic(src.phonetic)
   const translation = String(src.translation ?? '').trim() || undefined
   const translations = []
   const translationTexts = new Set()
@@ -319,7 +331,7 @@ async function fetchSentencePhonetic(text, app) {
         app,
       )
       const entry = Array.isArray(data) ? data[0] : null
-      const phonetic = entry?.phonetic || entry?.phonetics?.find(item => item.text)?.text
+      const phonetic = wrapPhonetic(entry?.phonetic || entry?.phonetics?.find(item => item.text)?.text)
       if (phonetic) phonetics.set(token, phonetic)
       else {
         missing.push(token)

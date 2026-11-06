@@ -37,10 +37,36 @@ npm install
 # 首次或每次需要刷新本地数据：从远端同步本地 D1
 npm run db:local:sync
 
-npm run dev             # wrangler dev(8787) + vite(5173)，vite 的 /api 代理到 8787
+npm run dev             # wrangler dev(8788) + vite(5173)，vite 的 /api 代理到 8788
 ```
 
 打开 http://localhost:5173，首次会弹出令牌门，填 `.dev.vars` 里的 `API_TOKEN`（默认 `dev-local-token`）即可。
+
+### 本地环境变量：只有 `.dev.vars`
+
+本地配置只放一份 `.dev.vars`（已在 `.gitignore`，不进 git）。三个使用方都从它读：
+
+| 使用方 | 读什么 |
+| --- | --- |
+| `npm run dev` 的 wrangler dev | 自动读整份，作为 Worker 的本地变量 / 密钥 |
+| vite（`vite.config.ts`） | 只取 `VITE_*` 注入前端，其余键不会进 bundle |
+| `npm run study` | 只取 `STUDY_API_BASE` / `STUDY_API_TOKEN` |
+
+首次在项目根目录新建 `.dev.vars`，按需填写：
+
+```bash
+API_TOKEN=dev-local-token
+# BAIDU_TRANSLATE_API_KEY=
+# BAIDU_TRANSLATE_APP_ID=
+# GOOGLE_TTS_API_KEY=
+# VITE_POSTHOG_KEY=
+# VITE_POSTHOG_HOST=https://us.i.posthog.com
+
+STUDY_API_BASE=https://study.rextao666.xyz
+STUDY_API_TOKEN=
+```
+
+留空的键只会关闭对应功能（中文翻译 / 发音 / PostHog / study CLI）；改完重启 `npm run dev`。
 
 本地库默认是空的，**dev 环境读写的是本地 D1，不会动线上数据**——随便建列表、加词、打卡、造脏数据试边界都行。
 想要一份接近真实的样例数据，可以从线上导一份灌进本地：
@@ -66,7 +92,7 @@ npm run db:local:sync
 
 `npm run study` 通过线上 `/api` 操作学习数据，目前支持列出学习列表和把词导出成可打印的 HTML：
 
-在项目根目录 `.env.local` 里配置线上地址和令牌（该文件已被 gitignore，不会进 git；shell 环境变量优先）：
+在项目根目录 `.dev.vars` 里配置线上地址和令牌（该文件已被 gitignore，不会进 git；shell 环境变量优先）：
 
 ```bash
 STUDY_API_BASE=https://study.rextao666.xyz
@@ -87,7 +113,7 @@ npm run study -- print --list 默认列表 --mode card --layout 3x4
 打印稿固定保存在当前目录的 `prints/` 下（已加入 gitignore），标题为当天年月日，文件名为时间戳（`prints/YYYYMMDD-HHMMSS.html`）。
 默认生成 A/B 双页打印稿（和网页打印落地页一致），也可以 `--mode card` 切回正反面卡片；HTML 用浏览器打开后直接打印或另存 PDF。
 默认会在线上留一条打印记录（相当于网页里点一次打印），加 `--no-record` 只生成本地文件（词条快照缺音标或释义时仍可能补一次词典缓存）；`--json` 让 stdout 只输出机器可读结果，方便其他脚本调用。
-`STUDY_API_TOKEN` 是真实密钥，只放在 `.env.local` 或环境变量里；脚本本身不保存令牌。
+`STUDY_API_TOKEN` 是真实密钥，只放在 `.dev.vars` 或环境变量里；脚本本身不保存令牌。
 
 ## 部署（一次性配置）
 
@@ -101,6 +127,8 @@ npx wrangler d1 execute english-study-sync --remote --file=worker/schema.sql
 npx wrangler d1 execute english-study-sync --remote --file=worker/migrations/001-dict-cache-status.sql
 # 学习数据定向查询索引与默认列表初始化（一次性，上线新版本前跑）
 npx wrangler d1 execute english-study-sync --remote --file=worker/migrations/002-study-query-indexes.sql
+# 背单词喇叭的发音缓存表（一次性；不跑也能发音，只是每次都要重新合成）
+npx wrangler d1 execute english-study-sync --remote --file=worker/migrations/006-tts-cache.sql
 
 # 迁移完成后再发布使用新结构的 Worker
 npx wrangler deploy
@@ -114,6 +142,8 @@ npx wrangler d1 execute english-study-sync --remote --file=migration.sql
 npx wrangler secret put API_TOKEN
 npx wrangler secret put BAIDU_TRANSLATE_API_KEY
 npx wrangler secret put BAIDU_TRANSLATE_APP_ID
+# 背单词页的喇叭（Google Cloud Text-to-Speech）；不配时点喇叭会直接提示缺少这个密钥
+npx wrangler secret put GOOGLE_TTS_API_KEY
 ```
 
 部署完成后，桌面和手机浏览器打开 `https://english-study-mobile.rextao666.workers.dev`（Worker 名见 `wrangler.toml`），填同一个访问令牌即可。本地 `cache/study-history.sqlite` 迁移后保留作回滚兜底，应用不再读写它。
@@ -158,6 +188,14 @@ npx wrangler secret put BAIDU_TRANSLATE_APP_ID
 - **打印记录**：每导出一批卡片都会自动留一条档（标题、时间、词数、是不是按周印的、还有多少词待复习）。过一段时间——比如一周后——拿着那批卡片回来，展开记录就能整批标「记住了 / 没记住」，不必在月历里一个个点。按周印的卡片默认按周打卡；卡片里的词后来被从学习列表删掉了会自动跳过；删记录只是删档，不动学习进度。只留最近 60 条。
 
 按周模式适合一周只坐下来复习一次的节奏：卡片按整周一批导出（「打印整周卡片」），打卡时会把这一周内排到的多个复习轮次一次过完——比如周一开始学的词，第 1 / 2 / 4 天都落在同一周，按周打一次卡就直接推到下一周的轮次，行里会标「连过 N 轮」。
+
+### 开始背单词（横屏）
+
+查词首页右上角「开始背单词」进入，全屏、无导航、无退出按钮，适合手机横屏交给小朋友。
+普通卡只显示英文，点「会 / 不会」翻面看中文；拼写卡显示中文 + 虚拟键盘。判定先写服务端草稿，家长在「背词任务配置」页行内确认后才真正推进轮次。
+卡片右上角有个**喇叭**，任何时候都显示：点一下用 Google 语音合成念出这个词（再点一次重播）。拼写卡在提交 / 跳过之前不出声（按钮标「拼完再听」），免得把答案念出来。
+发音走 Worker 的 `GET /api/tts`，合成结果缓存在 D1 的 `tts_cache` 表里，同一个词反复点不再访问外网；音色可用 `GOOGLE_TTS_VOICE`（默认 `en-US-Neural2-F`）覆盖。
+没配 `GOOGLE_TTS_API_KEY`、断网、合成超时或浏览器拦截播放时，喇叭按钮照常显示，点下去会在页面上写出具体原因，其他功能不受影响。
 
 ## 复习节奏（艾宾浩斯）
 

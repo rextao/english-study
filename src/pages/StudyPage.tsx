@@ -2,12 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { PageHeader } from '../components/PageHeader'
 import { LetterTimeline } from '../components/LetterTimeline'
 import { WordSelectionGroups } from '../components/WordSelectionGroups'
-import { Button, ENGLISH_WORD_INPUT_PROPS, Input, Modal, Popconfirm, Select } from '../ui'
+import { Button, ENGLISH_WORD_INPUT_PROPS, Input, Modal, Popconfirm, Select, Tag } from '../ui'
 import type { SelectOption } from '../ui'
 import type { StudyListApi } from '../hooks/useStudyList'
 import type { StudyPlanApi, TallyKind } from '../hooks/useStudyPlan'
 import { useDictBatch } from '../hooks/useDictBatch'
 import { usePrintBatches } from '../hooks/usePrintBatches'
+import { fetchReciteHistory, fetchReciteTasks } from '../hooks/useRecite'
+import type { ReciteTask } from '../hooks/useRecite'
 import type {
   PrintBatch, StudyMarkScope, StudyPlanItem, StudyWordItem, VocabLibraryInfo,
 } from '../types/vocab'
@@ -146,6 +148,33 @@ function weekRelLabel(week: number, thisWeek: number): string {
   return diff > 0 ? diff + ' 周后' : -diff + ' 周前'
 }
 
+/** 格子右上角「背」角标的三档：这一天完成了 / 这一周进行中 / 这一周还没开始 */
+type ReciteMark = 'done' | 'active' | 'todo'
+
+const RECITE_MARK_CLASS: Record<ReciteMark, string> = {
+  done: 'study-cal__recite--done',
+  active: 'study-cal__recite--active',
+  todo: 'study-cal__recite--todo',
+}
+
+const RECITE_MARK_LABEL: Record<ReciteMark, string> = {
+  done: '已完成',
+  active: '进行中',
+  todo: '未开始',
+}
+
+/**
+ * 哪一天显示「背」：完成的那天一定显示；今天以后按这一周的进度提示（未开始 / 进行中）；
+ * 今天之前没开始的日子不显示，整周已完成的未来格子也不再提示。
+ */
+function dayReciteMark(task: ReciteTask | null, day: number, doneCount: number, today: number): ReciteMark | null {
+  if (doneCount > 0) return 'done'
+  if (!task || day < today) return null
+  if (task.completedSessions >= task.sessionCount) return null
+  if (task.completedSessions > 0 || task.activeSessionIndex != null) return 'active'
+  return 'todo'
+}
+
 /** 按列表分组：打卡和留档接口都是按列表调的，而计划里的词可能来自多个列表 */
 function groupByList(items: StudyPlanItem[]): Map<string, string[]> {
   const groups = new Map<string, string[]>()
@@ -198,9 +227,11 @@ interface StudyPageProps {
   study: StudyListApi
   plan: StudyPlanApi
   getPrintLabelById: (id: string) => string
+  /** 跳到背词任务配置二级页 */
+  onOpenReciteTasks: () => void
 }
 
-export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPageProps) {
+export function StudyPage({ libraries, study, plan, getPrintLabelById, onOpenReciteTasks }: StudyPageProps) {
   const { lists, fetchListWords, fetchBatches } = study
   const planData = plan.plan
   const prints   = usePrintBatches()
@@ -254,6 +285,12 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
 
   /** 复习面板里的单词搜索：模糊匹配本周期（当前天 / 当前周）要复习的词 */
   const [reviewSearch, setReviewSearch] = useState('')
+
+  /** 各周背词任务（周一 0 点 → 任务），复习面板标记和月历图标共用 */
+  const [weekTasks, setWeekTasks] = useState<Map<number, ReciteTask>>(new Map())
+  /** 背词完成的日期（天 → 当天完成的次数），角标按这个标在完成的那天 */
+  const [doneDays, setDoneDays] = useState<Map<number, number>>(new Map())
+  const [weekTaskLoading, setWeekTaskLoading] = useState(false)
 
   // 选中的列表被删掉后回退到默认列表
   useEffect(() => {
@@ -417,6 +454,7 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
     return list
   }, [monthFirst, dueByDay])
 
+
   const isWeek      = mode === 'week'
   const activeDay   = selectedDay ?? planData.today
   const activeWeek  = startOfWeek(activeDay)
@@ -425,6 +463,60 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
   /** 面板里列出的词：按天取那一天，按周取那一整周 */
   const activeItems = (isWeek ? dueByWeek.get(activeWeek) : dueByDay.get(activeDay)) ?? []
   const dict = useDictBatch(activeItems.map(item => item.word))
+
+  /** 当前周的背词任务，标记和详情都从全量列表里取 */
+  const weekTask = weekTasks.get(activeWeek) ?? null
+
+  useEffect(() => {
+    let alive = true
+    setWeekTaskLoading(true)
+    Promise.all([fetchReciteTasks(), fetchReciteHistory(60)])
+      .then(([list, history]) => {
+        if (!alive) return
+        setWeekTasks(new Map(list.map(task => [task.weekStart, task])))
+        const byDay = new Map<number, number>()
+        for (const record of history.records || []) {
+          const doneDay = startOfDay(record.date)
+          byDay.set(doneDay, (byDay.get(doneDay) ?? 0) + 1)
+        }
+        setDoneDays(byDay)
+      })
+      .catch(() => {
+        if (!alive) return
+        setWeekTasks(new Map())
+        setDoneDays(new Map())
+      })
+      .finally(() => { if (alive) setWeekTaskLoading(false) })
+    return () => { alive = false }
+  // 切走再回来会重新挂载并重读，这里不用额外的刷新触发器
+  }, [])
+
+  /** 复习面板头部的背词任务标记：未配置可点击去配置，已配置显示完成进度 X/Y */
+  const reciteMarker = useMemo(() => {
+    if (weekTaskLoading) return <span className="study-day__recite">背词任务读取中…</span>
+    const past = activeWeek < thisWeek
+    if (!weekTask) {
+      return (
+        <Tag
+          color="default"
+          title={past ? '这一周没有配置背词任务' : '点击配置这一周的背词任务'}
+          onClick={past ? undefined : onOpenReciteTasks}
+        >
+          未配置背词
+        </Tag>
+      )
+    }
+    const finished = weekTask.completedSessions >= weekTask.sessionCount
+    return (
+      <Tag
+        color={finished ? 'green' : 'gold'}
+        title={past ? '这一周的任务已经结束' : '点击查看或修改这一周的背词任务'}
+        onClick={past ? undefined : onOpenReciteTasks}
+      >
+        背词 {weekTask.completedSessions}/{weekTask.sessionCount}{weekTask.activeSessionIndex != null ? ' · 学习中' : ''}
+      </Tag>
+    )
+  }, [weekTaskLoading, weekTask, activeWeek, thisWeek, onOpenReciteTasks])
 
   /** 本周期单词模糊搜索：匹配单词、音标或中文词义，大小写与空白不敏感 */
   const visibleItems = useMemo(() => {
@@ -1035,7 +1127,15 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
 
       <section className="card card--pad study-plan">
         <div className="study-plan__head">
-          <h2 className="study-plan__title">复习计划</h2>
+          <div className="study-plan__lead">
+            <h2 className="study-plan__title">复习计划</h2>
+            <Button
+              size="small"
+              onClick={onOpenReciteTasks}
+            >
+              配置背词任务
+            </Button>
+          </div>
           <div className="study-plan__nav">
             <div className="study-plan__mode">
               <Select
@@ -1063,6 +1163,17 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
               if (day == null) return <span key={cell.key} className="study-cal__pad" aria-hidden="true" />
               // 按周模式下点任意一天都是选中整周，高亮跟着整行走
               const on = isWeek ? startOfWeek(day) === activeWeek : day === activeDay
+              // 有背词任务的日子在右上角显示「背」：完成那天标绿，今天以后按这一周的进度标灰 / 金
+              const dayTask = weekTasks.get(startOfWeek(day)) ?? null
+              const doneCount = doneDays.get(day) ?? 0
+              const mark = dayReciteMark(dayTask, day, doneCount, planData.today)
+              const markTitle = mark === 'done'
+                ? '这一天完成了 ' + doneCount + ' 次背词'
+                : mark
+                  ? '这一周有背词任务（' + RECITE_MARK_LABEL[mark] + '）：已完成 '
+                    + (dayTask?.completedSessions ?? 0) + '/' + (dayTask?.sessionCount ?? 0) + ' 次'
+                  : ''
+              const dueTitle = fmtDate(day) + '，' + cell.count + ' 个词要复习'
               return (
                 <button
                   key={cell.key}
@@ -1072,15 +1183,28 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
                     + (on ? ' study-cal__day--on' : '')
                     + (cell.count > 0 ? ' study-cal__day--has' : '')}
                   aria-pressed={on}
-                  aria-label={fmtDate(day) + '，' + cell.count + ' 个词要复习' + (isWeek ? '，选中所在周' : '')}
+                  title={dueTitle}
+                  aria-label={dueTitle + (markTitle ? '，' + markTitle : '') + (isWeek ? '，选中所在周' : '')}
                   onClick={() => setSelectedDay(day)}
                 >
+                  {mark && (
+                    <span className={'study-cal__task-tag ' + RECITE_MARK_CLASS[mark]} title={markTitle}>
+                      背
+                    </span>
+                  )}
                   <span className="study-cal__date">{new Date(day).getDate()}</span>
                   {cell.count > 0 && <span className="study-cal__count">{cell.count}</span>}
                 </button>
               )
             })}
           </div>
+        </div>
+
+        {/* 图例：说明格子右上角「背」角标的三种颜色分别代表什么 */}
+        <div className="study-cal__legend">
+          <span className="study-cal__legend-item"><i className="study-cal__task-tag study-cal__task-tag--inline study-cal__recite--todo">背</i>未开始</span>
+          <span className="study-cal__legend-item"><i className="study-cal__task-tag study-cal__task-tag--inline study-cal__recite--active">背</i>进行中</span>
+          <span className="study-cal__legend-item"><i className="study-cal__task-tag study-cal__task-tag--inline study-cal__recite--done">背</i>已完成（标在完成那天）</span>
         </div>
 
         <div className="study-day">
@@ -1090,6 +1214,7 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById }: StudyPa
               {reviewSearch.trim() ? visibleItems.length + ' / ' + activeItems.length + ' 词' : activeItems.length + ' 词'}
             </span>
             {panelRel && <span className="study-day__rel">{panelRel}</span>}
+            {reciteMarker}
             {activeItems.length > 0 && (
               <div className="study-day__ops">
                 <Button size="small" loading={busy === 'day'} disabled={busy !== ''} onClick={handlePrintBatch}>

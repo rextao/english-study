@@ -2,7 +2,7 @@ import './Nav.css'
 import { Dropdown } from '../ui'
 import type { MenuItemType } from '../ui'
 
-export type TabKey = 'search' | 'lists' | 'settings' | 'achievements' | 'records' | 'study' | 'goal' | 'passages' | 'recite'
+export type TabKey = 'search' | 'lists' | 'settings' | 'achievements' | 'records' | 'study' | 'goal' | 'passages' | 'recite' | 'recite-parent' | 'recite-tasks'
 
 // extra = 手机端收进折叠菜单的 tab（查词始终留在导航栏上）
 const TABS: { key: TabKey; label: string; extra?: boolean }[] = [
@@ -42,7 +42,9 @@ interface NavProps {
 }
 
 export function Nav({ active, onChange, dueToday }: NavProps) {
-  const visibleActive = active === 'records' ? 'achievements' : active
+  // 背词配置页从英语学习页进，高亮仍落在「英语学习」胶囊上
+  const visibleActive = active === 'records' ? 'achievements'
+    : active === 'recite-parent' || active === 'recite-tasks' ? 'study' : active
 
   // 手机端折叠菜单里装着学习列表 / 学习成果 / 短文 / 目标 / 设置，落在这些页面上时「更多」按钮要高亮
   const moreActive = active === 'lists' || active === 'achievements' || active === 'goal' || active === 'settings' || active === 'records' || active === 'passages'
@@ -82,8 +84,8 @@ export function Nav({ active, onChange, dueToday }: NavProps) {
         {/* 学习入口刻意不放进分段控件：会流光的发光胶囊，和左边灰底分段 tab 完全两种质感 */}
         <button
           type="button"
-          className={'nav__cta' + (active === 'study' ? ' nav__cta--active' : '')}
-          aria-current={active === 'study' ? 'page' : undefined}
+          className={'nav__cta' + (active === 'study' || active === 'recite-tasks' ? ' nav__cta--active' : '')}
+          aria-current={active === 'study' || active === 'recite-tasks' ? 'page' : undefined}
           title={dueToday > 0 ? '今天有 ' + dueToday + ' 个词要复习' : '开始英语学习'}
           onClick={() => onChange('study')}
         >
