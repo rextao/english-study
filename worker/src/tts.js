@@ -18,9 +18,61 @@ const DEFAULT_TIMEOUT_MS = 10_000
 /** 背单词只念单词 / 短语，长文本没必要合成 */
 export const MAX_TTS_TEXT_LENGTH = 160
 /** 缓存表保留条数上限：超过就丢最久没念的 */
-const TTS_CACHE_LIMIT = 2000
+const TTS_CACHE_LIMIT = 5000
 /** 命中概率触发的惰性清理，避免每次合成都跑一条 DELETE */
 const TTS_PRUNE_RATE = 0.05
+
+/** 日志里的文本只留一段，避免整句 / 整段内容刷屏 */
+function previewText(value, limit = 120) {
+  const text = String(value ?? '')
+  return text.length > limit ? text.slice(0, limit) + '…' : text
+}
+
+/** 只记录接口地址，不把带 key 的查询串写进日志 */
+function endpointLabel(endpoint) {
+  try {
+    const url = new URL(endpoint)
+    return url.origin + url.pathname
+  } catch {
+    return String(endpoint ?? '').split('?')[0]
+  }
+}
+
+/** fetch 的 cause 才藏着 ENOTFOUND / ECONNREFUSED / 证书错误等真正原因 */
+function errorChain(error) {
+  const parts = []
+  let current = error
+  for (let depth = 0; current && depth < 4; depth += 1) {
+    if (typeof current === 'string') {
+      parts.push(current)
+      break
+    }
+    const details = [
+      current.name,
+      current.message,
+      current.code && current.code !== current.name ? current.code : '',
+      current.errno !== undefined && current.errno !== current.code ? 'errno=' + current.errno : '',
+      current.syscall ? 'syscall=' + current.syscall : '',
+      current.hostname ? 'host=' + current.hostname : '',
+    ].filter(Boolean)
+    if (details.length) parts.push(details.join(' | '))
+    current = current.cause
+  }
+  return parts.join(' <- ') || String(error ?? 'unknown')
+}
+
+function redactSecret(value, secret) {
+  const text = String(value ?? '')
+  const key = String(secret ?? '')
+  return key ? text.split(key).join('[redacted]') : text
+}
+
+function writeTtsLog(level, event, details, secret) {
+  let line = ''
+  try { line = JSON.stringify(details) } catch { line = String(details) }
+  const writer = level === 'warn' ? console.warn : level === 'info' ? console.info : console.error
+  writer('[tts] ' + event, redactSecret(line, secret))
+}
 
 export function ttsConfigured(env) {
   return Boolean(String(env?.GOOGLE_TTS_API_KEY ?? '').trim())
@@ -54,7 +106,11 @@ async function readCachedAudio(app, key) {
     const row = await app.db.first('SELECT mime, audio_base64 FROM tts_cache WHERE cache_key = ?', key)
     if (!row || !row.audio_base64) return null
     return { mime: row.mime || 'audio/mpeg', audio: row.audio_base64 }
-  } catch {
+  } catch (error) {
+    writeTtsLog('warn', 'cache_read_failed', {
+      cacheKey: key,
+      error: errorChain(error),
+    }, app.env?.GOOGLE_TTS_API_KEY)
     return null
   }
 }
@@ -74,8 +130,12 @@ async function writeCachedAudio(app, key, text, mime, audio) {
         TTS_CACHE_LIMIT,
       )
     }
-  } catch {
+  } catch (error) {
     // 缓存写失败不影响这次发音
+    writeTtsLog('warn', 'cache_write_failed', {
+      cacheKey: key,
+      error: errorChain(error),
+    }, app.env?.GOOGLE_TTS_API_KEY)
   }
 }
 
@@ -100,8 +160,21 @@ export async function synthesizeSpeech(app, rawText) {
   if (cached) return { status: 200, body: { text, mime: cached.mime, audio: cached.audio, cached: true } }
 
   const endpoint = String(env.GOOGLE_TTS_API_URL ?? '').trim() || DEFAULT_TTS_URL
+  const voice = voiceOf(env)
+  const language = languageOf(env)
   const url = endpoint + (endpoint.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(env.GOOGLE_TTS_API_KEY)
-  const timeout = Number(env.TTS_NETWORK_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS
+  const configuredTimeout = Number(env.TTS_NETWORK_TIMEOUT_MS)
+  const timeout = Number.isFinite(configuredTimeout) && configuredTimeout > 0
+    ? configuredTimeout
+    : DEFAULT_TIMEOUT_MS
+  const startedAt = Date.now()
+  const logBase = {
+    text: previewText(text),
+    endpoint: endpointLabel(endpoint),
+    voice,
+    language,
+    timeoutMs: timeout,
+  }
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeout)
   try {
@@ -115,19 +188,50 @@ export async function synthesizeSpeech(app, rawText) {
       }),
       signal: controller.signal,
     })
+    const elapsedMs = Date.now() - startedAt
+    const responseText = await response.text()
     let payload = null
-    try { payload = await response.json() } catch { payload = null }
+    try { payload = responseText ? JSON.parse(responseText) : null } catch { payload = null }
     if (!response.ok) {
-      const message = payload?.error?.message || ('HTTP ' + response.status)
+      const upstreamError = payload?.error
+      const message = upstreamError?.message || ('HTTP ' + response.status)
+      writeTtsLog('error', 'upstream_http_error', {
+        ...logBase,
+        status: response.status,
+        googleStatus: upstreamError?.status || '',
+        googleCode: upstreamError?.code ?? '',
+        message,
+        details: upstreamError?.details ?? null,
+        requestId: response.headers?.get?.('x-goog-request-id')
+          || response.headers?.get?.('x-request-id')
+          || '',
+        bodyPreview: previewText(responseText, 500),
+        elapsedMs,
+      }, env.GOOGLE_TTS_API_KEY)
       return { status: 502, body: { error: 'tts upstream failed: ' + message } }
     }
     const audio = typeof payload?.audioContent === 'string' ? payload.audioContent : ''
-    if (!audio) return { status: 502, body: { error: 'tts returned no audio' } }
+    if (!audio) {
+      writeTtsLog('error', 'upstream_no_audio', {
+        ...logBase,
+        status: response.status,
+        contentType: response.headers?.get?.('content-type') || '',
+        payloadKeys: payload && typeof payload === 'object' ? Object.keys(payload) : [],
+        bodyPreview: previewText(responseText, 500),
+        elapsedMs,
+      }, env.GOOGLE_TTS_API_KEY)
+      return { status: 502, body: { error: 'tts returned no audio' } }
+    }
     const mime = 'audio/mpeg'
     await writeCachedAudio(app, key, text, mime, audio)
     return { status: 200, body: { text, mime, audio, cached: false } }
   } catch (error) {
     const aborted = error?.name === 'AbortError'
+    writeTtsLog('error', aborted ? 'timeout' : 'request_failed', {
+      ...logBase,
+      elapsedMs: Date.now() - startedAt,
+      error: errorChain(error),
+    }, env.GOOGLE_TTS_API_KEY)
     return {
       status: 502,
       body: { error: aborted ? 'tts timeout' : 'tts request failed: ' + (error?.message || String(error)) },

@@ -1772,7 +1772,12 @@ globalThis.fetch = async (url, options = {}) => {
   const target = String(url)
   ttsCalls.push({ url: target, options })
   if (!target.startsWith('http://tts.mock/synthesize')) throw new Error('unexpected mock URL: ' + target)
-  return { ok: true, status: 200, async json() { return { audioContent: 'SUQzBAAAAAAA' } } }
+  return {
+    ok: true,
+    status: 200,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    async text() { return JSON.stringify({ audioContent: 'SUQzBAAAAAAA' }) },
+  }
 }
 
 r = await call('GET', '/api/tts?text=apple')
@@ -1795,6 +1800,75 @@ r = await call('GET', '/api/tts?text=')
 check('空文本直接拒绝', r.status === 400, r.body)
 r = await call('GET', '/api/tts?text=' + 'a'.repeat(200))
 check('超长文本直接拒绝', r.status === 400 && r.body?.limit === 160, r.body)
+
+// 502 只有 Worker 日志能看到完整原因：这里验证 Google 错误、DNS 根因和超时都会落日志
+const ttsLogs = []
+const oldConsoleError = console.error
+const oldConsoleWarn = console.warn
+console.error = (...args) => ttsLogs.push(args.map(arg => String(arg)).join(' '))
+console.warn = (...args) => ttsLogs.push(args.map(arg => String(arg)).join(' '))
+
+globalThis.fetch = async () => ({
+  ok: false,
+  status: 403,
+  headers: new Headers({
+    'content-type': 'application/json',
+    'x-goog-request-id': 'tts-request-403',
+  }),
+  async text() {
+    return JSON.stringify({
+      error: {
+        code: 403,
+        status: 'PERMISSION_DENIED',
+        message: 'Cloud Text-to-Speech API has not been used in project 123 before or it is disabled.',
+        details: [{ reason: 'SERVICE_DISABLED' }],
+      },
+    })
+  },
+})
+r = await call('GET', '/api/tts?text=permission-test')
+check('TTS 上游 403 保留 Google 的具体错误',
+  r.status === 502 && r.body?.error?.includes('has not been used in project 123'), r.body)
+check('TTS 上游错误写进 server console',
+  ttsLogs.some(line => line.includes('[tts] upstream_http_error')
+    && line.includes('PERMISSION_DENIED') && line.includes('SERVICE_DISABLED')
+    && line.includes('tts-request-403')), ttsLogs)
+check('TTS 日志不泄露密钥', ttsLogs.every(line => !line.includes('tts-test-key')), ttsLogs)
+
+ttsLogs.length = 0
+globalThis.fetch = async () => {
+  const error = new TypeError('fetch failed')
+  error.cause = {
+    code: 'ENOTFOUND',
+    message: 'getaddrinfo ENOTFOUND texttospeech.googleapis.com',
+    hostname: 'texttospeech.googleapis.com',
+  }
+  throw error
+}
+r = await call('GET', '/api/tts?text=network-test')
+check('TTS 网络错误保留 fetch failed',
+  r.status === 502 && r.body?.error?.includes('fetch failed'), r.body)
+check('TTS 网络错误把 DNS 根因写进 server console',
+  ttsLogs.some(line => line.includes('[tts] request_failed')
+    && line.includes('ENOTFOUND') && line.includes('texttospeech.googleapis.com')), ttsLogs)
+
+ttsLogs.length = 0
+ttsCtx.env.TTS_NETWORK_TIMEOUT_MS = '20'
+globalThis.fetch = (url, options = {}) => new Promise((resolve, reject) => {
+  options.signal?.addEventListener('abort', () => {
+    const error = new Error('The operation was aborted.')
+    error.name = 'AbortError'
+    reject(error)
+  })
+})
+r = await call('GET', '/api/tts?text=timeout-test')
+check('TTS 超时返回 502 timeout', r.status === 502 && r.body?.error === 'tts timeout', r.body)
+check('TTS 超时把耗时写进 server console',
+  ttsLogs.some(line => line.includes('[tts] timeout') && line.includes('"timeoutMs":20')), ttsLogs)
+delete ttsCtx.env.TTS_NETWORK_TIMEOUT_MS
+
+console.error = oldConsoleError
+console.warn = oldConsoleWarn
 
 globalThis.fetch = oldFetch
 

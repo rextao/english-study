@@ -29,55 +29,58 @@
   opacity: .7;
 }
 
-/* ---------------- 顶部：进度胶囊 + 进度条 ---------------- */
+ /* ---------------- 顶部：圆圈进度轨道 ---------------- */
 
-.recite__topbar {
+/* 一张卡片一个圆圈：序号 1、2、3…；每 5 张与最后一张是宝箱节点 */
+.recite__track {
   position: absolute;
   z-index: 2;
   top: 16px;
   left: 20px;
   right: 20px;
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px 5px;
+  pointer-events: none;
 }
 
-.recite__pill {
-  padding: 8px 16px;
-  border-radius: var(--radius-full);
-  border: 1px solid rgba(255, 255, 255, .9);
-  background: rgba(255, 255, 255, .72);
-  box-shadow: 0 10px 24px -18px rgba(37, 63, 132, .8);
-  backdrop-filter: blur(14px);
-  font-size: 14px;
-  font-weight: 600;
-  color: #55637f;
-  white-space: nowrap;
+/* 未学：灰色 */
+.recite__node {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #e6ecf5;
+  color: #93a1ba;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1;
+  transition: background .2s ease, color .2s ease, box-shadow .2s ease, filter .2s ease;
 }
 
-.recite__pill--strong {
-  color: #1d4ed8;
-  background: rgba(233, 241, 255, .92);
+/* 学过：绿色，不区分会 / 不会 */
+.recite__node--done {
+  background: linear-gradient(135deg, #2fd39a, #0d9f6e);
+  color: #fff;
 }
 
-.recite__progress {
-  position: absolute;
-  z-index: 2;
-  top: 60px;
-  left: 22px;
-  right: 22px;
-  height: 6px;
-  overflow: hidden;
-  border-radius: 99px;
-  background: rgba(37, 99, 235, .1);
+/* 当前一张：蓝色光环提示位置 */
+.recite__node--current {
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, .5);
 }
 
-.recite__progress-fill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #6f9bff, #2563eb);
-  transition: width .35s cubic-bezier(.22, .61, .36, 1);
+/* 宝箱节点：未学时压灰，学过恢复彩色 */
+.recite__node--prize {
+  font-size: 13px;
+}
+
+.recite__node--prize:not(.recite__node--done) {
+  filter: grayscale(1);
+  opacity: .55;
 }
 
 /* ---------------- 中间：卡片舞台 ---------------- */
@@ -91,7 +94,7 @@
   align-items: center;
   justify-content: center;
   gap: clamp(16px, 3vh, 30px);
-  padding: 96px clamp(18px, 4vw, 56px) clamp(18px, 3vh, 32px);
+  padding: 84px clamp(18px, 4vw, 56px) clamp(18px, 3vh, 32px);
   min-height: 0;
 }
 
@@ -262,45 +265,6 @@
   letter-spacing: -.025em;
   color: #17203a;
   word-break: break-word;
-}
-
-.recite-card__back-choice {
-  font-size: 15px;
-  color: #73809c;
-}
-
-.recite-card__switch {
-  display: flex;
-  gap: 10px;
-  margin-top: 4px;
-}
-
-.recite-card__switch button {
-  min-width: 92px;
-  min-height: 44px;
-  padding: 8px 18px;
-  border-radius: var(--radius-full);
-  border: 1px solid #e3e9f6;
-  background: #f8faff;
-  color: #6a7896;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background .15s ease, color .15s ease, border-color .15s ease, transform .12s ease;
-}
-
-.recite-card__switch button:active { transform: scale(.96); }
-
-.recite-card__switch button.is-active.is-no {
-  color: #c2410c;
-  border-color: #ffd2c0;
-  background: #fff4ef;
-}
-
-.recite-card__switch button.is-active.is-yes {
-  color: #067a4d;
-  border-color: #bfe9d4;
-  background: #ecfaf2;
 }
 
 /* ---------------- 拼写卡 ---------------- */
@@ -683,10 +647,10 @@
 /* ---------------- 矮横屏 / 窄屏 ---------------- */
 
 @media (max-height: 560px) {
-  .recite__topbar { top: 10px; left: 14px; right: 14px; }
-  .recite__pill { padding: 6px 12px; font-size: 12.5px; }
-  .recite__progress { top: 48px; left: 16px; right: 16px; height: 5px; }
-  .recite__stage { padding: 72px 18px 12px; gap: 12px; }
+  .recite__track { top: 10px; left: 14px; right: 14px; gap: 5px 4px; }
+  .recite__node { width: 20px; height: 20px; font-size: 10px; }
+  .recite__node--prize { font-size: 11px; }
+  .recite__stage { padding: 68px 18px 12px; gap: 12px; }
   .recite-card { min-height: 34vh; padding: 18px 26px; }
   .recite__mark { min-height: 60px; }
   .recite__next { min-height: 58px; }
@@ -705,7 +669,7 @@
 @media (prefers-reduced-motion: reduce) {
   .recite-card,
   .recite__panel { animation: none; }
-  .recite__progress-fill,
+  .recite__node,
   .recite__mark,
   .recite__next,
   .recite-keyboard__key { transition: none; }

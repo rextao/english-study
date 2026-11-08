@@ -88,8 +88,6 @@ export function RecitePage({ payload, loading, error, onReload }: RecitePageProp
   const display = card?.displayText || card?.word || ''
   const answer = card?.word || ''
   const total = session?.cardCount || cards.length || 0
-  const answeredCount = Object.keys(answers).length
-  const progress = total > 0 ? Math.min(100, (answeredCount / total) * 100) : 0
   const lastCard = index + 1 >= cards.length
 
   const stats = useMemo(() => {
@@ -254,14 +252,29 @@ export function RecitePage({ payload, loading, error, onReload }: RecitePageProp
 
   return (
     <div className="recite">
-      <header className="recite__topbar">
-        <span className="recite__pill">第 {Math.min(index + 1, total)} / {total} 张</span>
-        <span className="recite__pill recite__pill--strong">
-          本周学习 {session?.sessionIndex || 1} / {payload.task.sessionCount} 次
-        </span>
-      </header>
-      <div className="recite__progress">
-        <span className="recite__progress-fill" style={{ width: progress + '%' }} />
+      <div className="recite__track" role="list" aria-label={'共 ' + total + ' 张卡片的学习进度'}>
+        {cards.map((item, i) => {
+          const position = i + 1
+          const isPrize = position === total || position % 5 === 0
+          const answered = Boolean(answers[item.id])
+          const isCurrent = i === index
+          const nodeClass = [
+            'recite__node',
+            isPrize ? 'recite__node--prize' : '',
+            answered ? 'recite__node--done' : '',
+            isCurrent ? 'recite__node--current' : '',
+          ].filter(Boolean).join(' ')
+          return (
+            <span
+              key={item.id}
+              role="listitem"
+              className={nodeClass}
+              aria-label={'第 ' + position + ' 张' + (isPrize ? '，宝箱节点' : '') + '，' + (answered ? '已学过' : '未学')}
+            >
+              {isPrize ? '🎁' : position}
+            </span>
+          )
+        })}
       </div>
 
       <main className="recite__stage">
@@ -300,27 +313,9 @@ export function RecitePage({ payload, loading, error, onReload }: RecitePageProp
             <div className="recite-card__back">
               <span className="recite-card__back-word">{card.word}</span>
               <strong className="recite-card__back-translation">{card.translation || '暂无中文含义'}</strong>
-              <span className="recite-card__back-choice">
-                你选择了：{answers[card.id]?.result === 'known' ? '会' : '不会'}
-              </span>
-              <div className="recite-card__switch">
-                <button
-                  type="button"
-                  className={answers[card.id]?.result === 'unknown' ? 'is-active is-no' : ''}
-                  onClick={() => markMeaning('unknown')}
-                >不会</button>
-                <button
-                  type="button"
-                  className={answers[card.id]?.result === 'known' ? 'is-active is-yes' : ''}
-                  onClick={() => markMeaning('known')}
-                >会</button>
-              </div>
             </div>
           ) : (
-            <>
-              <p className="recite-card__hint">认识这个单词吗？</p>
-              <div className="recite-card__prompt">{display}</div>
-            </>
+           <div className="recite-card__prompt">{display}</div>
           )}
         </section>
 
