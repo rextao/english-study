@@ -22,6 +22,7 @@ export const KV_KEYS = {
   goal: 'study-goal',
   prints: 'print-batches',
   prefetch: 'prefetch-state',
+  ttsPrefill: 'tts-prefill-state',
 }
 
 /** 单次 IN 查询最多带多少个词，防超 D1 的绑定参数上限 */

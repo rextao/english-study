@@ -61,7 +61,7 @@ src/pages/StudyPage.tsx        英语学习页：StudyGoal + 挑词弹窗（Moda
                                复习面板头部用 Tag 标「未配置背词 / 背词 X/Y · 学习中」
                                + 打印记录：每导出一次卡片留一条档，可整批打卡 / 删记录（usePrintBatches）
 
-src/pages/SettingsPage.tsx     设置页（tab=settings）：顶部「词库配置 / 学习列表 / 学习记录 / 查询链路」子菜单切换；
+src/pages/SettingsPage.tsx     设置页（tab=settings）：顶部「词库配置 / 学习列表 / 学习记录 / 补充音标 / 补充音频 / 查询链路」子菜单切换；
                                查询链路 = useDictSources.chain 排成有序列表（云端缓存 → dictionaryapi → 百度翻译），
                                不可用的步骤灰色标「跳过」并给原因（密钥未配 = Worker secret 没配）；
                                词库配置 = LibrariesPage embedded，学习记录 = LearningRecordsPage embedded
@@ -115,6 +115,9 @@ src/components/ReciteTaskPanel.tsx 背词任务配置弹窗（受控 Modal）：
                                现在只挂在 ReciteTasksPage 内，学习页本身不再弹这个窗
 src/components/ReciteTaskConfirm.tsx 家长确认弹窗（**已无调用方、死代码，待删**）：行内保存改造前的旧实现，
                               功能已由 ReciteTasksPage 的行内判定 + 行右侧「保存」按钮取代
+src/components/AudioRepair.tsx 设置页「补充音频」分区（embedded 进 SettingsPage）：列出学习列表里还没有
+                              tts_cache 缓存的词 / 句子，一键排进后台预合成队列，轮询进度、失败可重试；
+                              Google TTS 未配置（缺 GOOGLE_TTS_API_KEY secret）时给配置指引并禁用按钮
 
 src/hooks/useTabRoute.ts       hash 路由（#/search #/lists #/settings #/achievements #/records #/study #/recite），刷新与前进后退都停在原页；
                                二级页 #/recite/parent、#/recite/tasks 走独立 hash；LEGACY_TABS 把 #/import → #/search、
@@ -124,6 +127,7 @@ src/hooks/useDictionary.ts     单词查询 GET /api/dict；走共享读缓存 a
                                服务端回错误状态码 → 'error'（这次没抓到释义），请求根本没发出去 → 'no-server'
 src/hooks/useDictBatch.ts      批量读缓存 POST /api/dict/batch → entries / missing / incomplete
 src/hooks/useDictPrefetch.ts   后台补齐队列：repair() 排队 + 1.2s 轮询进度；响应认不出就报 stale 而不是照抄进 state
+src/hooks/useTtsPrefill.ts     发音预合成队列：prefill() 入队 + 1.2s 轮询 /api/tts/prefill 进度（形状与 useDictPrefetch 一致）
 src/hooks/useDictSources.ts    词典来源状态 GET /api/dict/sources（字段校验不过 / 老服务 404 → null，界面不显示）；
                                buildChain 排成设置页的查词链路（缓存 → dictionaryapi → 百度翻译，不可用给原因）
 src/hooks/useStudy.ts          某个词在哪些学习列表里（查词页用）；走 apiCache（TTL 5 分钟），markAdded 增量更新；
@@ -168,6 +172,8 @@ worker/src/dict.js             词典链路：缓存 → dictionaryapi.dev → �
                                resolveEntry / resolvePhoneticOnly / search-batch 的 mapConcurrent
 worker/src/prefetch.js         后台补齐队列：状态存 D1 kv（prefetch-state），执行走 app.waitUntil
                                （生产 = ctx.waitUntil，测试收进数组）；队头「认领」写回缩小并发撞车窗口
+worker/src/tts-prefill.js      发音预合成队列（设置页「补充音频」）：状态存 D1 kv（tts-prefill-state），串行 + 限速
+                               调 synthesizeSpeech 写回 tts_cache，未配 GOOGLE_TTS_API_KEY 时拒绝入队
 worker/src/review.js           艾宾浩斯算法：REVIEW_INTERVALS / nextDueAt / studyState / applyReview（打卡唯一实现）
 worker/src/lists.js            列表领域服务：syncListTranslation / selectedTranslation /
                                标签 / 目标 / 打印批次三份小文档 / enrichBatch
@@ -286,6 +292,9 @@ PrintBatch       { id, printedAt, kind: 'start'|'review', scope?, title, wordCou
 | `GET /api/cache/stats` | 缓存统计 | — |
 | `GET /api/tts/status` | `{available, configured, voice, language, limit}`；没配 `GOOGLE_TTS_API_KEY` 或断网时 available=false；仅诊断用，页面不据此隐藏喇叭 | speech.ts |
 | `GET /api/tts?text=word` | Google TTS 合成 → `{text, mime, audio(base64 MP3), cached}`；命中 `tts_cache` 不再走外网，文本上限 160 字符 | speech.ts（RecitePage 喇叭） |
+| `GET /api/tts/missing` | 学习列表里没有发音缓存的词 / 句子（超 160 字符的排除）+ TTS 状态 | AudioRepair |
+| `POST /api/tts/prefill` | 把缺发音的文本排进后台预合成队列；没配 `GOOGLE_TTS_API_KEY` 回 503 | useTtsPrefill.prefill |
+| `GET /api/tts/prefill` | 预合成队列进度 `{total,done,failed,pending,running,finished}` | useTtsPrefill |
 | `GET /api/lists` | 所有列表（含 default） | useStudyList |
 | `POST /api/lists` `{name}` | 新建列表，重名报错 | useStudyList |
 | `PATCH /api/lists/:id` `{name}` | 重命名 | useStudyList |

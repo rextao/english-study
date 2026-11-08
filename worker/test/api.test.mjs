@@ -1879,6 +1879,87 @@ check('没配密钥时喇叭标记为不可用',
 r = await call('GET', '/api/tts?text=apple')
 check('没配密钥时合成接口回 503', r.status === 503, r.body)
 
+// ── 补充音频：后台预合成队列（mock Google，不访问真实网络）──────────────────
+
+console.log('')
+console.log('补充音频')
+
+const ttsPfCtx = makeContext({
+  DICT_NO_NETWORK: '0',
+  GOOGLE_TTS_API_KEY: 'tts-test-key',
+  GOOGLE_TTS_API_URL: 'http://tts.mock/synthesize',
+})
+use(ttsPfCtx)
+
+r = await call('GET', '/api/tts/missing')
+check('空学习列表时缺失音频为空',
+  r.status === 200 && Array.isArray(r.body?.items) && r.body.items.length === 0, r.body)
+check('缺失接口顺带返回 TTS 状态',
+  r.body?.tts?.configured === true && typeof r.body?.tts?.voice === 'string', r.body)
+
+r = await call('POST', '/api/lists', { name: 'TTS-Prefill' })
+const ttsListId = r.body?.id
+await call('POST', '/api/lists/' + ttsListId + '/words', { text: 'banana', translation: '香蕉' })
+await call('POST', '/api/lists/' + ttsListId + '/words', { text: 'cherry', translation: '樱桃' })
+await call('POST', '/api/lists/' + ttsListId + '/words', { text: 'i have a cherry', translation: '我有一个樱桃。' })
+// 超过 160 字符上限的文本永远无法合成，不应该出现在缺失名单里
+await call('POST', '/api/lists/' + ttsListId + '/words', { text: 'x'.repeat(200), translation: '超长' })
+
+r = await call('GET', '/api/tts/missing')
+check('无缓存时单词和句子都缺失，超长文本被排除',
+  r.status === 200 && r.body.items.length === 3
+  && r.body.items.some(item => item.word === 'i have a cherry' && item.type === 'sentence')
+  && r.body.items.some(item => item.word === 'banana' && item.type === 'word'), r.body)
+
+const prefillCalls = []
+globalThis.fetch = async (url) => {
+  prefillCalls.push(String(url))
+  return {
+    ok: true,
+    status: 200,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    async text() { return JSON.stringify({ audioContent: 'UFJFRklMTA==' }) },
+  }
+}
+
+r = await call('POST', '/api/tts/prefill', {})
+check('入队返回 scanned / queued 与进度形状',
+  r.status === 200 && r.body?.ok === true && r.body?.scanned === 3 && r.body?.queued === 3
+  && hasProgressShape(r.body), r.body)
+
+await Promise.all(waitUntilPromises.splice(0, waitUntilPromises.length))
+// 加词会顺带触发音标补齐队列（打的别的接口），这里只认 TTS mock 的调用
+const ttsOnly = prefillCalls.filter(url => url.startsWith('http://tts.mock/synthesize'))
+check('队列逐个调用 Google 合成 3 次', ttsOnly.length === 3, ttsOnly)
+
+r = await call('GET', '/api/tts/prefill')
+check('队列跑完 done=3 且 finished',
+  hasProgressShape(r.body) && r.body?.done === 3 && r.body?.failed === 0
+  && r.body?.finished === true, r.body)
+
+r = await call('GET', '/api/tts/missing')
+check('合成后缺失名单清空', r.status === 200 && r.body.items.length === 0, r.body)
+
+const ttsCached = await db().all('SELECT text FROM tts_cache')
+check('tts_cache 写入 3 条音频',
+  ttsCached.length === 3
+  && ttsCached.some(row => row.text === 'banana')
+  && ttsCached.some(row => row.text === 'i have a cherry'), ttsCached)
+
+r = await call('POST', '/api/tts/prefill', {})
+check('已齐时再次补充不再入队', r.status === 200 && r.body?.queued === 0, r.body)
+
+prefillCalls.length = 0
+r = await call('GET', '/api/tts?text=banana')
+check('补充后点喇叭直接命中缓存，不再打外网',
+  r.status === 200 && r.body?.cached === true && prefillCalls.length === 0, r.body)
+
+globalThis.fetch = oldFetch
+
+use(makeContext({ DICT_NO_NETWORK: '0' }))
+r = await call('POST', '/api/tts/prefill', {})
+check('没配密钥时入队接口回 503', r.status === 503, r.body)
+
 // ── 短文学习：严格匹配、保存与批量熟悉度标记 ─────────────────────────────────
 
 console.log('')

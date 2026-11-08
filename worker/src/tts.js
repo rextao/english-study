@@ -87,7 +87,7 @@ function languageOf(env) {
 }
 
 /** 缓存键带上音色：换音色后旧音频不会被错用 */
-function cacheKeyOf(text, env) {
+export function ttsCacheKey(text, env) {
   return voiceOf(env) + '|' + text
 }
 
@@ -155,7 +155,7 @@ export async function synthesizeSpeech(app, rawText) {
   }
   if (app.config.noNetwork) return { status: 503, body: { error: 'network disabled' } }
 
-  const key = cacheKeyOf(text, env)
+  const key = ttsCacheKey(text, env)
   const cached = await readCachedAudio(app, key)
   if (cached) return { status: 200, body: { text, mime: cached.mime, audio: cached.audio, cached: true } }
 

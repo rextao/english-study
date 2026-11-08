@@ -31,7 +31,8 @@ import {
 } from './lists.js'
 import { progressRow } from './study-lists.js'
 import { enqueuePrefetch, enqueuePhoneticPrefetch, enqueueFullPhoneticPrefetch, currentPrefetchState } from './prefetch.js'
-import { synthesizeSpeech, ttsStatus, MAX_TTS_TEXT_LENGTH } from './tts.js'
+import { synthesizeSpeech, ttsStatus, ttsConfigured, MAX_TTS_TEXT_LENGTH } from './tts.js'
+import { enqueueTtsPrefill, currentTtsPrefillState } from './tts-prefill.js'
 
 /**
  * 列表名：lists 表里有这一行就用行里的名字；没有时只有默认列表兜底，
@@ -311,6 +312,44 @@ export async function handleApi(method, pathname, searchParams, body, app) {
 
   if (method === 'GET' && pathname === '/api/tts') {
     return synthesizeSpeech(app, searchParams.get('text'))
+  }
+
+  // GET /api/tts/missing — 设置页展示所有学习列表里还没有发音缓存的词和句子
+  if (method === 'GET' && pathname === '/api/tts/missing') {
+    const tts = ttsStatus(app)
+    const items = await app.listsStore.wordsMissingAudio(tts.voice, MAX_TTS_TEXT_LENGTH)
+    return {
+      status: 200,
+      body: {
+        tts,
+        items: items.map(item => ({
+          word: item.word,
+          type: item.type === 'sentence' ? 'sentence' : 'word',
+          listCount: Number(item.listCount) || 0,
+        })),
+      },
+    }
+  }
+
+  // /api/tts/prefill — GET 查预合成进度，POST 把缺发音的词排进后台预合成队列
+  if (pathname === '/api/tts/prefill') {
+    if (method === 'GET') return { status: 200, body: await currentTtsPrefillState(app) }
+    if (method === 'POST') {
+      if (!ttsConfigured(env)) {
+        return { status: 503, body: { error: 'tts not configured: GOOGLE_TTS_API_KEY missing' } }
+      }
+      let texts = Array.isArray(body?.words) ? body.words.map(normalizeText).filter(Boolean) : []
+      if (texts.length === 0) {
+        // 不信任页面快照，入队前服务端再扫一遍当前学习列表
+        texts = (await app.listsStore.wordsMissingAudio(ttsStatus(app).voice, MAX_TTS_TEXT_LENGTH)).map(row => row.word)
+      }
+      const queued = await enqueueTtsPrefill(texts, app)
+      console.log('[tts-prefill]', texts.length, 'scanned,', queued, 'queued')
+      return {
+        status: 200,
+        body: Object.assign({ ok: true, scanned: texts.length, queued }, await currentTtsPrefillState(app)),
+      }
+    }
   }
 
   // GET /api/dict/sources  — 查词链路状态：能不能联网、缓存多少、百度密钥配没配

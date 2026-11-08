@@ -199,6 +199,17 @@ export function createStudyListsStore(db) {
     )
   }
 
+  /** 设置页只展示还没有发音缓存的词和句子；缓存键 = 音色 + '|' + 文本 */
+  async function wordsMissingAudio(voice, maxTextLength) {
+    return await db.all(
+      "SELECT word, CASE WHEN MAX(CASE WHEN type = 'word' THEN 1 ELSE 0 END) = 1 THEN 'word' ELSE 'sentence' END AS type, COUNT(DISTINCT list_id) AS listCount"
+      + " FROM list_words WHERE length(word) <= ?"
+      + " AND NOT EXISTS (SELECT 1 FROM tts_cache WHERE cache_key = ? || '|' || word)"
+      + " GROUP BY word ORDER BY word",
+      maxTextLength, voice,
+    )
+  }
+
   /** 计划页只读在学词，并带出列表名。 */
   async function activePlanRows() {
     const rows = await db.all("SELECT w.*, l.name AS list_name FROM list_words w JOIN lists l ON l.id = w.list_id WHERE w.started_at IS NOT NULL AND w.suspended_at IS NULL ORDER BY w.list_id, w.position")
@@ -420,7 +431,7 @@ export function createStudyListsStore(db) {
     resetStats, selectWords, listName, listMeta, nameExists, insertList, renameList, deleteList,
     insertWords, updateWordContent, updateWordBatch, removeWords, setSuspended, updateBatchNames, saveWordProgress, adjustTallyStats,
     updateBatchOrder, listSummaries, listWords, batchNames, batchMeta, listIdsForWord, wordsNeedingRepair,
-    wordsMissingPhonetic, itemsMissingPhonetic, syncPhonetics,
+    wordsMissingPhonetic, wordsMissingAudio, itemsMissingPhonetic, syncPhonetics,
     activePlanRows, itemsMissingTranslation, syncTranslations,
   }
 }
