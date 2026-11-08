@@ -48,7 +48,8 @@ src/pages/ImportPage.tsx       批量导入：多行文本 → 归一化 / 去�
 src/pages/ListsPage.tsx        学习列表：切换 / 新建 / 重命名 / 删除；词条平铺一行一个；useDictBatch 取音标和中文词义；
                                「批次」checkbox → 按加入日期分成批次展示，批次可就地重命名（自定义名 + 只读日期 Tag）；
                                「多选」开关 → 每行勾选框 + 全选 + 批量删除（二次确认）
-                               词条首行 = 词 + 音标（左）+ 句子 / 词库 Tag 与「会拼 / 会读 / 知意」浅色小字（右），中文释义单独一行
+                               词条首行 = 词 + 音标（左）+ 句子 / 词库 Tag 与「会拼 / 会读 / 知意」浅色小字（右），中文释义单独一行；
+                               音标后有喇叭按钮（SpeakerButton）播放 Google TTS 发音，失败提示在页面顶部
 src/pages/LibrariesPage.tsx    词库标签页（已并进设置页）：只显示 name + file + 显示标签 / 打印标签改名 / 重置默认值；
                                embedded=true 时不渲染页头，主体抽成 content 变量
 src/pages/StudyPage.tsx        英语学习页：StudyGoal + 挑词弹窗（Modal，勾词 → 打印卡片 + plan.startWords）
@@ -103,6 +104,10 @@ src/components/TokenGate.tsx   访问令牌门：首次打开 / 401 时填令牌
 src/components/AnalyticsConsent.tsx  回放同意条（main.tsx 里挂在 App 旁边）：没配 key 或已选过就不渲染
 src/components/PageHeader.tsx  页面标题区（title / subtitle / actions），样式在 App.css
 src/components/WordCard.tsx    词卡：音标 / 词库标签 / 中文释义 / 右上角「加入学习」小按钮；
+src/components/SpeakerButton.tsx  音标旁的喇叭按钮：点一下走 utils/speech 的 speak() 播放 /api/tts 发音，
+src/components/SpeakerButton.tsx  音标旁的喇叭按钮：点一下走 utils/speech 的 speak() 播放 /api/tts 发音，
+                               取音频 / 播放中图标变蓝（不旋转）；多选模式在 Checkbox label 内，onClick 拦事件；
+                               失败原因由 onError 透传给 ListsPage 的红色 toast（lists-toast--error）
                                卡片上不显示英文释义、也不显示例句
 src/components/StudyGoal.tsx   目标模块：目标词库（useStudyGoal）vs 已开始学的词 → 达成度 +「目标外的获得」；
                                buildFormIndex 做词形宽松匹配

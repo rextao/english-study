@@ -4,10 +4,12 @@ import { useDictBatch } from '../hooks/useDictBatch'
 import type { StudyWordItem } from '../types/vocab'
 import type { VocabLibraryInfo } from '../types/vocab'
 import { PageHeader } from '../components/PageHeader'
+import { SpeakerButton } from '../components/SpeakerButton'
 import { formatTranslationOptions, selectedTranslationOptions } from '../utils/translations'
 import { Button, Checkbox, Input, Popconfirm, Select, Tag } from '../ui'
 import type { SelectOption } from '../ui'
 import { primaryVocabIdForWord } from '../utils/vocabOrder'
+import { stopSpeech } from '../utils/speech'
 import './ListsPage.css'
 
 const DEFAULT_LIST_ID = 'default'
@@ -74,6 +76,7 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
   const [keyword, setKeyword]           = useState('')
   const [error, setError]               = useState('')
   const [notice, setNotice]             = useState('')
+  const [speechError, setSpeechError]   = useState('')
   // 多选删除：平时关着，开了才在每行前面显示勾选框
   const [selectMode, setSelectMode]     = useState(false)
   const [selected, setSelected]         = useState<Set<string>>(new Set())
@@ -132,6 +135,16 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
     const timer = window.setTimeout(() => setNotice(''), 2600)
     return () => window.clearTimeout(timer)
   }, [notice])
+
+  // 发音失败也只短暂提示，不占用页面内容区域
+  useEffect(() => {
+    if (!speechError) return
+    const timer = window.setTimeout(() => setSpeechError(''), 2600)
+    return () => window.clearTimeout(timer)
+  }, [speechError])
+
+  // 离开页面掐掉正在播的音频，免得切走了声音还在响
+  useEffect(() => () => { stopSpeech() }, [])
 
   const current   = lists.find(l => l.id === selectedId)
   const isDefault = selectedId === DEFAULT_LIST_ID
@@ -284,6 +297,7 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
         {phonetic && (
           <span className="word-row__phonetic">{phonetic}</span>
         )}
+        <SpeakerButton text={displayTextOf(item)} onError={setSpeechError} />
       </>
     )
     return (
@@ -475,7 +489,13 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
       </div>
 
       {error && <div className="callout callout--error lists-alert">{error}</div>}
-      {!error && notice && (
+      {!error && speechError && (
+        <div className="lists-toast lists-toast--error" role="alert" aria-live="assertive">
+          <span className="lists-toast__mark lists-toast__mark--error" aria-hidden="true">✕</span>
+          <span>{speechError}</span>
+        </div>
+      )}
+      {!error && !speechError && notice && (
         <div className="lists-toast" role="status" aria-live="polite">
           <span className="lists-toast__mark" aria-hidden="true">✓</span>
           <span>{notice}</span>

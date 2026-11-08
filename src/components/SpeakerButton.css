@@ -1,0 +1,47 @@
+/* 音标旁的小喇叭：无边框圆形图标按钮，弱字色，悬停高亮，不抢词条视觉重心 */
+.word-row__speak {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-subtle);
+  cursor: pointer;
+  transition: color .15s, background .15s;
+}
+
+.word-row__speak:hover {
+  color: var(--color-primary);
+  background: var(--color-surface-sunken);
+}
+
+.word-row__speak:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.word-row__speak svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  fill-rule: nonzero;
+}
+
+/* 后两条弧线是描边，第一条是实心喇叭 */
+.word-row__speak svg path:not(:first-child) { fill: none; }
+
+/* 取音频 / 播放中用颜色区分（不旋转）：图标变蓝 */
+.word-row__speak--busy,
+.word-row__speak--busy:hover {
+  color: var(--color-primary);
+  background: var(--color-surface-sunken);
+}
+

@@ -92,6 +92,11 @@
 
 .lists-toast__mark { color: #86efac; font-weight: 700; }
 
+/* 发音失败沿用成功提示的浮层，换成红色调 */
+.lists-toast--error { background: #dc2626; }
+
+.lists-toast__mark--error { color: #fecaca; }
+
 /* 当前列表的标题与操作条 */
 .lists-toolbar {
   display: flex;
