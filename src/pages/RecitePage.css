@@ -146,22 +146,17 @@
   text-transform: uppercase;
 }
 
-/* 右上角喇叭：Google TTS 合成发音；播放时波浪线轻轻跳 */
+/* 单词下面的圆形喇叭：Google TTS 合成发音；播放时波浪线轻轻跳 */
 .recite-card__speak {
-  position: absolute;
-  top: 16px;
-  right: 16px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  padding: 8px 16px 8px 12px;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
   border: 1px solid #dce6fa;
-  border-radius: var(--radius-full);
+  border-radius: 50%;
   background: #f4f8ff;
   color: #2563eb;
-  font-size: 15px;
-  font-weight: 700;
   cursor: pointer;
   transition: transform .12s ease, background .18s ease, box-shadow .18s ease;
   box-shadow: 0 10px 24px -18px rgba(37, 99, 235, .9);
@@ -213,10 +208,8 @@
 
 @media (max-width: 560px) {
   .recite-card__speak {
-    top: 12px;
-    right: 12px;
-    padding: 8px 12px;
-    font-size: 14px;
+    width: 48px;
+    height: 48px;
   }
 }
 

@@ -15,6 +15,12 @@ for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
 // PostHog 会话回放：没配 VITE_POSTHOG_KEY 时内部直接跳过，默认 opt-out，等用户在同意条上点「允许」
 initAnalytics()
 
+// PWA：生产环境注册 service worker（public/sw.js，构建时原样复制到产物根），
+// 缓存应用外壳。开发时不注册——vite 端口与 /api 代理混着跑，缓存会干扰热更新。
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {})
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

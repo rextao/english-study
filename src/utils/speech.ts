@@ -25,6 +25,8 @@ const MAX_CACHED_AUDIO = 60
 const audioUrls = new Map<string, string>()
 const pendingAudio = new Map<string, Promise<string>>()
 let currentAudio: HTMLAudioElement | null = null
+/** 每次 stopSpeech / 新一次 speak 都加一：合成还没回来就被换词 / 离开页面时，回来也不再播 */
+let speechGeneration = 0
 
 function cacheKeyOf(text: string) {
   return text.trim().replace(/\s+/g, ' ').toLowerCase()
@@ -77,6 +79,7 @@ async function loadAudioUrl(text: string): Promise<string> {
 
 /** 掐掉正在播的音频（换卡片 / 离开页面时调用） */
 export function stopSpeech() {
+  speechGeneration += 1
   if (!currentAudio) return
   currentAudio.onended = null
   currentAudio.onerror = null
@@ -89,7 +92,10 @@ export async function speak(text: string): Promise<void> {
   const word = text.trim()
   if (!word) return
   stopSpeech()
+  const generation = speechGeneration
   const url = await loadAudioUrl(word)
+  // 合成期间点了别的词 / 换了卡片：这次的结果已经过时，别再出声
+  if (generation !== speechGeneration) return
   await new Promise<void>((resolve, reject) => {
     const audio = new Audio(url)
     currentAudio = audio

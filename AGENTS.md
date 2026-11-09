@@ -29,7 +29,7 @@
 ## 目录地图（一行一职责）
 
 ```
-src/main.tsx                   挂载 React，引入 index.css
+src/main.tsx                   挂载 React，引入 index.css；生产环境注册 /sw.js（PWA 外壳缓存），dev 不注册
 src/App.tsx                    状态中枢：useVocabLibraries / useStudyList / useStudyPlan / useTabRoute 都在这里，
                                按 tab 渲染各页面并把 props 往下传；背词会话也在这里拉（切到 #/recite 时 start）；
                                TokenGate（令牌门）也在这里挂——
@@ -79,7 +79,7 @@ src/pages/RecitePage.tsx         横屏背单词（tab=recite）：给小朋友�
                               拼写卡显示中文 + 虚拟键盘；点「会 / 不会」先写服务端草稿
                               /api/recite/sessions/:id/drafts（不推进轮次，家长换设备也能读），
                               最后一张后进完成动画页（彩带 + 奖杯 + 会 / 不会 / 拼写统计）；
-                              卡片右上角喇叭 = utils/speech.ts 播放 Google TTS 发音（拼写卡判定前不出声），
+                              单词下面的圆形喇叭按钮（纯图标） = utils/speech.ts 播放 Google TTS 发音（拼写卡判定前不出声），
                               按钮始终渲染；请求 / 播放失败把原因（缺密钥 / 断网 / 超时 / 浏览器拦截）写在页面上
 src/pages/ReciteParentPage.tsx   家长端（#/recite/parent，保留的独立页，已没有 UI 入口）：按日期列出待保存 / 已保存的背诵记录，
                               逐词显示 会 / 不会 / 拼写正确 / 拼写跳过；「保存记录」才统一提交 commit，推进轮次与次数。
@@ -195,6 +195,11 @@ worker/schema.sql              全量建表 SQL（wrangler d1 execute 一次性�
 
 worker/test/d1-shim.mjs        node:sqlite 模拟 D1 接口（prepare→bind→all/first/run + batch 事务）
 worker/test/api.test.mjs       350+ 项断言：直接驱动 handleApi + 走真正 workerIndex.fetch 的鉴权用例
+public/manifest.json           PWA 清单：name「背单词」、display standalone、theme_color #2563eb、start_url ./#/recite，
+                              图标 /icons/icon-192.png（any）与 /icons/icon-512.png（any maskable）；图标文件由用户
+                              手动放进 public/icons/，不在代码里生成
+public/sw.js                   手写 service worker：缓存应用外壳（导航网络优先 + 断网回落缓存的 index.html，
+                              静态资源缓存优先），/api 全部直连不缓存（数据实时 + 鉴权头）；版本号在文件顶部
 scripts/migrate-to-d1.mjs      本地 study-history.sqlite → migration.sql（INSERT 语句），wrangler d1 execute 导入
 scripts/study-cli.mjs          本地 CLI（npm run study）：列学习列表 / 列分组（复用 studyWordGroups.ts）/ 按词或分组导出打印 HTML / 默认写打印记录；
                                线上地址 / 令牌从 .dev.vars 的 STUDY_API_BASE / STUDY_API_TOKEN 读取（命令行不可覆盖）；

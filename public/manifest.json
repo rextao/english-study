@@ -1,0 +1,15 @@
+{
+  "name": "背单词",
+  "short_name": "背单词",
+  "description": "英语学习 · 背单词练习，保存到桌面直接开始",
+  "start_url": "./#/recite",
+  "scope": "./",
+  "display": "standalone",
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

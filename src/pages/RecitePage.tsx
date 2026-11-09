@@ -250,6 +250,24 @@ export function RecitePage({ payload, loading, error, onReload }: RecitePageProp
     )
   }
 
+  // 喇叭：圆形纯图标按钮，挂在单词下面；拼写卡判定前锁定不出声，原因靠 title 说明
+  const speakButton = (
+    <button
+      type="button"
+      className={'recite-card__speak' + (speaking ? ' is-playing' : '')}
+      onClick={playWord}
+      disabled={spellingLocked}
+      aria-label={spellingLocked ? '拼完或跳过后再听发音' : '播放单词发音'}
+      title={spellingLocked ? '拼完或跳过后再听' : '播放单词发音'}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M4 9.5h3.2L12 5.6v12.8L7.2 14.5H4z" />
+        <path d="M15.4 8.6a4.6 4.6 0 0 1 0 6.8" />
+        <path d="M17.9 6.1a8.2 8.2 0 0 1 0 11.8" />
+      </svg>
+    </button>
+  )
+
   return (
     <div className="recite">
       <div className="recite__track" role="list" aria-label={'共 ' + total + ' 张卡片的学习进度'}>
@@ -279,25 +297,11 @@ export function RecitePage({ payload, loading, error, onReload }: RecitePageProp
 
       <main className="recite__stage">
         <section className={'recite-card' + (flipped ? ' recite-card--flipped' : '')}>
-          <button
-            type="button"
-            className={'recite-card__speak' + (speaking ? ' is-playing' : '')}
-            onClick={playWord}
-            disabled={spellingLocked}
-            aria-label={spellingLocked ? '拼完或跳过后再听发音' : '播放单词发音'}
-            title={spellingLocked ? '拼完或跳过后再听' : '播放单词发音'}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M4 9.5h3.2L12 5.6v12.8L7.2 14.5H4z" />
-              <path d="M15.4 8.6a4.6 4.6 0 0 1 0 6.8" />
-              <path d="M17.9 6.1a8.2 8.2 0 0 1 0 11.8" />
-            </svg>
-            <span>{spellingLocked ? '拼完再听' : speaking ? '播放中' : '发音'}</span>
-          </button>
           {isSpelling ? (
             <>
               <p className="recite-card__hint">看中文，拼出英文</p>
               <div className="recite-card__prompt recite-card__prompt--cn">{display || '暂无中文提示'}</div>
+              {speakButton}
               <div className={'recite-card__input' + (input ? '' : ' recite-card__input--empty')}>
                 {input || '点击下方键盘输入'}
               </div>
@@ -313,9 +317,13 @@ export function RecitePage({ payload, loading, error, onReload }: RecitePageProp
             <div className="recite-card__back">
               <span className="recite-card__back-word">{card.word}</span>
               <strong className="recite-card__back-translation">{card.translation || '暂无中文含义'}</strong>
+              {speakButton}
             </div>
           ) : (
-           <div className="recite-card__prompt">{display}</div>
+            <>
+              <div className="recite-card__prompt">{display}</div>
+              {speakButton}
+            </>
           )}
         </section>
 
