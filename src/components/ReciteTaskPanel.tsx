@@ -56,10 +56,10 @@ function isStarted(task: ReciteTask | null): boolean {
   return Boolean(task && (task.completedSessions > 0 || task.activeSessionIndex != null))
 }
 
-/** 第 N 次是否已经学过（或正在学）：整周任务开始了，但这一次没开始时仍然可以改这一行的词 */
+/** 第 N 次是否已经学过：只有已完成的次数锁定；正在学习中的那一次可以改词（改完重置会话重新学） */
 function sessionLocked(task: ReciteTask | null, session: number | null): boolean {
   if (!task || !session) return false
-  return session <= task.completedSessions || session === task.activeSessionIndex
+  return session <= task.completedSessions
 }
 
 export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, onClose, onSaved }: ReciteTaskPanelProps) {
@@ -103,6 +103,8 @@ export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, o
 
   /** 点某一行进来时只改那一次的词（1-based）；没传就是改整周 */
   const rowSession = focusSession && focusSession > 0 ? focusSession : null
+  /** 正在改的是「学习中」的那一次：保存会作废这次会话，这一批单词要重新学 */
+  const editingActive = Boolean(existing && rowSession != null && existing.activeSessionIndex === rowSession)
   /** 这一行按任务里的每次词数切分，改单行时不能改每次词数和次数（改了整周的行会重排） */
   const rowPer = Math.max(1, existing?.perSessionCount ?? perSessionCount)
   const rowScope = useMemo(() => {
@@ -431,8 +433,11 @@ export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, o
               </div>
 
               {rowSession
-                ? <p className="hint">只改第 {rowSession} 次的单词（每次 {Math.max(1, scopePer)} 个），其他次数保持不动；这次没开始就还能改。</p>
+                ? <p className="hint">只改第 {rowSession} 次的单词（每次 {Math.max(1, scopePer)} 个），其他次数保持不动。</p>
                 : existing && <p className="hint">这一周已有任务，保存会覆盖现有配置。</p>}
+              {editingActive && (
+                <p className="callout callout--warn">这一次正在学习中：保存后已学的判定会清空，需要重新学这一批单词。</p>
+              )}
               {selected.length > capacity && <p className="callout callout--warn">已选择 {selected.length} 个，超出容量的 {selected.length - capacity} 个将被忽略。</p>}
               {selected.length < capacity && <p className="hint">还缺少 {capacity - selected.length} 个，预览时将从学习成果的最近学习逆序自动填充。</p>}
 

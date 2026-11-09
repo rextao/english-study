@@ -84,7 +84,6 @@ npm run db:local:sync
 | `npm run build` | 类型检查 + 打包到 `dist/` |
 | `npm run test:server` | 服务端测试，跑在临时目录的 node:sqlite shim 上、不联网，不会动你的数据 |
 | `npm run docs:check` | 检查项目文档入口、关键路径和本机绝对路径引用 |
-| `npm run migrate:to-d1` | 把本地历史 sqlite 生成 migration.sql（已迁移过就不用再跑） |
 | `npm run deploy` | 构建 + `wrangler deploy`（Worker + 静态资源一起发） |
 | `npm run study -- help` | 本地命令行：调用线上 API 列学习列表、导出打印稿 |
 
@@ -129,14 +128,13 @@ npx wrangler d1 execute english-study-sync --remote --file=worker/migrations/001
 npx wrangler d1 execute english-study-sync --remote --file=worker/migrations/002-study-query-indexes.sql
 # 背单词喇叭的发音缓存表（一次性；不跑也能发音，只是每次都要重新合成）
 npx wrangler d1 execute english-study-sync --remote --file=worker/migrations/006-tts-cache.sql
+# 背词课堂录音表（一次性；不跑时背词页录音上传会失败，其他功能不受影响）
+npx wrangler d1 execute english-study-sync --remote --file=worker/migrations/007-recite-recordings.sql
+# 仅当之前已执行过旧版 007（录音表还没有 status 列）时补一次：
+# npx wrangler d1 execute english-study-sync --remote --file=worker/migrations/008-recite-recording-status.sql
 
 # 迁移完成后再发布使用新结构的 Worker
 npx wrangler deploy
-
-# 从本地历史 sqlite 迁数据（幂等：先 DELETE 再 INSERT）
-npm run migrate:to-d1
-npx wrangler d1 execute english-study-sync --remote --file=migration.sql
-# 导完数据再跑一次上面的迁移（生成的 INSERT 里没有 dict_cache.status，靠它回填）
 
 # 密钥（Worker secret，不进 git）
 npx wrangler secret put API_TOKEN
@@ -146,7 +144,7 @@ npx wrangler secret put BAIDU_TRANSLATE_APP_ID
 npx wrangler secret put GOOGLE_TTS_API_KEY
 ```
 
-部署完成后，桌面和手机浏览器打开 `https://english-study-mobile.rextao666.workers.dev`（Worker 名见 `wrangler.toml`），填同一个访问令牌即可。本地 `cache/study-history.sqlite` 迁移后保留作回滚兜底，应用不再读写它。
+部署完成后，桌面和手机浏览器打开 `https://english-study-mobile.rextao666.workers.dev`（Worker 名见 `wrangler.toml`），填同一个访问令牌即可。D1 是唯一数据源：本地历史 sqlite 与一次性导入脚本（`npm run migrate:to-d1`、`migration.sql`）均已删除，不会再有本地旧数据覆盖线上 D1 的情况。
 
 ## 五个页面
 

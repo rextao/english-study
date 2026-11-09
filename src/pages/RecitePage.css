@@ -8,6 +8,13 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* 背景铺满整屏（index.html 开了 viewport-fit=cover，横屏不会留左右白边），
+     内容让开 iPhone 的刘海 / Home 条 */
+  padding:
+    env(safe-area-inset-top)
+    env(safe-area-inset-right)
+    env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
   color: #17203a;
   background:
     radial-gradient(900px 520px at 10% -10%, #dfe9ff 0%, rgba(223, 233, 255, 0) 62%),
@@ -31,46 +38,76 @@
 
  /* ---------------- 顶部：圆圈进度轨道 ---------------- */
 
-/* 一张卡片一个圆圈：序号 1、2、3…；每 5 张与最后一张是宝箱节点 */
+/* 顶部进度标签：一张卡片一个圆点，序号 1、2、3…；每 5 张与最后一张是宝箱节点。
+   不铺底色（不压白条），圆点直接浮在背景上；它是文档流里的子元素，
+   下面的舞台紧接在它后面，卡片间距才能稳定成 20px */
 .recite__track {
-  position: absolute;
+  position: relative;
   z-index: 2;
-  top: 16px;
-  left: 20px;
-  right: 20px;
+  flex: 0 0 auto;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
   gap: 6px 5px;
+  width: min(1080px, calc(100% - 32px));
+  margin: 12px auto 0;
   pointer-events: none;
 }
 
-/* 未学：灰色 */
+/* 未学：淡靛紫胶囊，和已学（薄荷糖）/ 当前（白底光环）拉开三层层次 */
 .recite__node {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #e6ecf5;
-  color: #93a1ba;
+  min-width: 28px;
+  height: 26px;
+  padding: 0 7px;
+  border: 1px solid rgba(99, 102, 241, .14);
+  border-radius: 999px;
+  background: rgba(99, 102, 241, .07);
+  color: #97a3bb;
   font-size: 11.5px;
   font-weight: 700;
   line-height: 1;
-  transition: background .2s ease, color .2s ease, box-shadow .2s ease, filter .2s ease;
+  transition: background .2s ease, color .2s ease, box-shadow .2s ease, filter .2s ease, transform .2s ease;
 }
 
-/* 学过：绿色，不区分会 / 不会 */
+/* 学过的节点可以点，回看那张卡：把指针事件还回来，按钮外观与同尺寸 span 一致 */
+.recite__node--back {
+  pointer-events: auto;
+  border: none;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.recite__node--back:hover { transform: translateY(-1px) scale(1.08); }
+
+.recite__node--back:active { transform: scale(.97); }
+
+/* 学过：薄荷糖渐变 + 深绿字，糖果感、不区分会 / 不会 */
 .recite__node--done {
-  background: linear-gradient(135deg, #2fd39a, #0d9f6e);
-  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(140deg, #a7f3d0, #34d399);
+  color: #04624a;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .75), 0 8px 16px -12px rgba(5, 150, 105, .95);
 }
 
-/* 当前一张：蓝色光环提示位置 */
+/* 当前一张：白底 + 靛蓝光环，从任何底色里都能一眼挑出来 */
 .recite__node--current {
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, .5);
+  border-color: transparent;
+  background: #fff;
+  color: #4338ca;
+  box-shadow: 0 0 0 2px #6366f1, 0 10px 20px -14px rgba(79, 70, 229, .95);
+  transform: translateY(-1px);
+}
+
+/* 学过的当前卡也走白底光环，不再叠绿色 */
+.recite__node--done.recite__node--current {
+  background: #fff;
+  color: #4338ca;
+  box-shadow: 0 0 0 2px #6366f1, 0 10px 20px -14px rgba(79, 70, 229, .95);
 }
 
 /* 宝箱节点：未学时压灰，学过恢复彩色 */
@@ -80,7 +117,7 @@
 
 .recite__node--prize:not(.recite__node--done) {
   filter: grayscale(1);
-  opacity: .55;
+  opacity: .5;
 }
 
 /* ---------------- 中间：卡片舞台 ---------------- */
@@ -92,9 +129,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: clamp(16px, 3vh, 30px);
-  padding: 84px clamp(18px, 4vw, 56px) clamp(18px, 3vh, 32px);
+  /* 顶部 20px：单词卡紧跟在进度标签下面，不多留空 */
+  padding: 20px clamp(18px, 4vw, 56px) clamp(18px, 3vh, 32px);
   min-height: 0;
 }
 
@@ -114,18 +152,7 @@
     0 36px 90px -42px rgba(37, 63, 132, .5),
     0 2px 0 rgba(255, 255, 255, .9) inset;
   text-align: center;
-  animation: recite-rise .28s ease both;
-}
-
-.recite-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 12%;
-  right: 12%;
-  height: 2px;
-  border-radius: 0 0 99px 99px;
-  background: linear-gradient(90deg, transparent, rgba(37, 99, 235, .35), rgba(219, 39, 119, .25), transparent);
+  animation: recite-card-in .3s cubic-bezier(.22, .9, .28, 1) both;
 }
 
 .recite-card--flipped {
@@ -137,6 +164,21 @@
 @keyframes recite-rise {
   from { opacity: 0; transform: translateY(14px) scale(.985); }
   to { opacity: 1; transform: none; }
+}
+
+/* 换卡：新卡从右侧滑进来，旧卡（.recite-card--leaving）向左滑走并淡出 */
+@keyframes recite-card-in {
+  from { opacity: 0; transform: translateX(38px) scale(.97); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes recite-card-out {
+  to { opacity: 0; transform: translateX(-38px) scale(.96); }
+}
+
+.recite-card--leaving {
+  animation: recite-card-out .18s ease-in forwards;
+  pointer-events: none;
 }
 
 .recite-card__hint {
@@ -213,12 +255,18 @@
   }
 }
 
+/* 中心单词：字号按单词长度自适应（--len 由组件写入），长单词自动缩字号，
+   不再靠负字间隔硬塞，也不会被卡边裁掉；左右留一点内边距，
+   保证渐变文字（background-clip: text）把字形的外沿一起包进去 */
 .recite-card__prompt {
-  font-size: clamp(46px, 8.6vw, 118px);
+  max-width: 100%;
+  padding: 0 .08em;
+  font-size: clamp(30px, min(8.6vw, calc(115vw / var(--len, 6))), 118px);
   font-weight: 800;
   line-height: 1.06;
-  letter-spacing: -.04em;
-  word-break: break-word;
+  letter-spacing: .03em;
+  overflow-wrap: anywhere;
+  text-align: center;
   background: linear-gradient(180deg, #1a2540, #2b3a5c);
   -webkit-background-clip: text;
   background-clip: text;
@@ -226,9 +274,9 @@
 }
 
 .recite-card__prompt--cn {
-  max-width: 780px;
+  max-width: min(100%, 780px);
   font-size: clamp(28px, 4.2vw, 56px);
-  letter-spacing: -.02em;
+  letter-spacing: .01em;
   background: linear-gradient(180deg, #1d4ed8, #3b82f6);
   -webkit-background-clip: text;
   background-clip: text;
@@ -301,87 +349,127 @@
 .recite__bar--single { justify-content: center; }
 
 .recite__mark {
+  /* --mark-edge 是同色的「厚底边」，按下时按钮会真的往下沉 */
+  --mark-edge: #c7d2fe;
   flex: 1;
   max-width: 340px;
-  min-height: clamp(70px, 10vh, 92px);
+  min-height: clamp(66px, 9vh, 84px);
+  border: none;
   border-radius: 24px;
-  font-size: clamp(22px, 2.6vw, 30px);
+  font-size: clamp(22px, 2.5vw, 28px);
   font-weight: 800;
   letter-spacing: .06em;
   cursor: pointer;
-  transition: transform .12s ease, background .18s ease, box-shadow .18s ease;
+  transition: transform .12s ease, box-shadow .12s ease, filter .16s ease;
 }
 
-.recite__mark:active:not(:disabled) { transform: scale(.975); }
+.recite__mark:disabled { opacity: .55; cursor: default; }
 
-.recite__mark:disabled { opacity: .6; cursor: default; }
+.recite__mark:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, .4), 0 7px 0 var(--mark-edge);
+}
 
+/* 不会：草莓奶糖（浅底 + 深玫红字），给小朋友的「不喜欢」也是柔和的 */
 .recite__mark--no {
-  border: 1.5px solid #ffd2c0;
-  background: #fff8f4;
-  color: #c2410c;
-  box-shadow: 0 16px 32px -24px rgba(194, 65, 12, .9);
+  --mark-edge: #f2557a;
+  background: linear-gradient(180deg, #ffd3db 0%, #ff9db2 100%);
+  color: #8d1236;
+  box-shadow: 0 7px 0 var(--mark-edge), 0 18px 30px -22px rgba(242, 85, 122, .9);
 }
 
-.recite__mark--no:hover:not(:disabled) { background: #ffefe8; }
-
+/* 会：薄荷糖（浅底 + 深绿字） */
 .recite__mark--yes {
-  border: 1px solid transparent;
-  background: linear-gradient(135deg, #2fd39a, #0d9f6e);
-  color: #fff;
-  box-shadow: 0 20px 36px -20px rgba(13, 159, 110, .8);
+  --mark-edge: #14a97a;
+  background: linear-gradient(180deg, #b9f6da 0%, #46dfa6 100%);
+  color: #04543a;
+  box-shadow: 0 7px 0 var(--mark-edge), 0 18px 30px -22px rgba(20, 169, 122, .9);
 }
 
-.recite__mark--yes:hover:not(:disabled) { background: linear-gradient(135deg, #2ac392, #0b8f63); }
+.recite__mark--no:hover:not(:disabled),
+.recite__mark--yes:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.03) saturate(1.05);
+}
+
+.recite__mark:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 3px 0 var(--mark-edge), 0 8px 16px -16px rgba(23, 32, 58, .45);
+}
 
 .recite__next {
-  min-width: min(420px, 100%);
-  min-height: clamp(66px, 9vh, 84px);
-  padding: 0 40px;
-  border: none;
+  min-width: min(380px, 100%);
+  min-height: clamp(64px, 8.4vh, 80px);
+  padding: 0 44px;
+  border: 1px solid rgba(255, 255, 255, .35);
   border-radius: var(--radius-full);
-  background: linear-gradient(135deg, #4f8bff, #2563eb);
+  background: linear-gradient(135deg, #5b8dff 0%, #3b6cf6 55%, #2563eb 100%);
   color: #fff;
-  font-size: clamp(20px, 2.2vw, 26px);
+  font-size: clamp(19px, 2.1vw, 24px);
   font-weight: 700;
+  letter-spacing: .06em;
   cursor: pointer;
-  box-shadow: 0 20px 38px -20px rgba(37, 99, 235, .85);
-  transition: transform .12s ease, filter .15s ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 20px 40px -22px rgba(37, 99, 235, .9);
+  transition: transform .16s ease, filter .16s ease, box-shadow .16s ease;
 }
 
-.recite__next:hover:not(:disabled) { filter: brightness(1.05); }
+.recite__next:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.04); }
 
-.recite__next:active:not(:disabled) { transform: scale(.98); }
+.recite__next:active:not(:disabled) { transform: translateY(0) scale(.985); }
+
+.recite__next:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .28), 0 20px 40px -22px rgba(37, 99, 235, .9);
+}
 
 /* ---------------- 拼写键盘 ---------------- */
 
 .recite-keyboard {
   display: grid;
   gap: 8px;
-  width: min(760px, 100%);
+  width: min(1080px, 100%);
 }
 
+/* 两行键盘：第一行 Q、W；第二行 A–Z 顺序平分整行，实在太窄才折行 */
 .recite-keyboard__row {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: 7px;
+  gap: 4px;
 }
 
-.recite-keyboard__row:nth-child(2) { padding: 0 24px; }
+.recite-keyboard__row--two .recite-keyboard__key {
+  flex: 0 0 auto;
+  width: clamp(56px, 7vw, 76px);
+}
+
+.recite-keyboard__row--alpha .recite-keyboard__key {
+  flex: 1 1 20px;
+  min-width: 20px;
+}
 
 .recite-keyboard__key {
-  width: clamp(38px, 4.6vw, 54px);
-  height: clamp(38px, 4.6vw, 54px);
+  height: clamp(40px, 5.2vh, 52px);
   border: 1px solid rgba(214, 224, 246, .9);
   border-radius: 13px;
   background: linear-gradient(180deg, #fff, #f4f8ff);
   box-shadow: 0 2px 0 #e3ebfa, 0 10px 20px -18px rgba(37, 63, 132, .6);
   color: #24304a;
-  font-size: clamp(15px, 1.5vw, 18px);
+  font-size: clamp(12px, 1.2vw, 16px);
   font-weight: 700;
   cursor: pointer;
   transition: transform .1s ease, background .15s ease, box-shadow .15s ease;
 }
+
+/* 删除键：靛蓝淡底，和字母键区分开，但静拼时同样清楚 */
+.recite-keyboard__key--action {
+  border-color: rgba(99, 102, 241, .35);
+  background: linear-gradient(180deg, #fff, #eef1ff);
+  color: #4338ca;
+  font-size: clamp(15px, 1.5vw, 19px);
+}
+
+.recite-keyboard__key--action:hover:not(:disabled) { background: #e7ebff; }
 
 .recite-keyboard__key:hover:not(:disabled) { background: #eef4ff; }
 
@@ -430,13 +518,36 @@
 .recite__kbd-ghost:active:not(:disabled),
 .recite__kbd-primary:active:not(:disabled) { transform: scale(.97); }
 
+/* 拼写卡的「不会」：淡玖瑰底 + 深玫红字，和主按钮「提交」分得开 */
+.recite__kbd-skip {
+  border-color: #ffc9d3;
+  background: linear-gradient(180deg, #fff, #ffe9ee);
+  color: #a01940;
+  box-shadow: 0 3px 0 #ffc9d3;
+}
+
+.recite__kbd-skip:hover:not(:disabled) {
+  border-color: #ff9db2;
+  background: linear-gradient(180deg, #fff, #ffdfe6);
+}
+
+.recite__kbd-skip:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #ffc9d3;
+}
+
 /* ---------------- 状态页 / 家长确认页 / 完成页 ---------------- */
 
 .recite--state {
   align-items: center;
   justify-content: center;
   overflow: auto;
-  padding: clamp(20px, 4vw, 48px);
+  /* 覆盖 .recite 的安全区内边距后，用 max() 把刘海宽度保住 */
+  padding:
+    max(clamp(20px, 4vw, 48px), env(safe-area-inset-top))
+    max(clamp(20px, 4vw, 48px), env(safe-area-inset-right))
+    max(clamp(20px, 4vw, 48px), env(safe-area-inset-bottom))
+    max(clamp(20px, 4vw, 48px), env(safe-area-inset-left));
 }
 
 .recite__panel {
@@ -488,6 +599,53 @@
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 16px 30px -18px rgba(37, 99, 235, .8);
+}
+
+/* 首页左下角的录音开关：只有开关本身，没有文字说明；默认开启（绿色轨道） */
+.recite__record {
+  position: absolute;
+  left: 20px;
+  bottom: 20px;
+  z-index: 3;
+  display: inline-flex;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: var(--radius-full);
+}
+
+.recite__record-track {
+  display: inline-flex;
+  align-items: center;
+  width: 52px;
+  height: 30px;
+  padding: 3px;
+  border-radius: var(--radius-full);
+  background: #d8dfec;
+  box-shadow: inset 0 1px 2px rgba(23, 32, 58, .12);
+  transition: background .18s ease;
+}
+
+.recite__record-knob {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(23, 32, 58, .25);
+  transition: transform .18s ease;
+}
+
+.recite__record.is-on .recite__record-track {
+  background: linear-gradient(135deg, #34d399, #0d9f6e);
+}
+
+.recite__record.is-on .recite__record-knob { transform: translateX(22px); }
+
+.recite__record:focus-visible { outline: none; }
+
+.recite__record:focus-visible .recite__record-track {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .35);
 }
 
 .recite__emoji {
@@ -640,10 +798,14 @@
 /* ---------------- 矮横屏 / 窄屏 ---------------- */
 
 @media (max-height: 560px) {
-  .recite__track { top: 10px; left: 14px; right: 14px; gap: 5px 4px; }
-  .recite__node { width: 20px; height: 20px; font-size: 10px; }
+  .recite__track {
+    width: min(1080px, calc(100% - 20px));
+    margin-top: 8px;
+    gap: 5px 4px;
+  }
+  .recite__node { min-width: 24px; height: 22px; padding: 0 5px; border-radius: 999px; font-size: 10px; }
   .recite__node--prize { font-size: 11px; }
-  .recite__stage { padding: 68px 18px 12px; gap: 12px; }
+  .recite__stage { padding: 20px 18px 10px; gap: 12px; }
   .recite-card { min-height: 34vh; padding: 18px 26px; }
   .recite__mark { min-height: 60px; }
   .recite__next { min-height: 58px; }
@@ -656,11 +818,11 @@
   .recite__mark { max-width: none; border-radius: 20px; }
   .recite__summary-grid,
   .recite__done-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .recite-keyboard__row:nth-child(2) { padding: 0 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .recite-card,
+  .recite-card--leaving,
   .recite__panel { animation: none; }
   .recite__node,
   .recite__mark,
@@ -675,7 +837,11 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  padding: clamp(20px, 4vw, 40px);
+  padding:
+    max(clamp(20px, 4vw, 40px), env(safe-area-inset-top))
+    max(clamp(20px, 4vw, 40px), env(safe-area-inset-right))
+    max(clamp(20px, 4vw, 40px), env(safe-area-inset-bottom))
+    max(clamp(20px, 4vw, 40px), env(safe-area-inset-left));
 }
 
 .recite__confetti {

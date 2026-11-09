@@ -200,5 +200,29 @@ CREATE TABLE IF NOT EXISTS tts_cache (
 
 CREATE INDEX IF NOT EXISTS idx_tts_cache_cached_at ON tts_cache(cached_at);
 
+-- 背词课堂录音：一次学习一段音频，最多保留 15 天（读写时顺带清过期数据）
+CREATE TABLE IF NOT EXISTS recite_recordings (
+  id TEXT PRIMARY KEY,
+  session_id TEXT,
+  week_start INTEGER,
+  session_index INTEGER,
+  mime TEXT NOT NULL,
+  duration_ms INTEGER NOT NULL DEFAULT 0,
+  size_bytes INTEGER NOT NULL DEFAULT 0,
+  chunk_count INTEGER NOT NULL DEFAULT 0,
+  -- uploading = 分片还没传齐，ready = 可播放；只有 ready 的出现在列表里
+  status TEXT NOT NULL DEFAULT 'ready',
+  created_at INTEGER NOT NULL
+) STRICT;
+CREATE INDEX IF NOT EXISTS idx_recite_recordings_created_at ON recite_recordings(created_at);
+
+-- 音频按段存：D1 单行有大小上限，整段 base64 塞一行会写不进去
+CREATE TABLE IF NOT EXISTS recite_recording_chunks (
+  recording_id TEXT NOT NULL,
+  idx INTEGER NOT NULL,
+  data_base64 TEXT NOT NULL,
+  PRIMARY KEY (recording_id, idx)
+) STRICT;
+
 -- 快照同步机制已随「后端上云」退役，旧表直接丢弃
 DROP TABLE IF EXISTS sync_snapshot;

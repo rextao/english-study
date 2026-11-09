@@ -15,7 +15,6 @@
     "study": "node scripts/study-cli.mjs",
     "test:server": "npm run build:my-words && node worker/test/api.test.mjs",
     "docs:check": "node scripts/check-docs.mjs",
-    "migrate:to-d1": "node scripts/migrate-to-d1.mjs",
     "build": "npm run build:my-words && tsc -b && vite build",
     "preview": "vite preview",
     "deploy": "npm run build:my-words && npm run build && npx wrangler deploy"

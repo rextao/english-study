@@ -3,8 +3,21 @@ import type { ReactNode } from 'react'
 import { Button, Tag } from '../ui'
 import { PageHeader } from '../components/PageHeader'
 import { ReciteTaskPanel } from '../components/ReciteTaskPanel'
-import { commitReciteSession, fetchReciteActiveSession, fetchReciteHistory, fetchReciteTasks } from '../hooks/useRecite'
-import type { ReciteHistoryRecord, ReciteSessionPayload, ReciteTask, ReciteTaskWord } from '../hooks/useRecite'
+import { ReciteRecordingButton } from '../components/ReciteRecordingButton'
+import {
+  commitReciteSession,
+  fetchReciteActiveSession,
+  fetchReciteHistory,
+  fetchReciteRecordings,
+  fetchReciteTasks,
+} from '../hooks/useRecite'
+import type {
+  ReciteHistoryRecord,
+  ReciteRecordingSummary,
+  ReciteSessionPayload,
+  ReciteTask,
+  ReciteTaskWord,
+} from '../hooks/useRecite'
 import type { StudyListApi } from '../hooks/useStudyList'
 import './ReciteTasksPage.css'
 
@@ -13,6 +26,8 @@ const DAY = 86400000
 const MAX_WEEK_OFFSET = 12
 /** 拉取的已保存记录条数，够覆盖最近几周的每次记录 */
 const HISTORY_LIMIT = 60
+/** 课堂录音只保留 15 天，一次拉回来按「周 + 第几次」挂到对应行 */
+const RECORDING_LIMIT = 60
 /** 一次保存按 30 张一批提交，服务端单请求最多 60 张 */
 const COMMIT_CHUNK = 30
 
@@ -108,17 +123,30 @@ function WordMarks({ meaning, spelling }: { meaning?: string; spelling?: string 
  * 单词小圆片：有判定记录时在单词后直接显示标记，不用再点开看。
  * showSpelling=false 只显示知意判定（读的列），=true 同时显示拼写判定（背的列）。
  */
-function WordChips({ items, marks, showSpelling }: {
+function WordChips({ items, marks, showSpelling, order }: {
   items: ReciteTaskWord[]
   marks?: Map<string, SessionWord>
   showSpelling?: boolean
+  /** 这一次学习的单词出现顺序（与背词页卡片顺序一致），给每个词标序号 */
+  order?: string[]
 }) {
+  // 序号按整个这一次学习算：读的词和背的词用同一套编号，对得上背词页第几张卡
+  const positions = new Map<string, number>()
+  for (const [index, word] of (order ?? []).entries()) {
+    if (!positions.has(word)) positions.set(word, index + 1)
+  }
+  // 组内按序号升序排；拿不到序号的词留在最后，保持原来的相对顺序
+  const sorted = [...items].sort((a, b) => (
+    (positions.get(a.word) ?? Number.MAX_SAFE_INTEGER) - (positions.get(b.word) ?? Number.MAX_SAFE_INTEGER)
+  ))
   return (
     <div className="recite-tasks__words">
-      {items.map(item => {
+      {sorted.map(item => {
         const mark = marks?.get(item.word)
+        const position = positions.get(item.word)
         return (
           <span key={item.listId + '|' + item.word} className="recite-tasks__chip">
+            {position != null && <i className="recite-tasks__chip-no">{position}</i>}
             {taskWordLabel(item)}
             {mark && (
               <span className="recite-tasks__marks">
@@ -137,7 +165,7 @@ function WordChips({ items, marks, showSpelling }: {
  * 一周的明细行：第 1 列日期（rowSpan 跨整周），后面每次学习一行。
  * 已完成的次数在单词后直接带判定；进行中的那一次在行右侧保存；没开始的次数点行改这一周的词。
  */
-function WeekRows({ task, isThisWeek, onEdit, sessionMarks, activeMarks, activeSave }: {
+function WeekRows({ task, isThisWeek, onEdit, sessionMarks, activeMarks, activeSave, recordings, onPlaybackError }: {
   task: ReciteTask
   isThisWeek: boolean
   /** 点行传 session（1-based）只改这一行；点「修改配置」不传，改整周 */
@@ -148,6 +176,9 @@ function WeekRows({ task, isThisWeek, onEdit, sessionMarks, activeMarks, activeS
   activeMarks?: Map<string, SessionWord>
   /** 进行中那一次的保存按钮状态；没有进行中的会话时不传 */
   activeSave?: { saving: boolean; missing: number; onSave: () => void }
+  /** 课堂录音：key = 周 + 第几次 */
+  recordings?: Map<string, ReciteRecordingSummary>
+  onPlaybackError: (message: string) => void
 }) {
   const per = Math.max(1, task.perSessionCount)
   const started = isStarted(task)
@@ -159,12 +190,15 @@ function WeekRows({ task, isThisWeek, onEdit, sessionMarks, activeMarks, activeS
         const marks = state === 'done'
           ? sessionMarks.get(index + 1)
           : state === 'active' ? activeMarks : undefined
-        /** 整周任务开始后不能再改整周配置，但没开始的这一次仍然可以点行改它自己的单词 */
-        const clickable = state === 'todo'
+        /** 整周任务开始后不能再改整周配置；没开始 / 正在学习中的这一次仍然可以点行改它自己的单词 */
+        const clickable = state !== 'done'
         return (
           <tr
             key={index}
             className={'recite-tasks__row' + (clickable ? ' recite-tasks__row--clickable' : '')}
+            title={clickable
+              ? (state === 'active' ? '点击修改这一次的单词，改完需要重新学习' : '点击修改这一次的单词')
+              : undefined}
             onClick={clickable ? () => onEdit(task.weekStart, index + 1) : undefined}
           >
             {index === 0 && (
@@ -188,13 +222,16 @@ function WeekRows({ task, isThisWeek, onEdit, sessionMarks, activeMarks, activeS
               index={index}
               per={per}
               marks={marks}
+              order={task.wordOrder?.[index]}
+              recording={recordings?.get(task.weekStart + ':' + (index + 1))}
+              onPlaybackError={onPlaybackError}
               saveSlot={state === 'active' && activeSave ? (
                 <Button
                   type="primary"
                   size="small"
                   className="recite-tasks__row-save"
                   disabled={activeSave.missing > 0 || activeSave.saving}
-                  onClick={() => { void activeSave.onSave() }}
+                  onClick={event => { event.stopPropagation(); void activeSave.onSave() }}
                 >
                   {activeSave.saving ? '保存中…' : '保存'}
                 </Button>
@@ -207,12 +244,17 @@ function WeekRows({ task, isThisWeek, onEdit, sessionMarks, activeMarks, activeS
   )
 }
 
-function SessionCells({ task, index, per, marks, saveSlot }: {
+function SessionCells({ task, index, per, marks, order, saveSlot, recording, onPlaybackError }: {
   task: ReciteTask
   index: number
   per: number
   marks?: Map<string, SessionWord>
+  /** 这一次学习的单词出现顺序，两侧单词都用它标序号 */
+  order?: string[]
   saveSlot?: ReactNode
+  /** 这一次学习留下的课堂录音（没有就不显示喇叭） */
+  recording?: ReciteRecordingSummary
+  onPlaybackError: (message: string) => void
 }) {
   const slice = task.words.slice(index * per, (index + 1) * per)
   const read = slice.filter(item => !item.spellingEnabled)
@@ -221,16 +263,19 @@ function SessionCells({ task, index, per, marks, saveSlot }: {
   return (
     <>
       <td className="recite-tasks__times-cell">
-        <span className="recite-tasks__times">第 {index + 1} 次</span>
-        {state === 'done' && <Tag color="green">已完成</Tag>}
-        {state === 'active' && <Tag color="gold">学习中</Tag>}
+        <div className="recite-tasks__times-line">
+          <span className="recite-tasks__times">第 {index + 1} 次</span>
+          {state === 'done' && <Tag color="green">已完成</Tag>}
+          {state === 'active' && <Tag color="gold">学习中</Tag>}
+        </div>
+        {recording && <ReciteRecordingButton recording={recording} onError={onPlaybackError} />}
       </td>
       <td className="recite-tasks__words-cell">
-        <WordChips items={read} marks={marks} />
+        <WordChips items={read} marks={marks} order={order} />
       </td>
       <td className="recite-tasks__words-cell">
         <div className="recite-tasks__cell-flow">
-          <WordChips items={spell} marks={marks} showSpelling />
+          <WordChips items={spell} marks={marks} showSpelling order={order} />
           {saveSlot}
         </div>
       </td>
@@ -254,16 +299,26 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
   const [modalSession, setModalSession] = useState<number | null>(null)
   /** 已保存的背诵记录，用来在已完成的那一行显示逐词判定 */
   const [historyRecords, setHistoryRecords] = useState<ReciteHistoryRecord[]>([])
+  /** 最近 15 天的课堂录音，按「周 + 第几次」挂到对应行的「次数」下面 */
+  const [recordings, setRecordings] = useState<ReciteRecordingSummary[]>([])
+  const [playError, setPlayError] = useState('')
 
   useEffect(() => {
     let alive = true
     setLoading(true)
-    Promise.all([fetchReciteTasks(), fetchReciteHistory(HISTORY_LIMIT), fetchReciteActiveSession()])
-      .then(([list, history, activeSession]) => {
+    Promise.all([
+      fetchReciteTasks(),
+      fetchReciteHistory(HISTORY_LIMIT),
+      fetchReciteActiveSession(),
+      // 录音只是锦上添花：拉不到不影响任务配置
+      fetchReciteRecordings(RECORDING_LIMIT).catch(() => [] as ReciteRecordingSummary[]),
+    ])
+      .then(([list, history, activeSession, recordingList]) => {
         if (!alive) return
         setTasks(list)
         setHistoryRecords(history.records || [])
         setActive(activeSession)
+        setRecordings(recordingList)
         setLoadError('')
         setSaveError('')
       })
@@ -302,6 +357,16 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
     }
     return map
   }, [historyRecords])
+
+  /** 课堂录音按「周 + 第几次」索引，行内直接取 */
+  const recordingBySession = useMemo(() => {
+    const map = new Map<string, ReciteRecordingSummary>()
+    for (const item of recordings) {
+      if (item.weekStart == null || item.sessionIndex == null) continue
+      map.set(item.weekStart + ':' + item.sessionIndex, item)
+    }
+    return map
+  }, [recordings])
 
   /** 进行中那一次的逐词判定：草稿优先（孩子刚判定还没保存的结果），其次卡片结果 */
   const activeMarks = useMemo(() => {
@@ -362,7 +427,7 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
     <div className="page page--wide">
       <PageHeader
         title="配置背词任务"
-        subtitle="一周一行；已完成的次数在单词后直接看判定，进行中的那一次在行右侧保存，没开始的次数点行可以去改它自己的单词。"
+        subtitle="一周一行；已完成的次数在单词后直接看判定，进行中的那一次在行右侧保存。没开始或正在学习的次数点行可以改这一次的单词，学习中改词需要重新学。"
         actions={<Button onClick={onBack}>返回英语学习</Button>}
       />
 
@@ -376,6 +441,7 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
 
         {loadError && <p className="callout callout--error">{loadError}</p>}
         {saveError && <p className="callout callout--error">{saveError}</p>}
+        {playError && <p className="callout callout--error">{playError}</p>}
 
         {!loading && !loadError && (
           <div className="recite-tasks__scroll">
@@ -429,6 +495,8 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
                       sessionMarks={marksByWeek.get(week) ?? new Map()}
                       activeMarks={activeMarks}
                       activeSave={activeSave}
+                      recordings={recordingBySession}
+                      onPlaybackError={setPlayError}
                     />
                   </tbody>
                 )

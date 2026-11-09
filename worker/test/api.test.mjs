@@ -2109,6 +2109,10 @@ const rowWeekStart = r.body?.task?.weekStart
 check('单行改词任务两行就绪',
   r.status === 200
   && (r.body?.task?.words || []).map(item => item.word).join() === 'apple,banana,cherry,dog', r.body)
+check('任务里每次学习都带单词出现顺序',
+  Array.isArray(r.body?.task?.wordOrder) && r.body.task.wordOrder.length === 2
+  && r.body.task.wordOrder[0].slice().sort().join() === 'apple,banana'
+  && r.body.task.wordOrder[1].slice().sort().join() === 'cherry,dog', r.body?.task?.wordOrder)
 
 // 第一次学完 → 整周任务已经开始，第二次还没开始
 r = await call('POST', '/api/recite/sessions/start')
@@ -2118,6 +2122,10 @@ r = await call('POST', '/api/recite/sessions/' + rowSessionId + '/commit', {
   answers: rowCards.map(card => ({ cardId: card.id, result: 'known', requestId: 'recite-row-' + card.id })),
 })
 check('单行改词第一次学习已完成', r.status === 200 && r.body?.completed === true, r.body)
+r = await call('GET', '/api/recite/tasks')
+const finishedOrder = r.body?.tasks?.[0]?.wordOrder?.[0] || []
+check('已完成的那一次按实际卡片顺序给出序号',
+  finishedOrder.join() === rowCards.map(card => card.word).join(), { finishedOrder, cards: rowCards })
 
 r = await call('PUT', '/api/recite/task', {
   weekStart: rowWeekStart,
@@ -2171,6 +2179,39 @@ r = await call('PUT', '/api/recite/task', {
   spellingWords: [],
 })
 check('已学过的次数不能改词', r.status === 409, r.body)
+
+// 学习中那一次也能改词：保存会把这次会话作废，改完的单词需要重新学
+r = await call('POST', '/api/recite/sessions/start')
+const learningSessionId = r.body?.session?.sessionId
+const learningCards = r.body?.cards || []
+check('第二次学习开始', r.status === 200 && r.body?.session?.sessionIndex === 2, r.body)
+const learningMeaningCard = learningCards.find(card => card.cardType === 'meaning')
+r = await call('POST', '/api/recite/sessions/' + learningSessionId + '/drafts', {
+  cardId: learningMeaningCard?.id,
+  result: 'known',
+  attempts: 0,
+})
+check('学习中那一次先写了草稿', r.status === 200 && r.body?.counts?.known === 1, r.body)
+r = await call('PUT', '/api/recite/task', {
+  weekStart: rowWeekStart,
+  session: 2,
+  selections: [
+    { listId: rowListId, word: 'cherry' },
+    { listId: rowListId, word: 'dog' },
+  ],
+  spellingWords: [],
+})
+check('学习中的那一次也可以改词', r.status === 200 && r.body?.resetSession === true, r.body)
+check('改词后这一次回到未开始',
+  r.body?.task?.activeSessionIndex === null && r.body?.task?.completedSessions === 1, r.body?.task)
+check('改词后这一行的单词已更新',
+  (r.body?.task?.words || []).map(item => item.word).join() === 'apple,banana,cherry,dog', r.body?.task)
+r = await call('GET', '/api/recite/sessions/active')
+check('改词后旧会话已作废', r.status === 200 && r.body?.session === null, r.body)
+r = await call('POST', '/api/recite/sessions/start')
+check('改词后重新开始拿到新单词',
+  r.status === 200 && (r.body?.cards || []).length > 0
+  && (r.body?.cards || []).every(card => card.word === 'cherry' || card.word === 'dog'), r.body)
 
 console.log('')
 console.log('背词家长确认统一提交')
@@ -2255,6 +2296,116 @@ check('背诵记录带上周归属',
 r = await call('GET', '/api/recite/sessions/active')
 check('保存后不再有待确认会话',
   r.status === 200 && r.body?.session === null, r.body)
+
+// ── 背词课堂录音：上传、列表、回放与 15 天保留 ────────────────────────────
+
+console.log('')
+console.log('背词课堂录音')
+
+const recordCtx = makeContext()
+use(recordCtx)
+r = await call('POST', '/api/lists', { name: 'Recite record test' })
+const recordListId = r.body?.id
+r = await call('POST', '/api/lists/' + recordListId + '/import', {
+  items: [{ text: 'apple', translation: '苹果' }],
+})
+check('录音用例词条准备完成', r.body?.added === 1, r.body)
+r = await call('PUT', '/api/recite/task', {
+  perSessionCount: 1,
+  sessionCount: 1,
+  selections: [{ listId: recordListId, word: 'apple' }],
+  spellingWords: [],
+})
+check('录音用例任务保存完成', r.status === 200, r.body)
+r = await call('POST', '/api/recite/sessions/start')
+const recordSessionId = r.body?.session?.sessionId
+const recordBytes = Buffer.from('fake-classroom-audio-part-one-and-two')
+const recordHalf = Math.ceil(recordBytes.length / 2)
+const recordPartA = recordBytes.subarray(0, recordHalf).toString('base64')
+const recordPartB = recordBytes.subarray(recordHalf).toString('base64')
+r = await call('POST', '/api/recite/recordings', {
+  sessionId: recordSessionId,
+  mime: 'audio/mp4',
+  durationMs: 4200,
+  sizeBytes: recordBytes.length,
+  partCount: 2,
+})
+check('录音先建一条上传记录并关联到第几次学习',
+  r.status === 201 && r.body?.recording?.status === 'uploading'
+  && r.body?.recording?.sessionIndex === 1 && r.body?.recording?.partCount === 2, r.body)
+const recordingId = r.body?.recording?.id
+// 分片还没传齐时不该出现在列表里，也不能播放
+r = await call('GET', '/api/recite/recordings')
+check('没传完的录音不对外可见', r.status === 200 && r.body?.recordings?.length === 0, r.body)
+r = await call('PUT', '/api/recite/recordings/' + recordingId + '/parts/0', { audio: recordPartA })
+check('第一片录音上传成功', r.status === 200 && r.body?.index === 0, r.body)
+r = await call('POST', '/api/recite/recordings/' + recordingId + '/complete')
+check('缺片时不能标成可播放', r.status === 400, r.body)
+r = await call('PUT', '/api/recite/recordings/' + recordingId + '/parts/1', { audio: recordPartB })
+check('第二片录音上传成功', r.status === 200 && r.body?.index === 1, r.body)
+r = await call('PUT', '/api/recite/recordings/' + recordingId + '/parts/1', { audio: recordPartB })
+check('同一片重传不报错（重试幂等）', r.status === 200, r.body)
+r = await call('PUT', '/api/recite/recordings/' + recordingId + '/parts/9', { audio: recordPartB })
+check('越界的分片序号拒绝', r.status === 400, r.body)
+r = await call('POST', '/api/recite/recordings/' + recordingId + '/complete')
+check('片齐了才标成可播放', r.status === 200 && r.body?.recording?.status === 'ready', r.body)
+r = await call('GET', '/api/recite/recordings')
+check('配置页能列出最近录音',
+  r.status === 200 && r.body?.recordings?.length === 1
+  && r.body.recordings[0].id === recordingId, r.body)
+r = await call('GET', '/api/recite/recordings/' + recordingId + '/audio')
+check('音频按分片顺序拼回原样',
+  r.status === 200 && r.body?.audio === recordBytes.toString('base64') && r.body?.mime === 'audio/mp4', r.body)
+// 设置页统一删除：只删选中的那条，音频分片一起清掉
+r = await call('POST', '/api/recite/recordings', {
+  sessionId: recordSessionId,
+  mime: 'audio/mp4',
+  durationMs: 900,
+  sizeBytes: recordBytes.length,
+  partCount: 1,
+})
+const extraRecordingId = r.body?.recording?.id
+await call('PUT', '/api/recite/recordings/' + extraRecordingId + '/parts/0', {
+  audio: recordBytes.toString('base64'),
+})
+await call('POST', '/api/recite/recordings/' + extraRecordingId + '/complete')
+r = await call('GET', '/api/recite/recordings')
+check('两条录音都在列表里', r.status === 200 && r.body?.recordings?.length === 2, r.body)
+r = await call('DELETE', '/api/recite/recordings', { ids: [] })
+check('没选录音时不执行删除', r.status === 400, r.body)
+r = await call('DELETE', '/api/recite/recordings', { ids: [extraRecordingId, 'recite-rec-missing'] })
+check('统一删除只删掉选中且存在的录音', r.status === 200 && r.body?.deleted === 1, r.body)
+const leftoverChunks = await db().first(
+  'SELECT COUNT(*) AS count FROM recite_recording_chunks WHERE recording_id = ?', extraRecordingId,
+)
+check('删录音时音频分片一起清掉', Number(leftoverChunks?.count || 0) === 0, leftoverChunks)
+r = await call('GET', '/api/recite/recordings')
+check('删除后列表里只剩另一条',
+  r.status === 200 && r.body?.recordings?.length === 1 && r.body.recordings[0].id === recordingId, r.body)
+r = await call('GET', '/api/recite/recordings/' + extraRecordingId + '/audio')
+check('删掉的录音音频也取不到', r.status === 404, r.body)
+r = await call('POST', '/api/recite/recordings', {
+  sessionId: 'recite-session-missing',
+  mime: 'audio/mp4',
+  durationMs: 1000,
+  sizeBytes: 10,
+  partCount: 1,
+})
+check('录音必须挂在真实存在的学习记录上', r.status === 400, r.body)
+r = await call('POST', '/api/recite/recordings', {
+  sessionId: recordSessionId,
+  mime: 'text/plain',
+  durationMs: 1000,
+  sizeBytes: 10,
+  partCount: 1,
+})
+check('非音频格式直接拒绝', r.status === 400, r.body)
+// 15 天保留：过期记录在下次读取时连同音频分片一起清掉
+await db().run('UPDATE recite_recordings SET created_at = ? WHERE id = ?', Date.now() - 16 * 86400000, recordingId)
+r = await call('GET', '/api/recite/recordings')
+check('超过 15 天的录音自动清理', r.status === 200 && r.body?.recordings?.length === 0, r.body)
+r = await call('GET', '/api/recite/recordings/' + recordingId + '/audio')
+check('清理后音频取不到', r.status === 404, r.body)
 
 // ── Bearer 鉴权（走真正的 Worker fetch 入口） ─────────────────────────────
 

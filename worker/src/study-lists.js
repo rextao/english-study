@@ -4,7 +4,7 @@
  * 从 server/study-lists.mjs 移植：表结构、行 ↔ StudyWordItem 的映射逻辑原样保留，
  * 同步的 better-sqlite3 风格调用换成 db 适配层的异步接口；业务路径按列表 / 词条定向读写。
  *
- * 没有 json 迁移逻辑：本地库由 scripts/migrate-to-d1.mjs 一次性导进 D1。
+ * 没有 json 迁移逻辑：本地库上云时已一次性导进 D1。
  */
 
 import { normalizeText } from './text.js'

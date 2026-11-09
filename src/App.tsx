@@ -21,6 +21,8 @@ import { ReciteParentPage } from './pages/ReciteParentPage'
 import { ReciteTasksPage } from './pages/ReciteTasksPage'
 import { startReciteSession } from './hooks/useRecite'
 import type { ReciteSessionPayload } from './hooks/useRecite'
+import { fetchReciteTask } from './hooks/useRecite'
+import type { ReciteTask } from './hooks/useRecite'
 import './App.css'
 
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(module => ({ default: module.SettingsPage })))
@@ -53,19 +55,46 @@ export default function App() {
   const [reciteLoading, setReciteLoading] = useState(false)
   const [reciteError, setReciteError] = useState<string | null>(null)
   const [reciteReload, setReciteReload] = useState(0)
+  // 首页先停一停：只有点「开始学习」后才创建会话，避免一进页面就把词条标成「已开始」
+  const [reciteStarted, setReciteStarted] = useState(false)
+  const [reciteTask, setReciteTask] = useState<ReciteTask | null>(null)
+  const [reciteTaskLoading, setReciteTaskLoading] = useState(false)
+  const [reciteTaskError, setReciteTaskError] = useState<string | null>(null)
 
   useEffect(() => {
     if (tab !== 'recite') return
     let alive = true
-    setReciteLoading(true)
-    setReciteError(null)
-    startReciteSession().then(payload => {
-      if (alive) setReciteSession(payload)
-    }).catch(error => {
-      if (alive) setReciteError(error instanceof Error ? error.message : '学习任务读取失败')
-    }).finally(() => { if (alive) setReciteLoading(false) })
-    return () => { alive = false }
-  }, [tab, reciteReload])
+    if (reciteStarted) {
+      // 点过「开始学习」：创建 / 恢复本次会话
+      setReciteLoading(true)
+      setReciteError(null)
+      startReciteSession().then(payload => {
+        if (alive) setReciteSession(payload)
+      }).catch(error => {
+        if (alive) setReciteError(error instanceof Error ? error.message : '学习任务读取失败')
+      }).finally(() => { if (alive) setReciteLoading(false) })
+    } else {
+      // 首页只读本周任务概况，不创建会话（start 会把词条标记成已开始）
+      setReciteTaskLoading(true)
+      setReciteTaskError(null)
+      fetchReciteTask().then(task => {
+        if (!alive) return
+        setReciteTask(task)
+        // 已经有进行中的会话（刷新 / 重新进页面）：直接回到当前那一张卡，不停在首页
+        if (task?.activeSessionIndex != null) setReciteStarted(true)
+      }).catch(error => {
+        if (!alive) return
+        setReciteTaskError(error instanceof Error ? error.message : '学习任务读取失败')
+      }).finally(() => { if (alive) setReciteTaskLoading(false) })
+    }
+  }, [tab, reciteReload, reciteStarted])
+
+  // 离开背单词页就回到首页：下次进来要先点「开始学习」
+  useEffect(() => {
+    if (tab === 'recite') return
+    setReciteStarted(false)
+    setReciteSession(null)
+  }, [tab])
 
   // 会话回放的路径：每次切 tab 上报一次 $pageview（同意前 trackPageview 内部直接跳过）
   useEffect(() => {
@@ -123,6 +152,17 @@ export default function App() {
         loading={reciteLoading}
         error={reciteError}
         onReload={() => setReciteReload(value => value + 1)}
+        started={reciteStarted}
+        homeTask={reciteTask}
+        homeLoading={reciteTaskLoading}
+        homeError={reciteTaskError}
+        onStart={() => setReciteStarted(true)}
+        onExitStudy={() => {
+          // 回首页刷新本周进度，下次进来仍然停在首页
+          setReciteStarted(false)
+          setReciteSession(null)
+          setReciteReload(value => value + 1)
+        }}
       />
     )
   }

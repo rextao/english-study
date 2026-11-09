@@ -8,17 +8,26 @@ import { PageHeader } from '../components/PageHeader'
 import { StudyListManager } from '../components/StudyListManager'
 import { PhoneticRepair } from '../components/PhoneticRepair'
 import { AudioRepair } from '../components/AudioRepair'
+import { ReciteRecordingManager } from '../components/ReciteRecordingManager'
 import { Tag } from '../ui'
 import './SettingsPage.css'
 
-/** 设置页的子分区：词库配置 / 学习列表 / 学习记录 / 补充音标 / 补充音频 / 查询链路 */
-export type SettingsSection = 'audio' | 'chain' | 'libraries' | 'lists' | 'records' | 'phonetics'
+/** 设置页的子分区：词库配置 / 学习列表 / 学习记录 / 课堂录音 / 补充音标 / 补充音频 / 查询链路 */
+export type SettingsSection =
+  | 'audio'
+  | 'chain'
+  | 'libraries'
+  | 'lists'
+  | 'records'
+  | 'recordings'
+  | 'phonetics'
 
 /** 左侧菜单项，顺序即展示顺序 */
 const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: 'libraries', label: '词库配置' },
   { id: 'lists', label: '学习列表' },
   { id: 'records', label: '学习记录' },
+  { id: 'recordings', label: '课堂录音' },
   { id: 'phonetics', label: '补充音标' },
   { id: 'audio', label: '补充音频' },
   { id: 'chain', label: '查询链路' },
@@ -127,6 +136,11 @@ export function SettingsPage(props: SettingsPageProps) {
       {section === 'records' && (
         <section className="settings-section">
           <LearningRecordsPage embedded libraries={libraries} getLabelById={getLabelById} />
+        </section>
+      )}
+      {section === 'recordings' && (
+        <section className="settings-section">
+          <ReciteRecordingManager />
         </section>
       )}
       {section === 'phonetics' && (

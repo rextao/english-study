@@ -9,9 +9,8 @@
 # 部署（仓库根目录，需能连外网）：
 #     npm run deploy              # 先 build 产出 dist，再 npx wrangler deploy
 #   或 npx wrangler deploy        # 只部署（要求 dist 已构建好）
-# 首次还要建表、迁数据、设密钥（见 README「云端部署」）：
+# 首次还要建表、设密钥（见 README「云端部署」）：
 #     npx wrangler d1 execute english-study-sync --remote --file=worker/schema.sql
-#     npx wrangler d1 execute english-study-sync --remote --file=migration.sql  # scripts/migrate-to-d1.mjs 产物
 #     npx wrangler secret put API_TOKEN
 #     npx wrangler secret put BAIDU_TRANSLATE_API_KEY
 #     npx wrangler secret put BAIDU_TRANSLATE_APP_ID

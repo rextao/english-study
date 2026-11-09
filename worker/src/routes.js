@@ -902,6 +902,71 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     return { status: 200, body: await app.recite.history(searchParams.get('limit')) }
   }
 
+  // ── 背词课堂录音：学完一次自动上传一段，只保留最近 15 天 ──────────────────
+  // GET /api/recite/recordings?limit= — 最近录音列表（配置页用来展示与播放）
+  if (method === 'GET' && pathname === '/api/recite/recordings') {
+    return { status: 200, body: { recordings: await app.recordings.list(searchParams.get('limit')) } }
+  }
+
+  // DELETE /api/recite/recordings — { ids: [...] } 设置页统一删除，音频分片一起删
+  if (method === 'DELETE' && pathname === '/api/recite/recordings') {
+    const ids = Array.isArray(body?.ids) ? body.ids : []
+    if (ids.length === 0) return { status: 400, body: { ok: false, error: '没有选择要删除的录音' } }
+    return { status: 200, body: { ok: true, ...(await app.recordings.remove(ids)) } }
+  }
+
+  // POST /api/recite/recordings — 开始上传：{ sessionId?, mime, durationMs, sizeBytes, partCount }
+  if (method === 'POST' && pathname === '/api/recite/recordings') {
+    try {
+      const recording = await app.recordings.createUpload({
+        sessionId: body?.sessionId,
+        mime: body?.mime,
+        durationMs: body?.durationMs,
+        sizeBytes: body?.sizeBytes,
+        partCount: body?.partCount,
+      })
+      return { status: 201, body: { ok: true, recording } }
+    } catch (error) {
+      return { status: 400, body: { ok: false, error: error?.message || '录音保存失败' } }
+    }
+  }
+
+  // PUT /api/recite/recordings/:id/parts/:index —— 逐片上传（幂等，可单选重试）
+  const reciteRecordingPartMatch = pathname.match(/^\/api\/recite\/recordings\/([^/]+)\/parts\/(\d+)$/)
+  if (method === 'PUT' && reciteRecordingPartMatch) {
+    try {
+      const result = await app.recordings.savePart(
+        decodeURIComponent(reciteRecordingPartMatch[1]),
+        Number(reciteRecordingPartMatch[2]),
+        body?.audio,
+      )
+      return { status: 200, body: { ok: true, ...result } }
+    } catch (error) {
+      const missing = error?.code === 'RECORDING_NOT_FOUND'
+      return { status: missing ? 404 : 400, body: { ok: false, error: error?.message || '录音分片保存失败' } }
+    }
+  }
+
+  // POST /api/recite/recordings/:id/complete —— 分片齐了才标成可播放
+  const reciteRecordingCompleteMatch = pathname.match(/^\/api\/recite\/recordings\/([^/]+)\/complete$/)
+  if (method === 'POST' && reciteRecordingCompleteMatch) {
+    try {
+      const recording = await app.recordings.complete(decodeURIComponent(reciteRecordingCompleteMatch[1]))
+      return { status: 200, body: { ok: true, recording } }
+    } catch (error) {
+      const missing = error?.code === 'RECORDING_NOT_FOUND'
+      return { status: missing ? 404 : 400, body: { ok: false, error: error?.message || '录音保存失败' } }
+    }
+  }
+
+  // GET /api/recite/recordings/:id/audio — 整段音频（base64，前端转 Blob URL 播放）
+  const reciteRecordingAudioMatch = pathname.match(/^\/api\/recite\/recordings\/([^/]+)\/audio$/)
+  if (method === 'GET' && reciteRecordingAudioMatch) {
+    const audio = await app.recordings.getAudio(decodeURIComponent(reciteRecordingAudioMatch[1]))
+    if (!audio) return { status: 404, body: { error: 'recording not found' } }
+    return { status: 200, body: audio }
+  }
+
   if (method === 'POST' && pathname === '/api/recite/sessions/start') {
     try {
       const result = await app.recite.startSession(app, env)

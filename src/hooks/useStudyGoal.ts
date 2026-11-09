@@ -5,8 +5,7 @@ import { invalidateApiCache, queryApi } from '../utils/apiCache'
 const GOAL_URL = '/api/study/goal'
 
 /**
-* 学习目标 = 某个词库。只存「目标是哪个词库」，存在服务端（study-history.sqlite），
- * 不用 localStorage，后续换成云端数据库时只要改这个接口。
+* 学习目标 = 某个词库。只存「目标是哪个词库」，存在服务端 D1，不用 localStorage。
  */
 export function useStudyGoal() {
   const [libraryId, setLibraryId] = useState('')

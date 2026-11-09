@@ -5,7 +5,7 @@
  * 补齐队列状态），dict_cache 表一个词一行。
  *
  * 与本地版的差异：
- *  - 没有 json 文件迁移逻辑（上云前由 scripts/migrate-to-d1.mjs 一次性导完）；
+ *  - 没有 json 文件迁移逻辑（上云时已一次性导完）；
  *  - 没有 PRAGMA data_version 热重载——D1 就是唯一真相，每次按需读写，
  *    不再维护 isolate 内存正本（isolate 随时会被回收，缓存一致性没有意义）。
  */

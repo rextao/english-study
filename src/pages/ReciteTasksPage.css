@@ -64,7 +64,17 @@
 .recite-tasks__week-cell .ui-btn { margin-top: 8px; }
 
 .recite-tasks__times-cell { white-space: nowrap; }
-.recite-tasks__times { font-weight: 600; margin-right: 6px; }
+
+.recite-tasks__times-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.recite-tasks__times { font-weight: 600; }
+
+/* 次数下面那个录音喇叭（ReciteRecordingButton）与单元格的分隔 */
+.recite-tasks__times-cell > .recite-audio-btn { margin-top: 6px; }
 
 /* td 保持 table-cell，词条折行交给里面的 div */
 .recite-tasks__words {
@@ -88,6 +98,23 @@
   font-size: 13px;
   line-height: 1.5;
 }
+/* 单词前的序号：等于它在背词页第几张卡出现，读 / 背两列共用同一套编号 */
+.recite-tasks__chip-no {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 5px;
+  background: rgba(37, 99, 235, .1);
+  color: var(--color-primary-dark);
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .recite-tasks__chip .recite-tasks__mark { padding: 0 6px; font-size: 11px; }
 
 /* 背的单词那列：词条折行，右侧靠着一个保存按钮 */
@@ -98,6 +125,9 @@
   align-items: flex-start;
 }
 .recite-tasks__row-save { margin-left: auto; flex-shrink: 0; }
+
+/* 表格里的播放按钮不跟着整行的可点样式变底色 */
+.recite-tasks__row--clickable .recite-audio-btn { cursor: pointer; }
 
 .recite-tasks__row--empty .recite-tasks__empty-cell { vertical-align: middle; }
 .recite-tasks__empty-text { color: var(--color-text-subtle); font-size: 13px; margin-right: 10px; }

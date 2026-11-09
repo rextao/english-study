@@ -1,0 +1,35 @@
+/* 课堂录音列表：一行一条，左边时间，中间第几次 + 时长，右边播放 */
+.recite-recordings__head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.recite-recordings__title { font-size: 16px; margin: 0; }
+.recite-recordings__hint { color: var(--color-text-subtle); font-size: 13px; }
+.recite-recordings__empty { color: var(--color-text-subtle); font-size: 13px; }
+
+.recite-recordings__list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recite-recordings__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface-sunken);
+  font-size: 13px;
+}
+
+.recite-recordings__when { font-weight: 600; white-space: nowrap; }
+.recite-recordings__meta { color: var(--color-text-subtle); min-width: 0; }
+.recite-recordings__row .ui-btn { margin-left: auto; flex-shrink: 0; }

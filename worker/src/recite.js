@@ -214,6 +214,56 @@ export function createReciteStore(db) {
     return { task, words }
   }
 
+  /**
+   * 每次学习的单词出现顺序（下标 = 第几次 - 1）：配置页用它在读 / 背两列上标序号，与背词页的卡片顺序一致。
+   * 已经有卡片（已完成 / 学习中）按实际卡片位置，还没开始的次数用与 startSession 同一套 hash 排序预测。
+   */
+  async function taskWordOrder(task, words) {
+    const per = Math.max(1, Number(task.per_session_count))
+    const total = Math.max(1, Number(task.session_count))
+    const order = Array.from({ length: total }, () => [])
+    const rows = await db.all(
+      `SELECT s.session_index AS session_index, c.word AS word, MIN(c.position) AS pos
+       FROM recite_cards c JOIN recite_sessions s ON s.id = c.session_id
+       WHERE s.task_id = ?
+       GROUP BY s.session_index, c.word
+       ORDER BY s.session_index, pos`,
+      task.id,
+    )
+    for (const row of rows) {
+      const index = Number(row.session_index) - 1
+      if (index < 0 || index >= total) continue
+      order[index].push(row.word)
+    }
+    for (let index = 0; index < total; index++) {
+      if (order[index].length > 0) continue
+      const cards = []
+      for (const item of words.slice(index * per, (index + 1) * per)) {
+        cards.push({
+          word: item.word,
+          cardType: 'meaning',
+          orderKey: stableHash(task.id + '|' + (index + 1) + '|' + item.word + '|meaning'),
+        })
+        if (Number(item.spelling_enabled) === 1 && item.type === 'word' && item.translation) {
+          cards.push({
+            word: item.word,
+            cardType: 'spelling',
+            orderKey: stableHash(task.id + '|' + (index + 1) + '|' + item.word + '|spelling'),
+          })
+        }
+      }
+      cards.sort((a, b) => a.orderKey - b.orderKey)
+      avoidLongSpellingRuns(cards)
+      const seen = new Set()
+      for (const card of cards) {
+        if (seen.has(card.word)) continue
+        seen.add(card.word)
+        order[index].push(card.word)
+      }
+    }
+    return order
+  }
+
   /** 任务响应：附上已完成会话数与进行中的会话序号，供学习页显示 X/Y 进度 */
   async function taskPayload(current) {
     if (!current) return null
@@ -237,6 +287,7 @@ export function createReciteStore(db) {
       completedSessions: Number(progress?.completed || 0),
       activeSessionIndex: progress?.active == null ? null : Number(progress.active),
       words: words.map(taskWordResponse),
+      wordOrder: await taskWordOrder(task, words),
     }
   }
 
@@ -362,9 +413,10 @@ export function createReciteStore(db) {
   }
 
   /**
-   * 只改某一次学习的单词：整周任务已经开始时，没开始的次数仍然可以换词。
+   * 只改某一次学习的单词：整周任务已经开始时，没开始或正在学习中的次数仍然可以换词。
    * 只替换这一行（按任务的每次词数切分），其他次数原样保留；这一行新选的词
    * 如果原本在别的次数里，以这一行为准，从那里去掉（同一周里一个词只出现一次）。
+   * 改的是学习中那一次时，把这次会话连同草稿和卡片一起删掉，需要重新学。
    */
   async function saveSessionWords({ env, now = Date.now(), weekStart, session, selections, spellingWords }) {
     const week = resolveWeekStart(weekStart, env, now)
@@ -387,9 +439,13 @@ export function createReciteStore(db) {
       return error
     }
     if (index <= Number(progress?.completed || 0)) throw locked('这一次已经学过了，不能再改单词')
-    if (progress?.active != null && Number(progress.active) === index) {
-      throw locked('这一次正在学习中，先保存学习记录再改单词')
-    }
+    // 正在学习中的那一次也能改词：这次会话（含草稿与卡片）会整体作废，单词需要重新学
+    const activeSession = progress?.active != null && Number(progress.active) === index
+      ? await db.first(
+          "SELECT id FROM recite_sessions WHERE task_id = ? AND session_index = ? AND status = 'active'",
+          task.id, index,
+        )
+      : null
     const start = (index - 1) * per
     const others = [...existing.words.slice(0, start), ...existing.words.slice(start + per)]
     const otherKeys = new Set(others.map(item => item.word))
@@ -413,7 +469,14 @@ export function createReciteStore(db) {
       ...others.slice(start).map(rowSnapshotFromRow),
     ]
     const spelling = new Set((Array.isArray(spellingWords) ? spellingWords : []).map(normalizeText).filter(Boolean))
-    const statements = [['DELETE FROM recite_task_words WHERE task_id = ?', task.id]]
+    const statements = []
+    if (activeSession) {
+      // 先删子表再删会话本身
+      statements.push(['DELETE FROM recite_card_drafts WHERE session_id = ?', activeSession.id])
+      statements.push(['DELETE FROM recite_cards WHERE session_id = ?', activeSession.id])
+      statements.push(['DELETE FROM recite_sessions WHERE id = ?', activeSession.id])
+    }
+    statements.push(['DELETE FROM recite_task_words WHERE task_id = ?', task.id])
     merged.forEach((item, position) => {
       statements.push([
         `INSERT INTO recite_task_words
@@ -434,6 +497,8 @@ export function createReciteStore(db) {
       ignored: [],
       invalid: previewData.invalid,
       gap: previewData.gap,
+      /** 是否把这次学习中的会话作废了（前端据此提示需要重新学） */
+      resetSession: Boolean(activeSession),
     }
   }
 

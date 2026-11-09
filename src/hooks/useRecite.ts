@@ -28,6 +28,8 @@ export interface ReciteTask {
   /** 进行中的会话序号，没有进行中的会话时为 null */
   activeSessionIndex: number | null
   words: ReciteTaskWord[]
+  /** 每次学习的单词出现顺序（下标 = 第几次 - 1），与背词页的卡片顺序一致 */
+  wordOrder?: string[][]
 }
 
 export interface RecitePreview {
@@ -271,6 +273,95 @@ export async function commitReciteSession(
   const data = await readJson<ReciteCommitResponse>(response)
   invalidateApiCache(['recite-task', 'recite-session', 'study-plan', 'achievements', 'history'])
   return data
+}
+
+export interface ReciteRecordingSummary {
+  id: string
+  /** uploading = 分片还没传齐，ready = 可播放 */
+  status?: 'uploading' | 'ready'
+  createdAt: number
+  durationMs: number
+  mime: string
+  size: number
+  /** 这段录音分了几片（上传时用） */
+  partCount?: number
+  /** 属于第几次学习；老数据 / 未关联会话时缺失 */
+  sessionIndex?: number
+  sessionId?: string
+  /** 所在周的周一 0 点 */
+  weekStart?: number
+}
+
+/** 课堂录音列表：服务端只保留最近 15 天 */
+export async function fetchReciteRecordings(limit = 20): Promise<ReciteRecordingSummary[]> {
+  const response = await apiFetch('/api/recite/recordings?limit=' + encodeURIComponent(String(limit)))
+  const data = await readJson<{ recordings: ReciteRecordingSummary[] }>(response)
+  return Array.isArray(data.recordings) ? data.recordings : []
+}
+
+/** 统一删除若干条录音（音频分片一起删），返回实际删掉的条数 */
+export async function deleteReciteRecordings(ids: string[]): Promise<number> {
+  const response = await apiFetch('/api/recite/recordings', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  })
+  const data = await readJson<{ deleted: number }>(response)
+  return Number(data.deleted) || 0
+}
+
+/**
+ * 录音分三步上传：先建记录，再逐片传，最后 complete。
+ * 分片上传的意义是某一片失败只重传那一片，不会因为一次超时把整段录音丢掉。
+ */
+export async function createReciteRecording(input: {
+  sessionId?: string
+  mime: string
+  durationMs: number
+  sizeBytes: number
+  partCount: number
+}): Promise<{ id: string; partCount: number }> {
+  const response = await apiFetch('/api/recite/recordings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  const data = await readJson<{ recording: ReciteRecordingSummary }>(response)
+  return { id: data.recording.id, partCount: data.recording.partCount || input.partCount }
+}
+
+/** 上传一片（同序号重复上传会覆盖，可安全重试） */
+export async function uploadReciteRecordingPart(
+  id: string,
+  index: number,
+  audio: string,
+): Promise<void> {
+  const response = await apiFetch(
+    '/api/recite/recordings/' + encodeURIComponent(id) + '/parts/' + index,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audio }),
+    },
+  )
+  await readJson<{ ok: boolean }>(response)
+}
+
+/** 分片齐了再调用：服务端校验片数，齐了才让这条录音出现在列表里 */
+export async function completeReciteRecording(id: string): Promise<ReciteRecordingSummary> {
+  const response = await apiFetch('/api/recite/recordings/' + encodeURIComponent(id) + '/complete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}',
+  })
+  const data = await readJson<{ recording: ReciteRecordingSummary }>(response)
+  return data.recording
+}
+
+/** 取一条录音的整段音频（base64）；接口同源带 Bearer，页面再转 Blob URL 播放 */
+export async function fetchReciteRecordingAudio(id: string): Promise<{ audio: string; mime: string }> {
+  const response = await apiFetch('/api/recite/recordings/' + encodeURIComponent(id) + '/audio')
+  return await readJson<{ audio: string; mime: string }>(response)
 }
 
 export async function answerReciteCard(

@@ -1,7 +1,12 @@
 /* 应用外壳 + 各页面共用的版式骨架（容器、标题、卡片、空态、提示条），
    页面自己的 css 只写业务差异部分，避免每个页面重复一套 header/card 样式。 */
 
-.app { min-height: 100vh; }
+/* 页面外壳让开 iOS 横屏的刘海 / Home 条（index.html 开了 viewport-fit=cover，背景仍铺满整屏） */
+.app {
+  min-height: 100vh;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
 
 .app__loading {
   display: flex;

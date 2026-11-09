@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { saveReciteDraft } from '../hooks/useRecite'
-import type { ReciteSessionPayload } from '../hooks/useRecite'
+import { readRecordPref, useReciteRecording, writeRecordPref } from '../hooks/useReciteRecording'
+import type { ReciteSessionPayload, ReciteTask } from '../hooks/useRecite'
 import { speak, speechErrorMessage, stopSpeech } from '../utils/speech'
 import './RecitePage.css'
 
@@ -9,6 +11,14 @@ interface RecitePageProps {
   loading: boolean
   error: string | null
   onReload: () => void
+  /** 首页只读本周任务概况，点了「开始学习」之后才创建 / 恢复会话 */
+  started: boolean
+  homeTask: ReciteTask | null
+  homeLoading: boolean
+  homeError: string | null
+  onStart: () => void
+  /** 完成动画页点「完成」回首页，顺便刷新本周进度 */
+  onExitStudy: () => void
 }
 
 type MeaningResult = 'known' | 'unknown'
@@ -20,13 +30,25 @@ interface DraftAnswer {
   attempts: number
 }
 
-const KEYBOARD_ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM']
+/** 键盘只有两行小写字母：第一行 q、w，第二行按 a–z 顺序排列（小朋友按字母表找键更容易，输入统一小写） */
+const KEYBOARD_ROWS = ['qw', 'abcdefghijklmnopqrstuvwxyz']
 
 function normalize(value: string) {
   return value.trim().replace(/\s+/g, ' ').toLowerCase()
 }
 
-export function RecitePage({ payload, loading, error, onReload }: RecitePageProps) {
+export function RecitePage({
+  payload,
+  loading,
+  error,
+  onReload,
+  started,
+  homeTask,
+  homeLoading,
+  homeError,
+  onStart,
+  onExitStudy,
+}: RecitePageProps) {
   const cards = payload?.cards ?? []
   const session = payload?.session ?? null
   const [index, setIndex] = useState(0)
@@ -43,8 +65,23 @@ export function RecitePage({ payload, loading, error, onReload }: RecitePageProp
   const [speechError, setSpeechError] = useState('')
   // 连点喇叭时只认最后一次：旧的那次被掐掉后不会再改回「播放中」
   const playToken = useRef(0)
+  // 点「下一张」先把卡片滑出去（180ms）再换下一张，换卡不是硬切
+  const [leaving, setLeaving] = useState(false)
+  const leaveTimer = useRef(0)
+  // 课堂录音：首页左下角的开关默认开启；进背词流开始录，学完 / 离开页面自动停并上传
+  const [recordEnabled, setRecordEnabled] = useState(readRecordPref)
+  const recording = useReciteRecording({
+    enabled: recordEnabled,
+    active: started && stage === 'cards' && payload?.session?.status === 'active',
+    sessionId: payload?.session?.sessionId ?? null,
+  })
 
   useEffect(() => stopSpeech, [])
+
+  // 离开页面时把未走完的换卡定时器清掉
+  useEffect(() => () => {
+    if (leaveTimer.current) window.clearTimeout(leaveTimer.current)
+  }, [])
 
   // 换会话：草稿来自 Server，已经判完的会话直接进完成动画
   useEffect(() => {
@@ -74,10 +111,17 @@ export function RecitePage({ payload, loading, error, onReload }: RecitePageProp
 
   // 换卡片时清掉上一张的输入和反馈
   useEffect(() => {
-    setFlipped(false)
-    setInput('')
-    setAttempts(0)
-    setFeedback(null)
+    // 回看已答过的卡片时直接展示当时的判定：meaning 翻面看中文，spelling 看对错
+    const target = cards[index]
+    const draft = target ? answers[target.id] : undefined
+    setFlipped(Boolean(draft && target.cardType === 'meaning'))
+    setInput(draft && target.cardType === 'spelling' ? draft.answer ?? '' : '')
+    setAttempts(draft?.attempts ?? 0)
+    setFeedback(
+      draft && target.cardType === 'spelling'
+        ? (draft.result === 'correct' ? 'correct' : 'skipped')
+        : null,
+    )
     setSpeechError('')
     setSpeaking(false)
     stopSpeech()
@@ -135,9 +179,27 @@ export function RecitePage({ payload, loading, error, onReload }: RecitePageProp
     setFlipped(true)
   }
 
+  /** 播离场动画，180ms 后切到下一张（最后一张则进完成页） */
+  function leaveToNext() {
+    if (leaving) return
+    setLeaving(true)
+    leaveTimer.current = window.setTimeout(() => {
+      leaveTimer.current = 0
+      setLeaving(false)
+      advance()
+    }, 180)
+  }
+
   function nextCard() {
     if (!card || !answers[card.id]) return
-    advance()
+    leaveToNext()
+  }
+
+  /** 拼写卡完全不不会：记为跳过，然后直接跳下一张（不停在答案上） */
+  function skipSpellingDirect() {
+    if (!card || card.cardType !== 'spelling' || feedback) return
+    persistDraft({ cardId: card.id, result: 'skipped', answer: input, attempts })
+    leaveToNext()
   }
 
   function addKey(key: string) {
@@ -178,6 +240,85 @@ export function RecitePage({ payload, loading, error, onReload }: RecitePageProp
       .finally(() => {
         if (playToken.current === token) setSpeaking(false)
       })
+  }
+
+  // 首页左下角的录音开关：只有开关本身，没有文字说明
+  const recordToggle = recording.supported ? (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={recordEnabled}
+      aria-label={recordEnabled ? '关闭课堂录音' : '开启课堂录音'}
+      title={recordEnabled ? '课堂录音已开启，点一下关闭' : '课堂录音已关闭，点一下开启'}
+      className={'recite__record' + (recordEnabled ? ' is-on' : '')}
+      onClick={() => {
+        setRecordEnabled(value => {
+          writeRecordPref(!value)
+          return !value
+        })
+      }}
+    >
+      <span className="recite__record-track" aria-hidden="true">
+        <span className="recite__record-knob" />
+      </span>
+    </button>
+  ) : null
+
+  // 首页：本周任务概况 + 开始学习。不创建会话，点开始才进入背词流
+  if (!started) {
+    if (homeLoading) {
+      return (
+        <div className="recite recite--state">
+          <div className="recite__panel recite__panel--lite">
+            <span className="recite__spinner" aria-hidden="true" />
+            <b>正在准备今天的学习…</b>
+          </div>
+        </div>
+      )
+    }
+    if (homeError) {
+      return (
+        <div className="recite recite--state">
+          <div className="recite__panel recite__panel--lite">
+            <b>学习任务读取失败</b>
+            <p>{homeError}</p>
+            <button type="button" className="recite__state-btn" onClick={onReload}>重试读取</button>
+          </div>
+        </div>
+      )
+    }
+    if (!homeTask) {
+      return (
+        <div className="recite recite--state">
+          <div className="recite__panel recite__panel--lite">
+            <span className="recite__emoji">🌤️</span>
+            <b>当前没有待学习内容</b>
+            <p>请先在英语学习页准备本周任务。</p>
+          </div>
+        </div>
+      )
+    }
+    const finished = homeTask.completedSessions >= homeTask.sessionCount
+    const nextIndex = homeTask.activeSessionIndex ?? homeTask.completedSessions + 1
+    return (
+      <div className="recite recite--state">
+        <div className="recite__panel recite__panel--lite">
+          <span className="recite__emoji">{finished ? '🏆' : '📚'}</span>
+          <b className="recite__state-title">{finished ? '本周学习已完成' : '今天背单词'}</b>
+          <p className="recite__state-sub">
+            {finished
+              ? '本周 ' + homeTask.sessionCount + ' 次学习全部完成，真棒！'
+              : '本周第 ' + nextIndex + ' / ' + homeTask.sessionCount + ' 次，每次 ' + homeTask.perSessionCount + ' 个单词'}
+          </p>
+          {!finished && (
+            <button type="button" className="recite__state-btn" onClick={onStart}>
+              {homeTask.activeSessionIndex == null ? '开始学习' : '继续学习'}
+            </button>
+          )}
+        </div>
+        {recordToggle}
+      </div>
+    )
   }
 
   if (loading) {
@@ -245,10 +386,14 @@ export function RecitePage({ payload, loading, error, onReload }: RecitePageProp
             </div>
           )}
           {localError && <p className="recite__error">{localError}</p>}
+          <button type="button" className="recite__confirm" onClick={onExitStudy}>完成</button>
         </div>
       </div>
     )
   }
+
+  // 单词长度写进 CSS 变量，字号按它自适应：单词越长字号越小，整词总能放进卡片
+  const promptStyle = { '--len': String(Math.max(1, display.length)) } as CSSProperties
 
   // 喇叭：圆形纯图标按钮，挂在单词下面；拼写卡判定前锁定不出声，原因靠 title 说明
   const speakButton = (
@@ -282,6 +427,21 @@ export function RecitePage({ payload, loading, error, onReload }: RecitePageProp
             answered ? 'recite__node--done' : '',
             isCurrent ? 'recite__node--current' : '',
           ].filter(Boolean).join(' ')
+          if (answered) {
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="listitem"
+                className={nodeClass + ' recite__node--back'}
+                aria-label={'第 ' + position + ' 张' + (isPrize ? '，宝箱节点' : '') + '，已学过，点击回看'}
+                title={'回看第 ' + position + ' 张'}
+                onClick={() => setIndex(i)}
+              >
+                {isPrize ? '🎁' : position}
+              </button>
+            )
+          }
           return (
             <span
               key={item.id}
@@ -296,7 +456,14 @@ export function RecitePage({ payload, loading, error, onReload }: RecitePageProp
       </div>
 
       <main className="recite__stage">
-        <section className={'recite-card' + (flipped ? ' recite-card--flipped' : '')}>
+        <section
+          key={card?.id ?? 'empty'}
+          className={
+            'recite-card'
+            + (flipped ? ' recite-card--flipped' : '')
+            + (leaving ? ' recite-card--leaving' : '')
+          }
+        >
           {isSpelling ? (
             <>
               <p className="recite-card__hint">看中文，拼出英文</p>
@@ -321,7 +488,7 @@ export function RecitePage({ payload, loading, error, onReload }: RecitePageProp
             </div>
           ) : (
             <>
-              <div className="recite-card__prompt">{display}</div>
+              <div className="recite-card__prompt" style={promptStyle}>{display}</div>
               {speakButton}
             </>
           )}
@@ -329,8 +496,11 @@ export function RecitePage({ payload, loading, error, onReload }: RecitePageProp
 
         {isSpelling ? (
           <div className="recite-keyboard">
-            {KEYBOARD_ROWS.map(row => (
-              <div className="recite-keyboard__row" key={row}>
+            {KEYBOARD_ROWS.map((row, rowIndex) => (
+              <div
+                key={row}
+                className={'recite-keyboard__row ' + (rowIndex === 0 ? 'recite-keyboard__row--two' : 'recite-keyboard__row--alpha')}
+              >
                 {[...row].map(key => (
                   <button
                     type="button"
@@ -340,15 +510,20 @@ export function RecitePage({ payload, loading, error, onReload }: RecitePageProp
                     onClick={() => addKey(key)}
                   >{key}</button>
                 ))}
+                {/* 第一行只有 Q、W，空位很多：删除键放在这里，小朋友不用低头找下面的小按钮 */}
+                {rowIndex === 0 && (
+                  <button
+                    type="button"
+                    className="recite-keyboard__key recite-keyboard__key--action"
+                    aria-label="删除上一个字母"
+                    title="删掉最后一个字母"
+                    disabled={Boolean(feedback) || !input}
+                    onClick={() => setInput(value => value.slice(0, -1))}
+                  >⌫</button>
+                )}
               </div>
             ))}
             <div className="recite-keyboard__actions">
-              <button
-                type="button"
-                className="recite__kbd-ghost"
-                onClick={() => setInput(value => value.slice(0, -1))}
-                disabled={Boolean(feedback)}
-              >删除</button>
               <button
                 type="button"
                 className="recite__kbd-ghost"
@@ -365,12 +540,21 @@ export function RecitePage({ payload, loading, error, onReload }: RecitePageProp
                   {lastCard ? '完成本轮' : '下一张'}
                 </button>
               ) : (
-                <button
-                  type="button"
-                  className="recite__kbd-primary"
-                  onClick={submitSpelling}
-                  disabled={!input}
-                >提交</button>
+                <>
+                  {/* 完全不会：不用先乱拼一遍，直接记跳过并跳下一张 */}
+                  <button
+                    type="button"
+                    className="recite__kbd-ghost recite__kbd-skip"
+                    onClick={skipSpellingDirect}
+                    title="完全不会就点这里，记为跳过并直接跳下一张"
+                  >不会</button>
+                  <button
+                    type="button"
+                    className="recite__kbd-primary"
+                    onClick={submitSpelling}
+                    disabled={!input}
+                  >提交</button>
+                </>
               )}
             </div>
           </div>
@@ -398,6 +582,7 @@ export function RecitePage({ payload, loading, error, onReload }: RecitePageProp
         )}
         {localError && <div className="recite__error">{localError}</div>}
         {speechError && <div className="recite__error" role="alert">{speechError}</div>}
+        {recording.error && <div className="recite__error" role="alert">{recording.error}</div>}
       </main>
     </div>
   )
