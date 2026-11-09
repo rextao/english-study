@@ -5,6 +5,8 @@ import { PageHeader } from '../components/PageHeader'
 import { ReciteTaskPanel } from '../components/ReciteTaskPanel'
 import { RecitePushPanel } from '../components/RecitePushPanel'
 import { ReciteRecordingButton } from '../components/ReciteRecordingButton'
+import { TallyCounter } from '../components/TallyCounter'
+import type { TallyKind } from '../components/TallyCounter'
 import {
   commitReciteSession,
   fetchReciteActiveSession,
@@ -13,6 +15,8 @@ import {
   fetchReciteTasks,
 } from '../hooks/useRecite'
 import type {
+  ReciteCardTimes,
+  ReciteDraft,
   ReciteHistoryRecord,
   ReciteRecordingSummary,
   ReciteSessionPayload,
@@ -182,7 +186,7 @@ function WordChips({ items, marks, showSpelling, order }: {
  * 一周的明细行：第 1 列日期（rowSpan 跨整周），后面每次学习一行。
  * 已完成的次数在单词后直接带判定；进行中的那一次在行右侧保存；没开始的次数点行改这一周的词。
  */
-function WeekRows({ task, isThisWeek, onEdit, onPush, pushDisabled, pushReason, sessionMarks, activeMarks, activeSave, recordings, onPlaybackError }: {
+function WeekRows({ task, isThisWeek, onEdit, onPush, pushDisabled, pushReason, sessionMarks, activeMarks, activeSave, activeJudged, recordings, onPlaybackError }: {
   task: ReciteTask
   isThisWeek: boolean
   /** 点行传 session（1-based）只改这一行；点「修改配置」不传，改整周 */
@@ -197,6 +201,8 @@ function WeekRows({ task, isThisWeek, onEdit, onPush, pushDisabled, pushReason, 
   activeMarks?: Map<string, SessionWord>
   /** 进行中那一次的保存按钮状态；没有进行中的会话时不传 */
   activeSave?: { saving: boolean; missing: number; onSave: () => void }
+  /** 进行中的那一次已全部判完（背词页停在完成动画），这次按已完成展示，保存按钮仍在 */
+  activeJudged?: boolean
   /** 课堂录音：key = 周 + 第几次 */
   recordings?: Map<string, ReciteRecordingSummary>
   onPlaybackError: (message: string) => void
@@ -260,6 +266,7 @@ function WeekRows({ task, isThisWeek, onEdit, onPush, pushDisabled, pushReason, 
               order={task.wordOrder?.[index]}
               recording={recordings?.get(task.weekStart + ':' + (index + 1))}
               onPlaybackError={onPlaybackError}
+             activeJudged={activeJudged}
               saveSlot={state === 'active' && activeSave ? (
                 <Button
                   type="primary"
@@ -279,7 +286,7 @@ function WeekRows({ task, isThisWeek, onEdit, onPush, pushDisabled, pushReason, 
   )
 }
 
-function SessionCells({ task, index, per, marks, session, order, saveSlot, recording, onPlaybackError }: {
+function SessionCells({ task, index, per, marks, session, order, saveSlot, recording, onPlaybackError, activeJudged }: {
   task: ReciteTask
   index: number
   per: number
@@ -292,6 +299,8 @@ function SessionCells({ task, index, per, marks, session, order, saveSlot, recor
   /** 这一次学习留下的课堂录音（没有就不显示喇叭） */
   recording?: ReciteRecordingSummary
   onPlaybackError: (message: string) => void
+  /** 进行中的那一次已全部判完（背词页停在完成动画），这次按已完成展示，保存按钮仍在 */
+  activeJudged?: boolean
 }) {
   const slice = task.words.slice(index * per, (index + 1) * per)
   /** 推送的那一次：词表来自会话卡片，不按计划的每次词数切分；有拼写卡的词进「背的词」那一列 */
@@ -315,7 +324,9 @@ function SessionCells({ task, index, per, marks, session, order, saveSlot, recor
           <span className="recite-tasks__times">第 {index + 1} 次</span>
           {session?.pushed && <Tag color="purple">主动推送</Tag>}
           {state === 'done' && <Tag color="green">已完成</Tag>}
-          {state === 'active' && <Tag color="gold">学习中</Tag>}
+          {state === 'active' && (
+            <Tag color={activeJudged ? 'green' : 'gold'}>{activeJudged ? '已完成' : '学习中'}</Tag>
+          )}
         </div>
         {recording && <ReciteRecordingButton recording={recording} onError={onPlaybackError} />}
       </td>
@@ -353,6 +364,8 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
   const [playError, setPlayError] = useState('')
   /** 保存抽屉：点行右侧「保存」先弹出来，按序号给每个单词填要加的次数 */
   const [saveOpen, setSaveOpen] = useState(false)
+  /** 抽屉里播放课堂录音失败的提示，只显示在抽屉里 */
+  const [drawerPlayError, setDrawerPlayError] = useState('')
   /** 抽屉里每张卡各维度要加的次数，key = 卡片 id */
   const [cardTimes, setCardTimes] = useState<Record<string, ReciteCardTimes>>({})
   /** 主动推送：要推送到哪一周（周一 0 点），null 表示弹窗关闭 */
@@ -468,6 +481,12 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
     setSaveOpen(true)
   }
 
+  /** 关抽屉：清掉抽屉里的播放失败提示（按钮卸载时会自动停掉正在播的录音） */
+  function closeSaveDrawer() {
+    setDrawerPlayError('')
+    setSaveOpen(false)
+  }
+
   /** 抽屉里调节某一维度的次数：0 到 MAX_CARD_TIMES 之间 */
   function bumpCardTimes(cardId: string, kind: TallyKind, delta: number) {
     setCardTimes(current => {
@@ -515,6 +534,12 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
 
   const activeSave = active?.session
     ? { saving, missing: activeMissing, onSave: openSaveDrawer }
+    : undefined
+  /** 进行中的那一次已全部判完（背词页会停在完成动画）：按已完成展示，但还没保存，保存按钮仍在 */
+  const activeJudged = Boolean(active?.session) && activeMissing === 0
+  /** 进行中那一次的课堂录音（抽屉标题旁试听，没有录音就不显示） */
+  const activeRecording = active?.session && active.task
+    ? recordingBySession.get(active.task.weekStart + ':' + active.session.sessionIndex)
     : undefined
 
   return (
@@ -592,6 +617,7 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
                       sessionMarks={marksByWeek.get(week) ?? new Map()}
                       activeMarks={activeMarks}
                       activeSave={activeSave}
+                      activeJudged={activeJudged}
                       recordings={recordingBySession}
                       onPlaybackError={setPlayError}
                     />
@@ -619,12 +645,18 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
       <Drawer
         open={saveOpen}
         width="wide"
-        title="确认这次学习的次数"
-        description="按背词页卡片顺序排列，每个维度都可加减。默认：判「会」的普通卡加会读、知意各 1 次，拼写正确的词加会拼 1 次，「不会」的词不加。取消不会保存。"
-        onClose={() => setSaveOpen(false)}
+        title={
+          <span className="recite-tasks__drawer-title">
+            确认这次学习的次数
+            {activeRecording && (
+              <ReciteRecordingButton recording={activeRecording} onError={setDrawerPlayError} />
+            )}
+          </span>
+        }
+        onClose={closeSaveDrawer}
         footer={
           <>
-            <Button onClick={() => setSaveOpen(false)}>取消</Button>
+            <Button onClick={closeSaveDrawer}>取消</Button>
             <Button
               type="primary"
               loading={saving}
@@ -639,6 +671,7 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
         {activeMissing > 0 && (
           <p className="callout callout--warn">还有 {activeMissing} 张卡片没有判定，等孩子背完再保存。</p>
         )}
+        {drawerPlayError && <p className="callout callout--error">{drawerPlayError}</p>}
         <ul className="recite-tasks__counts">
           {pendingCards.map(card => {
             const times = cardTimes[card.id] ?? { spelling: 0, reading: 0, meaning: 0 }
@@ -665,7 +698,7 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
                       disabled={saving}
                       addDescription="保存这次学习后，会计入该单词的永久学习成果。"
                       reduceDescription="只减少这次保存要加的次数，不影响已经保存的记录。"
-                      onAdjust={delta => bumpCardTimes(card.id, kind, delta)}
+                      onAdjust={(_, delta) => bumpCardTimes(card.id, kind, delta)}
                     />
                   ))}
                 </span>

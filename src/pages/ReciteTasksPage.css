@@ -209,3 +209,6 @@
   justify-content: flex-end;
   margin-left: auto;
 }
+
+/* 保存抽屉标题旁挂这次学习的课堂录音试听按钮 */
+.recite-tasks__drawer-title { display: inline-flex; align-items: center; gap: 8px; }
