@@ -46,10 +46,10 @@ src/pages/AchievementsPage.tsx    学习成果页（tab=achievements）：目标
 src/pages/GoalPage.tsx            目标页（tab=goal，导航「更多」里有入口）：长期里程碑时间轴 + 单词目标四项进度；周期与目标词数全在 src/config/goalMilestones.ts，页面不写死阶段数量
 src/pages/LearningRecordsPage.tsx  学习记录页：学习 / 打卡日志明细 + 筛选 + 批量删除；默认 embedded 进设置页「学习记录」分区，也仍挂在 #/records 上独立成页（导航里没有，从成果页进，带 onBack 和页头）；默认先只显示物理删除不可找回的红字提示（revealed=false 时不发请求），确认后才拉列表
 src/pages/RecitePage.tsx          横屏背单词（tab=recite）：小朋友的全屏独立页，不渲染导航，也没有返回 / 退出按钮，只能从查词首页右上角「开始背单词」进；先停在本周任务首页（只读 GET /api/recite/task，不创建会话，避免一进页面就把词条标成「已开始」），点「开始 / 继续学习」才建会话；刷新 / 重新进页面时 task.activeSessionIndex 不为 null 就直接进背词流回到当前那张卡；
-                                  普通卡只显示英文（中文与音标不显示），拼写卡显示中文 + 两行虚拟键盘（第一行 Q、W，第二行 A–Z 顺序）；点「会 / 不会」先写服务端草稿 /api/recite/sessions/:id/drafts（不推进轮次，家长换设备也能读），顶部进度轨道上已学过的节点可点击回看（从草稿恢复判定状态：普通卡翻面、拼写卡回填）；最后一张后进完成动画页（彩带 + 奖杯 + 会 / 不会 / 拼写统计），点「完成」回任务首页；单词下面圆形喇叭按钮（纯图标）= utils/speech.ts 播 Google TTS（拼写卡判定前不出声，按钮始终渲染），请求 / 播放失败把原因（缺密钥 / 断网 / 超时 / 浏览器拦截）写在页面上；首页左下角录音开关（默认开启，偏好存 localStorage es-recite-record），进背词流开始 MediaRecorder 录音，学完 / 离开页面自动停并把整段传到 /api/recite/recordings
+                                  普通卡只显示英文（中文与音标不显示），拼写卡显示中文 + 两行虚拟键盘（第一行 Q、W，第二行 A–Z 顺序）；点「会 / 不会」先写服务端草稿 /api/recite/sessions/:id/drafts（不推进轮次，家长换设备也能读），顶部进度轨道上已学过的节点可点击回看（从草稿恢复判定状态：普通卡翻面、拼写卡回填）；最后一张后进完成动画页（彩带 + 奖杯 + 会 / 不会 / 拼写统计），「完成」按钮先试 window.close() 直接关掉已安装的 PWA 窗口（浏览器允许才行），关不掉 300ms 后兜底回任务首页；顶部进度轨道只有最后一张是 🎁 礼物节点，其余都是序号；单词下面圆形喇叭按钮（纯图标）= utils/speech.ts 播 Google TTS（拼写卡判定前不出声，按钮始终渲染），请求 / 播放失败把原因（缺密钥 / 断网 / 超时 / 浏览器拦截）写在页面上；首页左下角录音开关（默认开启，偏好存 localStorage es-recite-record），进背词流开始 MediaRecorder 录音，学完 / 离开页面自动停并把整段传到 /api/recite/recordings
 src/pages/ReciteParentPage.tsx    家长端（#/recite/parent，保留的独立页，已没有 UI 入口）：按日期列出待保存 / 已保存的背诵记录，逐词显示 会 / 不会 / 拼写正确 / 拼写跳过；「保存记录」才统一提交 commit 推进轮次与次数。家长确认主入口在 #/recite/tasks 的任务列表行内直接判定与保存
-src/pages/ReciteTasksPage.tsx     背词任务配置二级页（#/recite/tasks，从英语学习页进，页头可返回）：一周一行，本周到 12 周后；第 1 列日期区间（周一开始，只有本周标「本周」），无任务的周给「配置本周 / 这一周任务」按钮，有任务的周按每次一行展开：第 2 列「第 N 次」（已完成 / 学习中 Tag），第 3 列读的词，第 4 列背的词；两列单词前面都有序号（任务接口 wordOrder：已完成 / 学习中的次数取实际卡片位置，没开始的按 startSession 同一套 sortCards 预测），与背词页卡片出现顺序一致；
-                                  已完成的次数在单词后直接显示判定（读的列只显知意，背的列知意 + 拼写，来自 fetchReciteHistory 60 条）；进行中的那一次读 sessions/active 的卡片与草稿同样行内显示（没判定的单词不显示标记），行右侧「保存」直接 commit（30 张一批）；没开始（todo）/ 学习中（active）的那一次整行可点，点行只改这一行的词，学习中改词会把这次会话作废、这批单词需要重新学（行内右侧「保存」按钮不触发编辑），已学过的次数不可改；行内「修改配置」改整周，只在整周还没开始时出现；每一次「次数」单元格下面有喇叭（components/ReciteRecordingButton.tsx），这一次有课堂录音时点它能试听（同时只播一条，失败原因显示在表格上方）；保存后重读任务列表 / history / sessions/active 三份数据
+src/pages/ReciteTasksPage.tsx     背词任务配置二级页（#/recite/tasks，从英语学习页进，页头可返回）：一周一行，本周到 12 周后；第 1 列日期区间（周一开始，只有本周标「本周」），无任务的周给「配置本周 / 这一周任务」按钮，有任务的周按每次一行展开：第 2 列「第 N 次」（已完成 / 学习中 / 主动推送 Tag），第 3 列读的词，第 4 列背的词；本周日期格子下面有「推送」按钮（有进行中会话时禁用）：弹 RecitePushPanel 选一批词强行推送，本周次数 +1 并直接开始这一次；两列单词前面都有序号（任务接口 wordOrder：已完成 / 学习中的次数取实际卡片位置，没开始的按 startSession 同一套 sortCards 预测），与背词页卡片出现顺序一致；
+                                  已完成的次数在单词后直接显示判定（读的列只显知意，背的列知意 + 拼写，来自 fetchReciteHistory 60 条）；进行中的那一次读 sessions/active 的卡片与草稿同样行内显示（没判定的单词不显示标记），行右侧「保存」先弹保存抽屉（Drawer）：按背词页卡片序号列出这次还没保存的卡片，每张默认加 1 次（普通卡记「知意」、拼写卡记「会拼」，上下按钮 0–10 可调），点抽屉里的「保存」才 commit（30 张一批）并按填的次数累加熟悉度，点「取消」不写库；没开始（todo）/ 学习中（active）的那一次整行可点，点行只改这一行的词，学习中改词会把这次会话作废、这批单词需要重新学（行内右侧「保存」按钮不触发编辑），已学过的次数不可改；行内「修改配置」改整周，只在整周还没开始时出现；每一次「次数」单元格下面有喇叭（components/ReciteRecordingButton.tsx），这一次有课堂录音时点它能试听（同时只播一条，失败原因显示在表格上方）；保存后重读任务列表 / history / sessions/active 三份数据
 src/pages/PassagesPage.tsx        短文页（tab=passages）：短文正文 + 生词分组（分批 / 很久没复习 / 知意或会读次数少 / 从未知意或会读），文中生词点开看释义、可打「会读 / 知意」标记；数据层 src/hooks/usePassages.ts
 src/config/goalMilestones.ts      目标里程碑与各周期累计词数（改目标只改这里，GoalPage 自动重算）
 
@@ -60,6 +60,8 @@ src/components/PageHeader.tsx     页标题区（title / subtitle / actions）�
 src/components/WordCard.tsx       词卡：音标 / 词库标签 / 中文释义 / 右上角「加入学习」小按钮；卡片上不显示英文释义、也不显示例句
 src/components/SpeakerButton.tsx  音标旁的喇叭按钮：点一下走 utils/speech 的 speak() 播放 /api/tts 发音，取音频 / 播放中图标变蓝（不旋转）；多选模式在 Checkbox label 内，onClick 拦事件；失败原因由 onError 透传给 ListsPage 的红色 toast（lists-toast--error）
 src/components/StudyGoal.tsx      目标模块：目标词库（useStudyGoal）vs 已开始学的词 → 达成度 +「目标外的获得」；buildFormIndex 做词形宽松匹配
+src/components/RecitePushPanel.tsx 主动推送弹窗（受控 Modal）：第 1 步选词 = 学习列表下拉 + ReciteWordGrid（与配置弹窗同一个选词网格），第 2 步确认里逐词勾「拼写」（句子 / 没释义的词不出拼写卡），底部「已选择 N 个 / 取消 / 下一步 / 返回选词 / 推送」；推送调 POST /api/recite/push（带 spellingWords），成功后刷新任务列表；有进行中的会话时整窗禁用并说明原因
+src/components/ReciteWordGrid.tsx 背词选词网格（配置弹窗与推送弹窗共用）：搜索 + 按批次分组 + 每组「全选」+ 单词后的（N）（本周其他次数也选了它）；导出 wordKey / selectionKeyOf / wordLabelOf，两边的勾选键规则只此一份
 src/components/ReciteTaskPanel.tsx  背词任务配置弹窗（受控 Modal）：标题只显示这一周的日期区间（如 11.9—11.15），每次单词数 / 每周学习次数（默认 15 / 3，次数是 1–7 下拉框）/ 学习列表 / 选择单词排成一行不分组；弹窗内视图切换的选词器每个分组表头固定写「全选」，单词后的（N）表示本周其他次数也选了它、不禁选；
                                   点某一行进来时（focusSession）只改第 N 次的词、其他次数原样保留（此时隐藏每次词数 / 次数）；选词「确定」、回填已有任务、改每次词数 / 次数都自动生成任务预览（无「预览任务」按钮），保存按钮在弹窗右下角，弹窗只做配置、没有进入学习的入口（学习只从查词页右上角「开始背单词」进）；配置哪一周完全由点开的那一行决定；整周任务已开始时没开始 / 学习中的那一次还能改（保存带 session，学习中改词会重置会话），已完成的次数与整周配置锁成只读；保存走 saveReciteTask（带 weekStart）；现在只挂在 ReciteTasksPage 内
 src/components/ReciteTaskConfirm.tsx  家长确认弹窗（**已无调用方、死代码，待删**）：行内保存改造前的旧实现，功能已由 ReciteTasksPage 的行内判定 + 行右侧「保存」按钮取代
@@ -103,7 +105,7 @@ worker/src/study-lists.js         lists / list_words 两张表的 store（行 �
 worker/src/study-history.js       learning_events / meaning_profiles store：内容寻址词义身份 + 聚合 + 软删
 worker/src/kv.js                  kv 表（标签 / 目标 / 打印批次 / 补齐状态整份 JSON 一行）+ dict_cache 表（一词一行）
 worker/src/passages.js            短文 store：正文 + 生词分组快照整份存 kv（key study-passages，最多 100 篇）
-worker/src/recite.js              背词任务 / 会话 / 卡片：选词预览、稳定随机、草稿、commit（内部只调 review.js）；单行改词（saveSessionWords）改学习中的那一次会删掉该会话、草稿与卡片，需要重新学
+worker/src/recite.js              背词任务 / 会话 / 卡片：选词预览、稳定随机、草稿、commit（内部只调 review.js）；单行改词（saveSessionWords）改学习中的那一次会删掉该会话、草稿与卡片，需要重新学；主动推送（pushSession）给本周加一条次数并直接建 active 会话，跨天没学完的推送由 sweepPushedSessions 按「不会」收尾成已完成
 worker/src/recordings.js          背词课堂录音：分三步上传（POST 建记录 → PUT 逐片 400KB → POST complete），单片幂等、可单独重试；分片与元数据存 D1（recite_recordings / recite_recording_chunks），只保留 15 天（没传完的半成品 1 天），读写时顺带清过期数据；音频走 /api/recite/recordings/:id/audio；设置页统一删除走 DELETE /api/recite/recordings（没选的 id 会被跳过）；listTasks 返回全部任务（按 week_start 排序，供配置二级页与学习页月历标记）
 worker/src/text.js                normalizeText / capitalizeSentence（全库唯一主键规则）
 worker/src/sha256.js              纯 JS 同步 SHA-256（Workers 没有 node:crypto 的同步 createHash；输出与 node:crypto 一致，迁移来的旧 meaning_key 能对上）
@@ -254,6 +256,7 @@ PrintBatch       { id, printedAt, kind: 'start'|'review', scope?, title, wordCou
 | `GET \| PUT /api/recite/task` `{weekStart?, perSessionCount, sessionCount, selections, spellingWords, session?}` | 周任务读写；PUT 在本周已有会话时 409 `TASK_STARTED`；带 `session`（1-based）时只替换这一次的词，这一次没开始时即使整周已开始也能改，这一次已学过 / 正在学 → 409 `SESSION_STARTED` | useRecite |
 | `GET /api/recite/tasks` | 全部周任务列表（按 week_start 排序），供配置二级页与学习页月历标记 | ReciteTasksPage / StudyPage |
 | `POST /api/recite/preview` | 只算不存：容量截断、学习成果逆序自动填充、非法选词 | ReciteTaskPanel |
+| `POST /api/recite/push` `{weekStart, selections, spellingWords?}` | 主动推送一批单词：本周 `session_count + 1`、直接建好这一次 active 会话（id 带 `recite-push-` 前缀标记来源），卡片规则与计划里的一次相同（每个词一张知意卡，`spellingWords` 里的词再加拼写卡）；已有进行中会话 409 `有进行中的一次学习` | RecitePushPanel |
 | `GET /api/recite/sessions/active` | 家长端读当前待确认会话 + 草稿；**只读，不建会话** | ReciteParentPage / ReciteTasksPage |
 | `GET /api/recite/history?limit=` | 已保存的背诵记录（最多 60 条，含每张卡的判定与 weekStart） | ReciteParentPage / ReciteTasksPage |
 | `POST /api/recite/sessions/start` | 取 / 建 active 会话（进入页面本身不消耗次数） | useRecite |
@@ -353,6 +356,15 @@ applyReview() 是打卡的唯一实现：列表打卡（/api/lists/:id/review）
 没开始 / 学习中的那一次——改学习中那一次时该会话连同草稿与卡片一起删除（响应里 `resetSession: true`），
 下一次 start 会按新词重建会话，等于重新学。已完成的会话与卡片顺序作为历史保留。设计取舍见
 `docs/decisions/001-recite-sessions.md`。
+
+**主动推送**：本周日期格子下面「推送」→ RecitePushPanel 选词 → POST /api/recite/push：本周
+`session_count` 加一（如 3 次变 4 次）并直接建好这一次 active 会话（id 带 `recite-push-` 前缀标记推送来源），
+推送的词只存在这次会话的卡片里，不掺进计划的每次词表；卡片用 `buildSessionCards` 生成
+（与 `startSession` 同一套：每词一张知意卡，勾了拼写的词再加一张拼写卡，stableHash 排序 + 避开连续 3 张拼写卡）。
+有进行中的会话时拒绝推送（409）。跨天还没学完的推送：任一读接口进来时 `sweepPushedSessions` 先收尾——
+没学的知意卡记「不会」（写学习记录）、没写的拼写卡记「skipped」（同背词页的跳过），会话置 `completed`，
+history 里能直接看到这批结果。startSession 取「1..次数 里第一条没建过会话的序号」，
+推送的会话不按顺序完成也不会撞号。
 
 **课堂录音**：背词页首页左下角的开关默认开启（偏好存 localStorage），进背词流后用 MediaRecorder 录整段，
 学完 / 离开页面自动停。上传分三步：POST /api/recite/recordings 先建一条 `uploading` 记录（带分片数）→

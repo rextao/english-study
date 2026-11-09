@@ -4,7 +4,7 @@ import type { SelectOption } from '../ui'
 import type { StudyListApi } from '../hooks/useStudyList'
 import { fetchReciteTask, previewReciteTask, saveReciteTask } from '../hooks/useRecite'
 import type { RecitePreview, ReciteTask, ReciteTaskWord } from '../hooks/useRecite'
-import { groupStudyWords } from '../utils/studyWordGroups'
+import { ReciteWordGrid, selectionKeyOf, wordKey } from './ReciteWordGrid'
 import type { StudyWordItem } from '../types/vocab'
 import './ReciteTaskPanel.css'
 
@@ -32,9 +32,10 @@ interface Selection {
   sourceGroup?: string
 }
 
-function keyOf(word: string) { return word.trim().replace(/\s+/g, ' ').toLowerCase() }
+// 键规则统一放在 ReciteWordGrid 里，和主动推送弹窗共用一套
+const keyOf = wordKey
 
-function selectionKey(item: Selection) { return item.listId + '|' + keyOf(item.word) }
+function selectionKey(item: Selection) { return selectionKeyOf(item.listId, item.word) }
 
 /** 一周的日期区间，如 11.9—11.15，与任务列表的日期写法一致 */
 function fmtWeek(week: number): string {
@@ -43,9 +44,6 @@ function fmtWeek(week: number): string {
   return (a.getMonth() + 1) + '.' + a.getDate() + '—' + (b.getMonth() + 1) + '.' + b.getDate()
 }
 
-function displayText(item: StudyWordItem) {
-  return item.type === 'sentence' && item.displayText?.trim() ? item.displayText.trim() : item.word
-}
 
 function taskWordLabel(item: ReciteTaskWord) {
   return item.type === 'sentence' && item.displayText ? item.displayText : item.word
@@ -72,7 +70,6 @@ export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, o
   const [batchNames, setBatchNames] = useState<Record<string, Record<string, string>>>({})
   const [selected, setSelected] = useState<Selection[]>([])
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [search, setSearch] = useState('')
   const [draftKeys, setDraftKeys] = useState<Set<string>>(new Set())
   const [taskPreview, setTaskPreview] = useState<RecitePreview | null>(null)
   const [spellingWords, setSpellingWords] = useState<Set<string>>(new Set())
@@ -93,11 +90,6 @@ export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, o
   ), [sessionCount])
 
   const activeWords = listWords[activeListId] || []
-  const activeGroups = useMemo(() => {
-    const query = keyOf(search)
-    const filtered = activeWords.filter(item => !query || keyOf(displayText(item)).includes(query))
-    return groupStudyWords(filtered, batchNames[activeListId] || {}, Date.now())
-  }, [activeWords, batchNames, activeListId, search])
 
   const started = isStarted(existing)
 
@@ -197,7 +189,6 @@ export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, o
     setError('')
     await loadList(activeListId)
     setDraftKeys(new Set(selected.filter(item => item.listId === activeListId).map(selectionKey)))
-    setSearch('')
     setPickerOpen(true)
   }
 
@@ -362,25 +353,16 @@ export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, o
       }
     >
       {pickerOpen ? (
-        <>
-          <Input block allowClear value={search} placeholder="搜索单词或句子" aria-label="搜索单词或句子" onChange={event => setSearch(event.target.value)} onClear={() => setSearch('')} />
-          <div className="recite-task__groups">
-            {activeGroups.map(group => {
-              const all = groupAllSelected(group.items)
-              return <div key={group.key} className="recite-task__group">
-                <div className="recite-task__group-head"><b>{group.label || '未分组'}</b><Checkbox checked={all} onChange={() => toggleDraftGroup(group.items)}>全选</Checkbox></div>
-                <div className="recite-task__grid">{group.items.map(item => {
-                  const itemKey = selectionKey({ listId: activeListId, word: item.word })
-                  const used = otherRowCounts.get(keyOf(item.word)) ?? 0
-                  return <Checkbox key={itemKey} checked={draftKeys.has(itemKey)} onChange={() => toggleDraft(item)}>
-                    {displayText(item)}
-                    {used > 0 && <span className="recite-task__used">（{used}）</span>}
-                  </Checkbox>
-                })}</div>
-              </div>
-            })}
-          </div>
-        </>
+        <ReciteWordGrid
+          listId={activeListId}
+          words={activeWords}
+          batchNames={batchNames[activeListId] || {}}
+          selectedKeys={draftKeys}
+          usedCounts={otherRowCounts}
+          onToggle={toggleDraft}
+          onToggleGroup={toggleDraftGroup}
+          emptyText="这个学习列表还没有单词。"
+        />
       ) : taskLoading ? (
         <p className="recite-task__loading">正在读取这一周的任务…</p>
       ) : (

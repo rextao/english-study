@@ -833,10 +833,27 @@ export async function handleApi(method, pathname, searchParams, body, app) {
   // ── Recite：配置端任务与学生端会话 ───────────────────────────────────────
   // GET /api/recite/tasks — 全部背词任务，配置页按周列表和学习页月历标记共用
   if (method === 'GET' && pathname === '/api/recite/tasks') {
+    // 推送的那一次跨天了还没学完：先按「不会」收尾，再吐任务
+    await app.recite.sweepPushedSessions(app, env)
     return { status: 200, body: { tasks: await app.recite.listTasks() } }
   }
 
+  // POST /api/recite/push — 主动推送一批单词：本周次数 +1，直接建好这一次会话
+  if (method === 'POST' && pathname === '/api/recite/push') {
+    try {
+      await app.recite.sweepPushedSessions(app, env)
+      const result = await app.recite.pushSession(app, {
+        env, weekStart: body?.weekStart, selections: body?.selections, spellingWords: body?.spellingWords,
+      })
+      return { status: 200, body: { ok: true, ...result } }
+    } catch (error) {
+      const status = error?.code === 'SESSION_ACTIVE' ? 409 : 400
+      return { status, body: { ok: false, error: error?.message || '推送失败' } }
+    }
+  }
+
   if (method === 'GET' && pathname === '/api/recite/task') {
+    await app.recite.sweepPushedSessions(app, env)
     const rawWeek = searchParams.get('weekStart')
     let current = null
     if (rawWeek === null) {
@@ -894,6 +911,7 @@ export async function handleApi(method, pathname, searchParams, body, app) {
 
   // GET /api/recite/sessions/active  — 家长端读当前待确认会话（含草稿）
   if (method === 'GET' && pathname === '/api/recite/sessions/active') {
+    await app.recite.sweepPushedSessions(app, env)
     return { status: 200, body: await app.recite.activeSession(env) }
   }
 
@@ -969,6 +987,7 @@ export async function handleApi(method, pathname, searchParams, body, app) {
 
   if (method === 'POST' && pathname === '/api/recite/sessions/start') {
     try {
+      await app.recite.sweepPushedSessions(app, env)
       const result = await app.recite.startSession(app, env)
       return { status: 200, body: result }
     } catch (error) {

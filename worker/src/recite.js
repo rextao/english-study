@@ -6,7 +6,7 @@
 import { normalizeText } from './text.js'
 import {
   DAY, applyReview, countOf, enrichItem, hasReviewKey, nextDueAt,
-  pushMark, rememberReviewKey, startOfWeek,
+  pushMark, rememberReviewKey, startOfDay, startOfWeek,
 } from './review.js'
 import { progressRow } from './study-lists.js'
 import { recordStudyEvent } from './lists.js'
@@ -15,6 +15,12 @@ const MAX_SELECTIONS = 500
 const CARD_TYPES = new Set(['meaning', 'spelling'])
 /** 家长一次「确定」最多提交多少张卡片；前端按同一上限分批，避免单个请求查库过多 */
 const MAX_COMMIT_ANSWERS = 60
+/** 保存弹窗里单张卡片最多给单词加多少次（普通卡记知意 / 拼写卡记会拼，前端同一上限） */
+const MAX_CARD_TIMES = 10
+/** 主动推送的会话 id 前缀：靠它把「推送的一次」和普通次数区分开，不用改表结构 */
+const PUSH_SESSION_PREFIX = 'recite-push-'
+/** 一次推送最多选多少个单词 */
+const MAX_PUSH_WORDS = 200
 
 function parseJson(value, fallback) {
   try {
@@ -142,6 +148,14 @@ function createTaskId() {
 
 function createSessionId() {
   return 'recite-session-' + crypto.randomUUID()
+}
+
+function createPushSessionId() {
+  return PUSH_SESSION_PREFIX + crypto.randomUUID()
+}
+
+function isPushedSession(session) {
+  return String(session?.id || '').startsWith(PUSH_SESSION_PREFIX)
 }
 
 function createCardId() {
@@ -288,7 +302,42 @@ export function createReciteStore(db) {
       activeSessionIndex: progress?.active == null ? null : Number(progress.active),
       words: words.map(taskWordResponse),
       wordOrder: await taskWordOrder(task, words),
+      // 每一次学习的实际状态（推送的那一次在计划词表之外，单词要从卡片里取）
+      sessions: await sessionSummaries(task),
     }
+  }
+
+  /** 任务下每一次学习的状态；推送的那一次多带一份卡片顺序的词表 */
+  async function sessionSummaries(task) {
+    const rows = await db.all(
+      'SELECT id, session_index, status FROM recite_sessions WHERE task_id = ? ORDER BY session_index',
+      task.id,
+    )
+    const list = []
+    for (const row of rows) {
+      const pushed = isPushedSession(row)
+      const item = {
+        index: Number(row.session_index),
+        status: row.status,
+        pushed,
+      }
+      if (pushed) {
+        // 推送的一次不按计划的每次词数切分，单词直接取会话卡片（含拼写卡）
+        const cards = await db.all(
+          'SELECT word, card_type FROM recite_cards WHERE session_id = ? ORDER BY position', row.id,
+        )
+        const words = []
+        const spellingWords = []
+        for (const card of cards) {
+          if (!words.includes(card.word)) words.push(card.word)
+          if (card.card_type === 'spelling' && !spellingWords.includes(card.word)) spellingWords.push(card.word)
+        }
+        item.words = words
+        item.spellingWords = spellingWords
+      }
+      list.push(item)
+    }
+    return list
   }
 
   async function currentTask(env, now = Date.now()) {
@@ -510,11 +559,14 @@ export function createReciteStore(db) {
       current.task.id,
     )
     if (active) return await hydrateSession(current.task, active)
-    const completed = await db.first(
-      "SELECT COUNT(*) AS count FROM recite_sessions WHERE task_id = ? AND status = 'completed'",
-      current.task.id,
+    // 下一个要学的是 1..本周次数 里第一条还没建过会话的次数：
+    // 推送出来的会话序号不一定是按顺序完成的，用「已完成条数 + 1」会撞号。
+    const usedRows = await db.all(
+      'SELECT session_index FROM recite_sessions WHERE task_id = ? ORDER BY session_index', current.task.id,
     )
-    const nextIndex = Number(completed?.count || 0) + 1
+    const used = new Set(usedRows.map(row => Number(row.session_index)))
+    let nextIndex = 1
+    while (nextIndex <= Number(current.task.session_count) && used.has(nextIndex)) nextIndex++
     if (nextIndex > Number(current.task.session_count)) {
       return { task: await taskPayload(current), session: null, complete: true }
     }
@@ -528,25 +580,18 @@ export function createReciteStore(db) {
     if (available.length === 0) return { task: await taskPayload(current), session: null, empty: true }
     await ensureStarted(app, available.map(item => item.row), now)
 
-    const cards = []
-    for (const { candidate, row } of available) {
-      cards.push({
-        word: candidate.word, listId: candidate.list_id, cardType: 'meaning',
-        displayText: candidate.display_text || row.display_text || candidate.word,
-        translation: candidate.translation || row.translation || '', answer: null,
-        orderKey: stableHash(current.task.id + '|' + nextIndex + '|' + candidate.word + '|meaning'),
-      })
-      if (Number(candidate.spelling_enabled) === 1 && row.type === 'word' && (candidate.translation || row.translation)) {
-        cards.push({
-          word: candidate.word, listId: candidate.list_id, cardType: 'spelling',
-          displayText: candidate.translation || row.translation || '',
-          translation: candidate.translation || row.translation || '', answer: candidate.word,
-          orderKey: stableHash(current.task.id + '|' + nextIndex + '|' + candidate.word + '|spelling'),
-        })
-      }
-    }
-    cards.sort((a, b) => a.orderKey - b.orderKey)
-    avoidLongSpellingRuns(cards)
+    const cards = buildSessionCards({
+      taskId: current.task.id,
+      sessionIndex: nextIndex,
+      items: available.map(({ candidate, row }) => ({
+        word: candidate.word,
+        listId: candidate.list_id,
+        displayText: candidate.display_text || row.display_text,
+        translation: candidate.translation || row.translation,
+        type: row.type,
+        spellingEnabled: Number(candidate.spelling_enabled) === 1,
+      })),
+    })
     const sessionId = createSessionId()
     const statements = [[
       `INSERT INTO recite_sessions
@@ -564,6 +609,149 @@ export function createReciteStore(db) {
     await db.batch(statements)
     const session = await db.first('SELECT * FROM recite_sessions WHERE id = ?', sessionId)
     return await hydrateSession(current.task, session)
+  }
+
+  /**
+   * 主动推送一批单词：没有进行中的会话才能推。
+   * 推送会在本周新增一条「次数」（session_count + 1）并直接建好这一次的会话（学习中）；
+   * 这批词只存在这一次会话的卡片里，不掺进原来计划的单词表。
+   */
+  async function pushSession(app, { env, now = Date.now(), weekStart, selections, spellingWords }) {
+    const week = resolveWeekStart(weekStart, env, now)
+    const existing = await getTask(week)
+    if (!existing) throw new Error('这一周还没有背词任务')
+    const task = existing.task
+    const active = await db.first(
+      "SELECT id FROM recite_sessions WHERE task_id = ? AND status = 'active' ORDER BY session_index LIMIT 1",
+      task.id,
+    )
+    if (active) {
+      const error = new Error('有进行中的一次学习，学完再推送')
+      error.code = 'SESSION_ACTIVE'
+      throw error
+    }
+    if (!Array.isArray(selections) || selections.length === 0) throw new Error('先选要推送的单词')
+    if (selections.length > MAX_PUSH_WORDS) throw new Error('一次最多推送 ' + MAX_PUSH_WORDS + ' 个单词')
+
+    const picked = []
+    const seen = new Set()
+    const invalid = []
+    for (const selection of selections) {
+      const listId = String(selection?.listId ?? '').trim()
+      const word = normalizeText(selection?.word)
+      if (!listId || !word || seen.has(word)) continue
+      const row = await loadWordRow(db, listId, word)
+      if (!row) {
+        invalid.push({ word, listId })
+        continue
+      }
+      seen.add(word)
+      picked.push(row)
+    }
+    if (picked.length === 0) throw new Error('选中的单词在学习列表里已经不在了')
+
+    const usedRows = await db.all('SELECT session_index FROM recite_sessions WHERE task_id = ?', task.id)
+    const sessionIndex = Math.max(
+      Number(task.session_count || 0),
+      ...usedRows.map(row => Number(row.session_index)),
+    ) + 1
+    const per = Math.max(1, Number(task.per_session_count))
+
+    await ensureStarted(app, picked, now)
+    const spelling = new Set((Array.isArray(spellingWords) ? spellingWords : []).map(normalizeText).filter(Boolean))
+    // 和计划里的一次完全同一套卡片规则：每个词一张知意卡，勾了拼写的词再加一张拼写卡
+    const cards = buildSessionCards({
+      taskId: task.id,
+      sessionIndex,
+      items: picked.map(row => ({
+        word: row.word,
+        listId: row.list_id,
+        displayText: row.display_text,
+        translation: row.translation,
+        type: row.type,
+        spellingEnabled: spelling.has(row.word),
+      })),
+    })
+    const sessionId = createPushSessionId()
+    const statements = [[
+      `INSERT INTO recite_sessions
+        (id, task_id, session_index, status, cursor, card_count, completed_count, started_at, created_at, updated_at)
+       VALUES (?, ?, ?, 'active', 0, ?, 0, ?, ?, ?)`,
+      sessionId, task.id, sessionIndex, cards.length, now, now, now,
+    ]]
+    cards.forEach((card, position) => statements.push([
+      `INSERT INTO recite_cards
+        (id, session_id, position, word, list_id, card_type, display_text, translation, answer, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+      createCardId(), sessionId, position, card.word, card.listId, card.cardType,
+      card.displayText || null, card.translation || null, card.answer,
+    ]))
+    // 本周次数跟着 +1（例：原来 3 次，推送后变 4 次），容量同步
+    statements.push([
+      'UPDATE recite_tasks SET session_count = ?, capacity = ?, updated_at = ? WHERE id = ?',
+      sessionIndex, per * sessionIndex, now, task.id,
+    ])
+    await db.batch(statements)
+    return {
+      task: await taskPayload(await getTask(week)),
+      sessionId,
+      sessionIndex,
+      count: cards.length,
+      invalid,
+    }
+  }
+
+  /**
+   * 推送的那一次当天没学完：第二天自动收尾——没打标的卡片一律记「不会」，会话置为已完成。
+   * 由各个读接口在做事情前顺手扫一遍，不需要定时任务。
+   */
+  async function sweepPushedSessions(app, env, now = Date.now()) {
+    const today = startOfDay(now, env)
+    const rows = await db.all(
+      "SELECT * FROM recite_sessions WHERE status = 'active' AND id LIKE ?",
+      PUSH_SESSION_PREFIX + '%',
+    )
+    const finalized = []
+    for (const session of rows) {
+      const started = Number(session.started_at || session.created_at || now)
+      if (startOfDay(started, env) >= today) continue
+      await finalizePushedSession(app, session, now)
+      finalized.push(session.id)
+    }
+    return finalized
+  }
+
+  /** 收尾一次没学完的推送：剩余卡片记「不会」、清掉草稿、会话置完成 */
+  async function finalizePushedSession(app, session, now) {
+    const cards = await db.all(
+      'SELECT * FROM recite_cards WHERE session_id = ? ORDER BY position', session.id,
+    )
+    for (const card of cards) {
+      if (card.status !== 'pending') continue
+      const requestId = 'recite-push-auto|' + session.id + '|' + card.id
+      // 知意卡没学 = 不会（要写学习记录）；拼写卡没写 = 跳过（和背词页一样只记卡片结果）
+      const result = card.card_type === 'spelling' ? 'skipped' : 'unknown'
+      if (result === 'unknown') {
+        try {
+          await applyCardReview(app, card, 'unknown', requestId)
+        } catch {
+          // 词条已经从学习列表里删掉：只把卡片收尾，不再补学习记录
+        }
+      }
+      await db.run(
+        `UPDATE recite_cards SET status = 'answered', result = ?, attempts = ?, request_id = ?, answered_at = ?
+         WHERE id = ? AND status = 'pending'`,
+        result, Number(card.attempts || 0), requestId, now, card.id,
+      )
+    }
+    await db.run('DELETE FROM recite_card_drafts WHERE session_id = ?', session.id)
+    await db.run(
+      `UPDATE recite_sessions
+        SET cursor = card_count, completed_count = card_count, status = 'completed',
+          completed_at = ?, completion_request_id = ?, updated_at = ?
+       WHERE id = ?`,
+      now, 'recite-push-auto|' + session.id, now, session.id,
+    )
   }
 
   async function hydrateSession(task, session) {
@@ -745,6 +933,19 @@ export function createReciteStore(db) {
         requestId,
       })
       if (result.status !== 200) return result
+      // 保存弹窗里给这张卡填的「次数」：按维度（会拼 / 会读 / 知意）累加；
+      // 只对这次真正处理的卡片生效，重复提交不会重复加
+      if (answer?.times != null && result.body?.alreadyProcessed !== true) {
+        const card = await db.first(
+          'SELECT * FROM recite_cards WHERE id = ? AND session_id = ?', cardId, session.id,
+        )
+        if (card) {
+          const times = cardTimesOf(answer?.times, card.card_type)
+          if (times.spelling + times.reading + times.meaning > 0) {
+            await applyCardTimes(app, card, times, requestId)
+          }
+        }
+      }
     }
     const committedIds = answers.map(answer => String(answer?.cardId ?? '').trim()).filter(Boolean)
     if (committedIds.length) {
@@ -818,6 +1019,7 @@ export function createReciteStore(db) {
   return {
     currentTask, preview, saveTask, saveSessionWords, startSession, answerCard, commitSession,
     getDrafts, saveDraft, activeSession, history, getTask, taskPayload, listTasks,
+    pushSession, sweepPushedSessions,
   }
 }
 
@@ -847,6 +1049,33 @@ function avoidLongSpellingRuns(cards) {
   }
 }
 
+/**
+ * 生成一次学习的卡片：每个词一张 meaning 卡，勾了拼写的词再加一张 spelling 卡。
+ * 顺序按 stableHash 稳定打乱、避开连续 3 张拼写卡——计划里的一次和主动推送共用这一套规则。
+ */
+function buildSessionCards({ taskId, sessionIndex, items }) {
+  const cards = []
+  for (const item of items) {
+    const translation = item.translation || ''
+    cards.push({
+      word: item.word, listId: item.listId, cardType: 'meaning',
+      displayText: item.displayText || item.word,
+      translation, answer: null,
+      orderKey: stableHash(taskId + '|' + sessionIndex + '|' + item.word + '|meaning'),
+    })
+    if (item.spellingEnabled && item.type === 'word' && translation) {
+      cards.push({
+        word: item.word, listId: item.listId, cardType: 'spelling',
+        displayText: translation, translation, answer: item.word,
+        orderKey: stableHash(taskId + '|' + sessionIndex + '|' + item.word + '|spelling'),
+      })
+    }
+  }
+  cards.sort((a, b) => a.orderKey - b.orderKey)
+  avoidLongSpellingRuns(cards)
+  return cards
+}
+
 async function ensureStarted(app, rows, now) {
   const byList = new Map()
   for (const row of rows) {
@@ -871,6 +1100,60 @@ async function ensureStarted(app, rows, now) {
       const prior = before.get(item.word)
       return prior && JSON.stringify(prior) !== JSON.stringify(progressRow(listId, item))
     }))
+  }
+}
+
+/** 保存弹窗里填的「次数」：只接受 0 到 MAX_CARD_TIMES 的整数，其他一律当没填 */
+function clampCardTimes(value) {
+  const raw = Number(value)
+  if (!Number.isFinite(raw)) return 0
+  const times = Math.floor(raw)
+  if (times <= 0) return 0
+  return Math.min(times, MAX_CARD_TIMES)
+}
+
+/**
+ * 保存弹窗里给一张卡各维度（会拼 / 会读 / 知意）要加的次数。
+ * 新格式按维度填；老前端缓存还可能传单个数字，按卡片类型折算（普通卡知意、拼写卡会拼）。
+ */
+function cardTimesOf(raw, cardType) {
+  if (raw != null && typeof raw === 'object') {
+    return {
+      spelling: clampCardTimes(raw.spelling),
+      reading: clampCardTimes(raw.reading),
+      meaning: clampCardTimes(raw.meaning),
+    }
+  }
+  const legacy = clampCardTimes(raw)
+  if (legacy <= 0) return { spelling: 0, reading: 0, meaning: 0 }
+  const kind = cardType === 'spelling' ? 'spelling' : 'meaning'
+  return { spelling: 0, reading: 0, meaning: 0, [kind]: legacy }
+}
+
+/**
+ * 家长保存时按卡累加熟悉度：按维度（会拼 / 会读 / 知意）分别累计，和行内判定的计次口径一致。
+ * 每多一遍都走 tally（不动轮次和排期），幂等键固定成 requestId + 维度 + 序号，重复保存不会重复加。
+ */
+async function applyCardTimes(app, card, times, requestId) {
+  const items = await app.listsStore.selectWords(card.list_id, [card.word])
+  const item = items[0]
+  if (!item) return
+  const kind = card.card_type === 'spelling' ? 'spelling' : 'meaning'
+  const listName = await app.listsStore.listName(card.list_id)
+  const list = { id: card.list_id, name: listName, words: [item] }
+  const before = progressRow(card.list_id, item)
+  for (const kind of ['spelling', 'reading', 'meaning']) {
+    for (let index = 0; index < clampCardTimes(times[kind]); index++) {
+      await applyReview(list, new Set([item.word]), 'tally', {
+        requestIds: new Map([[item.word, requestId + '|' + kind + '|' + index]]),
+        successKind: kind,
+        hasRequest: key => app.history.hasRequest(key),
+        onEvent: event => recordStudyEvent(app, list, { ...event, listId: card.list_id, listName }),
+      }, app)
+    }
+  }
+  if (JSON.stringify(before) !== JSON.stringify(progressRow(card.list_id, item))) {
+    await app.listsStore.saveWordProgress(card.list_id, [item])
   }
 }
 

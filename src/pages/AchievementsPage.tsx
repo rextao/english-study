@@ -4,7 +4,8 @@ import type { LearningAchievement, VocabLibraryInfo } from '../types/vocab'
 import { useLearningAchievements } from '../hooks/useLearningRecords'
 import { PageHeader } from '../components/PageHeader'
 import { LetterTimeline } from '../components/LetterTimeline'
-import { Button, ENGLISH_WORD_INPUT_PROPS, Input, Popconfirm, Select, Tag } from '../ui'
+import { TallyCounter } from '../components/TallyCounter'
+import { Button, ENGLISH_WORD_INPUT_PROPS, Input, Select, Tag } from '../ui'
 import { primaryVocabIdForWord } from '../utils/vocabOrder'
 import './AchievementsPage.css'
 
@@ -91,43 +92,7 @@ function CountCell({
   return (
     <td className="achievements-table__number" data-label={editing ? undefined : label}>
       {editing ? (
-        <span className="achievements-table__count-editor">
-          <Popconfirm
-            title={'增加一次' + label + '？'}
-            description="这会新增一条永久学习记录。"
-            okText="确认修改"
-            cancelText="取消"
-            disabled={mutating}
-            onConfirm={() => onAdjust(kind, 1)}
-          >
-            <Button
-              size="small"
-              className="achievements-table__tally-button"
-              aria-label={'增加一次' + label}
-              disabled={mutating}
-            >
-              {label} {value}
-            </Button>
-          </Popconfirm>
-          <Popconfirm
-            title={'减少一次' + label + '？'}
-            description="这会同步修改永久学习成果，操作不可撤销。"
-            okText="确认修改"
-            cancelText="取消"
-            danger
-            disabled={mutating || value <= 0}
-            onConfirm={() => onAdjust(kind, -1)}
-          >
-            <Button
-              size="small"
-              className="achievements-table__tally-button"
-              aria-label={'减少一次' + label}
-              disabled={mutating || value <= 0}
-            >
-              −
-            </Button>
-          </Popconfirm>
-        </span>
+        <TallyCounter kind={kind} value={value} disabled={mutating} onAdjust={onAdjust} />
       ) : <span className={classes.join(' ')}>{value}</span>}
     </td>
   )

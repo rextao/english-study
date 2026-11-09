@@ -1,0 +1,22 @@
+/* 「维度 次数 / −」计次控件：学习成果页编辑次数与背词保存抽屉共用 */
+.tally-counter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tally-counter .ui-popconfirm { display: inline-flex; }
+.tally-counter .ui-btn { border-radius: 0; }
+.tally-counter .ui-popconfirm:first-child .ui-btn {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.tally-counter .ui-popconfirm:last-child .ui-btn {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  margin-left: -1px;
+  padding-left: 7px;
+  padding-right: 7px;
+  font-weight: 600;
+}
+
+.tally-counter__tally { white-space: nowrap; }

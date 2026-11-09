@@ -17,7 +17,7 @@ interface RecitePageProps {
   homeLoading: boolean
   homeError: string | null
   onStart: () => void
-  /** 完成动画页点「完成」回首页，顺便刷新本周进度 */
+  /** 完成页点「完成」：关不掉 PWA 窗口时退回任务首页，顺便刷新本周进度 */
   onExitStudy: () => void
 }
 
@@ -68,6 +68,8 @@ export function RecitePage({
   // 点「下一张」先把卡片滑出去（180ms）再换下一张，换卡不是硬切
   const [leaving, setLeaving] = useState(false)
   const leaveTimer = useRef(0)
+  // 完成页点「完成」后的兜底定时器：浏览器没让 window.close() 生效时回首页
+  const exitTimer = useRef(0)
   // 课堂录音：首页左下角的开关默认开启；进背词流开始录，学完 / 离开页面自动停并上传
   const [recordEnabled, setRecordEnabled] = useState(readRecordPref)
   const recording = useReciteRecording({
@@ -78,10 +80,26 @@ export function RecitePage({
 
   useEffect(() => stopSpeech, [])
 
-  // 离开页面时把未走完的换卡定时器清掉
+  // 离开页面时把未走完的换卡 / 退出定时器清掉
   useEffect(() => () => {
     if (leaveTimer.current) window.clearTimeout(leaveTimer.current)
+    if (exitTimer.current) window.clearTimeout(exitTimer.current)
   }, [])
+
+  /**
+   * 完成页的「完成」：先尝试直接关掉当前页面（已安装的 PWA 窗口在部分浏览器里可以这么关，
+   * 回到桌面），浏览器拦下 window.close() 时页面还在，等一下再兜底退回任务首页。
+   * 关不掉的情况：iOS 添加到主屏幕的 PWA、普通标签页、以及窗口历史不是只有一条时的 Chrome。
+   */
+  const finishAndClose = () => {
+    try {
+      window.close()
+    } catch {
+      // 某些浏览器不允许脚本关自己，直接落到下面的兜底
+    }
+    if (exitTimer.current) window.clearTimeout(exitTimer.current)
+    exitTimer.current = window.setTimeout(onExitStudy, 300)
+  }
 
   // 换会话：草稿来自 Server，已经判完的会话直接进完成动画
   useEffect(() => {
@@ -386,7 +404,7 @@ export function RecitePage({
             </div>
           )}
           {localError && <p className="recite__error">{localError}</p>}
-          <button type="button" className="recite__confirm" onClick={onExitStudy}>完成</button>
+          <button type="button" className="recite__confirm" onClick={finishAndClose}>完成</button>
         </div>
       </div>
     )
@@ -418,7 +436,8 @@ export function RecitePage({
       <div className="recite__track" role="list" aria-label={'共 ' + total + ' 张卡片的学习进度'}>
         {cards.map((item, i) => {
           const position = i + 1
-          const isPrize = position === total || position % 5 === 0
+          // 进度轨道上只有最后一张是礼物节点，其余都是序号
+          const isPrize = position === total
           const answered = Boolean(answers[item.id])
           const isCurrent = i === index
           const nodeClass = [

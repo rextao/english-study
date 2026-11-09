@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Button, Tag } from '../ui'
+import { Button, Drawer, Tag } from '../ui'
 import { PageHeader } from '../components/PageHeader'
 import { ReciteTaskPanel } from '../components/ReciteTaskPanel'
+import { RecitePushPanel } from '../components/RecitePushPanel'
 import { ReciteRecordingButton } from '../components/ReciteRecordingButton'
 import {
   commitReciteSession,
@@ -16,6 +17,7 @@ import type {
   ReciteRecordingSummary,
   ReciteSessionPayload,
   ReciteTask,
+  ReciteTaskSession,
   ReciteTaskWord,
 } from '../hooks/useRecite'
 import type { StudyListApi } from '../hooks/useStudyList'
@@ -30,6 +32,8 @@ const HISTORY_LIMIT = 60
 const RECORDING_LIMIT = 60
 /** 一次保存按 30 张一批提交，服务端单请求最多 60 张 */
 const COMMIT_CHUNK = 30
+/** 保存抽屉里单张卡片最多加多少次，与服务端 MAX_CARD_TIMES 一致 */
+const MAX_CARD_TIMES = 10
 
 const RESULT_LABEL: Record<string, string> = {
   known: '会',
@@ -69,6 +73,9 @@ type SessionState = 'done' | 'active' | 'todo'
 /** 这一次学习进行到哪一步：已完成 / 进行中 / 还没开始 */
 function sessionState(task: ReciteTask, index: number): SessionState {
   const sessionIndex = index + 1
+  // 有真实会话记录时以它为准：推送的那一次不按顺序完成，只看条数会标错行
+  const actual = task.sessions?.find(session => session.index === sessionIndex)
+  if (actual) return actual.status === 'completed' ? 'done' : 'active'
   if (sessionIndex <= task.completedSessions) return 'done'
   if (task.activeSessionIndex != null && sessionIndex === task.activeSessionIndex) return 'active'
   return 'todo'
@@ -84,6 +91,16 @@ interface SessionWord {
   label: string
   meaning?: string
   spelling?: string
+}
+
+/**
+ * 保存抽屉里一张卡的默认次数：判「会」的普通卡加会读、知意各 1 次，
+ * 「拼写正确」的拼写卡加会拼 1 次，「不会」的词一律不加。
+ */
+function defaultCardTimes(result?: ReciteDraft['result']): ReciteCardTimes {
+  if (result === 'known') return { spelling: 0, reading: 1, meaning: 1 }
+  if (result === 'correct') return { spelling: 1, reading: 0, meaning: 0 }
+  return { spelling: 0, reading: 0, meaning: 0 }
 }
 
 /** 一次记录按词合并：普通卡的判定归知意，拼写卡的判定归拼写 */
@@ -165,11 +182,15 @@ function WordChips({ items, marks, showSpelling, order }: {
  * 一周的明细行：第 1 列日期（rowSpan 跨整周），后面每次学习一行。
  * 已完成的次数在单词后直接带判定；进行中的那一次在行右侧保存；没开始的次数点行改这一周的词。
  */
-function WeekRows({ task, isThisWeek, onEdit, sessionMarks, activeMarks, activeSave, recordings, onPlaybackError }: {
+function WeekRows({ task, isThisWeek, onEdit, onPush, pushDisabled, pushReason, sessionMarks, activeMarks, activeSave, recordings, onPlaybackError }: {
   task: ReciteTask
   isThisWeek: boolean
   /** 点行传 session（1-based）只改这一行；点「修改配置」不传，改整周 */
   onEdit: (weekStart: number, session?: number) => void
+  /** 本周日期格子下面的「推送」：没有进行中的学习时才能用 */
+  onPush?: () => void
+  pushDisabled?: boolean
+  pushReason?: string
   /** 这一周每一次（1-based）已保存记录的逐词判定 */
   sessionMarks: Map<number, Map<string, SessionWord>>
   /** 正在进行那一次的逐词判定（来自当前会话的卡片与草稿） */
@@ -187,11 +208,14 @@ function WeekRows({ task, isThisWeek, onEdit, sessionMarks, activeMarks, activeS
     <>
       {Array.from({ length: task.sessionCount }, (_, index) => {
         const state = sessionState(task, index)
+        const session = task.sessions?.find(item => item.index === index + 1)
         const marks = state === 'done'
           ? sessionMarks.get(index + 1)
           : state === 'active' ? activeMarks : undefined
+        /** 主动推送的那一次不占本周计划的词表，也不能点行改词 */
+        const pushed = Boolean(session?.pushed)
         /** 整周任务开始后不能再改整周配置；没开始 / 正在学习中的这一次仍然可以点行改它自己的单词 */
-        const clickable = state !== 'done'
+        const clickable = state !== 'done' && !pushed
         return (
           <tr
             key={index}
@@ -215,6 +239,16 @@ function WeekRows({ task, isThisWeek, onEdit, sessionMarks, activeMarks, activeS
                     修改配置
                   </Button>
                 )}
+                {isThisWeek && onPush && (
+                  <Button
+                    size="small"
+                    disabled={pushDisabled}
+                    title={pushDisabled ? pushReason : '推送一批单词，本周次数 +1'}
+                    onClick={event => { event.stopPropagation(); onPush() }}
+                  >
+                    推送
+                  </Button>
+                )}
               </th>
             )}
             <SessionCells
@@ -222,6 +256,7 @@ function WeekRows({ task, isThisWeek, onEdit, sessionMarks, activeMarks, activeS
               index={index}
               per={per}
               marks={marks}
+              session={session}
               order={task.wordOrder?.[index]}
               recording={recordings?.get(task.weekStart + ':' + (index + 1))}
               onPlaybackError={onPlaybackError}
@@ -244,11 +279,13 @@ function WeekRows({ task, isThisWeek, onEdit, sessionMarks, activeMarks, activeS
   )
 }
 
-function SessionCells({ task, index, per, marks, order, saveSlot, recording, onPlaybackError }: {
+function SessionCells({ task, index, per, marks, session, order, saveSlot, recording, onPlaybackError }: {
   task: ReciteTask
   index: number
   per: number
   marks?: Map<string, SessionWord>
+  /** 这一次学习的会话记录：主动推送的那一次单词要按卡片取，不来自计划词表 */
+  session?: ReciteTaskSession
   /** 这一次学习的单词出现顺序，两侧单词都用它标序号 */
   order?: string[]
   saveSlot?: ReactNode
@@ -257,14 +294,26 @@ function SessionCells({ task, index, per, marks, order, saveSlot, recording, onP
   onPlaybackError: (message: string) => void
 }) {
   const slice = task.words.slice(index * per, (index + 1) * per)
-  const read = slice.filter(item => !item.spellingEnabled)
-  const spell = slice.filter(item => item.spellingEnabled)
+  /** 推送的那一次：词表来自会话卡片，不按计划的每次词数切分；有拼写卡的词进「背的词」那一列 */
+  const pushedWords = session?.pushed ? session.words ?? [] : []
+  const pushedSpelling = new Set(session?.pushed ? session.spellingWords ?? [] : [])
+  const pushedItems: ReciteTaskWord[] = pushedWords.map(word => ({
+    word, listId: '', position: 0, type: 'word',
+    sourceType: 'selected', spellingEnabled: pushedSpelling.has(word),
+  }))
+  const read = pushedWords.length > 0
+    ? pushedItems.filter(item => !item.spellingEnabled)
+    : slice.filter(item => !item.spellingEnabled)
+  const spell = pushedWords.length > 0
+    ? pushedItems.filter(item => item.spellingEnabled)
+    : slice.filter(item => item.spellingEnabled)
   const state = sessionState(task, index)
   return (
     <>
       <td className="recite-tasks__times-cell">
         <div className="recite-tasks__times-line">
           <span className="recite-tasks__times">第 {index + 1} 次</span>
+          {session?.pushed && <Tag color="purple">主动推送</Tag>}
           {state === 'done' && <Tag color="green">已完成</Tag>}
           {state === 'active' && <Tag color="gold">学习中</Tag>}
         </div>
@@ -302,6 +351,12 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
   /** 最近 15 天的课堂录音，按「周 + 第几次」挂到对应行的「次数」下面 */
   const [recordings, setRecordings] = useState<ReciteRecordingSummary[]>([])
   const [playError, setPlayError] = useState('')
+  /** 保存抽屉：点行右侧「保存」先弹出来，按序号给每个单词填要加的次数 */
+  const [saveOpen, setSaveOpen] = useState(false)
+  /** 抽屉里每张卡各维度要加的次数，key = 卡片 id */
+  const [cardTimes, setCardTimes] = useState<Record<string, ReciteCardTimes>>({})
+  /** 主动推送：要推送到哪一周（周一 0 点），null 表示弹窗关闭 */
+  const [pushWeek, setPushWeek] = useState<number | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -380,18 +435,54 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
     })))
   }, [active])
 
+  /** 进行中那一次每张卡的判定草稿，抽屉里给单词标判定、按判定给默认次数 */
+  const draftByCard = useMemo(() => {
+    const map = new Map<string, ReciteDraft>()
+    for (const draft of active?.drafts ?? []) map.set(draft.cardId, draft)
+    return map
+  }, [active])
+
   /** 进行中那一次还有几张卡片没判定，没判定完不能保存 */
   const activeMissing = useMemo(() => {
     const cards = active?.cards ?? []
-    const judged = new Set((active?.drafts ?? []).map(draft => draft.cardId))
-    return cards.filter(card => card.status === 'pending' && !judged.has(card.id)).length
-  }, [active])
+    return cards.filter(card => card.status === 'pending' && !draftByCard.has(card.id)).length
+  }, [active, draftByCard])
 
-  /** 把进行中那一次的草稿统一提交保存，保存后刷新整个页面 */
+  /** 进行中那一次还没判定的卡片，按背词页的卡片顺序排（也就是表里的序号） */
+  const pendingCards = useMemo(() => (
+    (active?.cards ?? [])
+      .filter(card => card.status === 'pending')
+      .slice()
+      .sort((a, b) => a.position - b.position)
+  ), [active])
+
+  /** 点行右侧「保存」：先弹抽屉，按卡片判定给好默认次数 */
+  function openSaveDrawer() {
+    if (!active?.session) return
+    const initial: Record<string, ReciteCardTimes> = {}
+    for (const card of pendingCards) {
+      initial[card.id] = defaultCardTimes(draftByCard.get(card.id)?.result)
+    }
+    setCardTimes(initial)
+    setSaveError('')
+    setSaveOpen(true)
+  }
+
+  /** 抽屉里调节某一维度的次数：0 到 MAX_CARD_TIMES 之间 */
+  function bumpCardTimes(cardId: string, kind: TallyKind, delta: number) {
+    setCardTimes(current => {
+      const times = current[cardId] ?? { spelling: 0, reading: 0, meaning: 0 }
+      return {
+        ...current,
+        [cardId]: { ...times, [kind]: Math.min(MAX_CARD_TIMES, Math.max(0, times[kind] + delta)) },
+      }
+    })
+  }
+
+  /** 把进行中那一次的草稿统一提交保存（带上抽屉里填的次数），保存后刷新整个页面 */
   async function saveActiveSession() {
     const session = active?.session
     if (!session || saving) return
-    const pendingCards = (active?.cards ?? []).filter(card => card.status === 'pending')
     const drafts = new Map((active?.drafts ?? []).map(draft => [draft.cardId, draft]))
     setSaving(true)
     setSaveError('')
@@ -406,11 +497,14 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
           attempts: draft.attempts,
           // 幂等键固定为会话 + 卡片，重复保存不会重复推进轮次
           requestId: 'recite|' + session.sessionId + '|' + card.id,
+          // 抽屉里填的各维度次数：会拼 / 会读 / 知意按填的值累加
+          times: cardTimes[card.id] ?? { spelling: 0, reading: 0, meaning: 0 },
         }
       })
       for (let start = 0; start < answers.length; start += COMMIT_CHUNK) {
         await commitReciteSession(session.sessionId, answers.slice(start, start + COMMIT_CHUNK))
       }
+      setSaveOpen(false)
       setReload(value => value + 1)
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : '保存失败，请重试')
@@ -420,7 +514,7 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
   }
 
   const activeSave = active?.session
-    ? { saving, missing: activeMissing, onSave: saveActiveSession }
+    ? { saving, missing: activeMissing, onSave: openSaveDrawer }
     : undefined
 
   return (
@@ -492,6 +586,9 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
                       task={task}
                       isThisWeek={isThisWeek}
                       onEdit={(next, session) => { setModalWeek(next); setModalSession(session ?? null) }}
+                      onPush={() => setPushWeek(task.weekStart)}
+                      pushDisabled={Boolean(active?.session)}
+                      pushReason="有进行中的一次学习，学完再推送"
                       sessionMarks={marksByWeek.get(week) ?? new Map()}
                       activeMarks={activeMarks}
                       activeSave={activeSave}
@@ -515,6 +612,78 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
         onSaved={() => {
           setModalWeek(null)
           setModalSession(null)
+          setReload(value => value + 1)
+        }}
+      />
+
+      <Drawer
+        open={saveOpen}
+        width="wide"
+        title="确认这次学习的次数"
+        description="按背词页卡片顺序排列，每个维度都可加减。默认：判「会」的普通卡加会读、知意各 1 次，拼写正确的词加会拼 1 次，「不会」的词不加。取消不会保存。"
+        onClose={() => setSaveOpen(false)}
+        footer={
+          <>
+            <Button onClick={() => setSaveOpen(false)}>取消</Button>
+            <Button
+              type="primary"
+              loading={saving}
+              disabled={pendingCards.length === 0 || activeMissing > 0}
+              onClick={() => { void saveActiveSession() }}
+            >
+              保存
+            </Button>
+          </>
+        }
+      >
+        {activeMissing > 0 && (
+          <p className="callout callout--warn">还有 {activeMissing} 张卡片没有判定，等孩子背完再保存。</p>
+        )}
+        <ul className="recite-tasks__counts">
+          {pendingCards.map(card => {
+            const times = cardTimes[card.id] ?? { spelling: 0, reading: 0, meaning: 0 }
+            const no = card.position + 1
+            const result = draftByCard.get(card.id)?.result
+            return (
+              <li key={card.id} className="recite-tasks__count-row">
+                <span className="recite-tasks__count-no">{no}</span>
+                <span className="recite-tasks__count-word">
+                  {card.displayText || card.word}
+                  {result && (
+                    <Tag color={result === 'known' || result === 'correct' ? 'green' : 'default'}>
+                      {RESULT_LABEL[result] || result}
+                    </Tag>
+                  )}
+                </span>
+                <span className="recite-tasks__count-tallies">
+                  {(['spelling', 'reading', 'meaning'] as const).map(kind => (
+                    <TallyCounter
+                      key={kind}
+                      kind={kind}
+                      value={times[kind]}
+                      max={MAX_CARD_TIMES}
+                      disabled={saving}
+                      addDescription="保存这次学习后，会计入该单词的永久学习成果。"
+                      reduceDescription="只减少这次保存要加的次数，不影响已经保存的记录。"
+                      onAdjust={delta => bumpCardTimes(card.id, kind, delta)}
+                    />
+                  ))}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+        {pendingCards.length === 0 && <p className="empty empty--inline">这次学习没有待保存的卡片。</p>}
+      </Drawer>
+
+      <RecitePushPanel
+        open={pushWeek !== null}
+        study={study}
+        weekStart={pushWeek ?? thisWeek}
+        blockedReason={active?.session ? '有进行中的一次学习，学完再推送' : undefined}
+        onClose={() => setPushWeek(null)}
+        onPushed={() => {
+          setPushWeek(null)
           setReload(value => value + 1)
         }}
       />

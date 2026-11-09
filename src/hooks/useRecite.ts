@@ -30,6 +30,20 @@ export interface ReciteTask {
   words: ReciteTaskWord[]
   /** 每次学习的单词出现顺序（下标 = 第几次 - 1），与背词页的卡片顺序一致 */
   wordOrder?: string[][]
+  /** 已经建出来的每一次学习（含主动推送的那一次），用来标状态和「主动推送」 */
+  sessions?: ReciteTaskSession[]
+}
+
+export interface ReciteTaskSession {
+  /** 第几次（1-based） */
+  index: number
+  status: 'active' | 'completed'
+  /** 主动推送的那一次：单词表在 words 里，不占本周计划词表的位置 */
+  pushed: boolean
+  /** 推送会话的卡片顺序（只有 pushed 才有） */
+  words?: string[]
+  /** 推送会话里出了拼写卡的词（只有 pushed 才有） */
+  spellingWords?: string[]
 }
 
 export interface RecitePreview {
@@ -127,6 +141,15 @@ export interface ReciteCommitAnswer {
   answer?: string
   attempts?: number
   requestId?: string
+  /** 保存抽屉里给这张卡各维度要加的次数（会拼 / 会读 / 知意） */
+  times?: ReciteCardTimes
+}
+
+/** 保存抽屉里一张卡各维度要加的次数：会拼 / 会读 / 知意 */
+export interface ReciteCardTimes {
+  spelling: number
+  reading: number
+  meaning: number
 }
 
 export interface ReciteCommitResponse {
@@ -222,6 +245,26 @@ export async function saveReciteTask(input: ReciteTaskInput & { spellingWords: s
   const data = await readJson<{ ok: boolean; task: ReciteTask }>(response)
   invalidateApiCache(['recite-task', 'recite-session'])
   return data.task
+}
+
+/**
+ * 主动推送一批单词：没有进行中的会话才能推。
+ * 服务端把本周次数 +1 并直接建好这一次「学习中」的会话。
+ */
+export async function pushReciteWords(input: {
+  weekStart?: number
+  selections: Array<{ listId: string; word: string }>
+  /** 要出拼写卡的词（可选，和配置任务时的 spellingWords 一样） */
+  spellingWords?: string[]
+}): Promise<{ task: ReciteTask; sessionIndex: number; count: number }> {
+  const response = await apiFetch('/api/recite/push', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  const data = await readJson<{ ok: boolean; task: ReciteTask; sessionIndex: number; count: number }>(response)
+  invalidateApiCache(['recite-task', 'recite-session', 'study-plan'])
+  return data
 }
 
 /** 家长端：读当前待确认会话（不会创建新会话），含服务端草稿 */

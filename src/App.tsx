@@ -158,7 +158,7 @@ export default function App() {
         homeError={reciteTaskError}
         onStart={() => setReciteStarted(true)}
         onExitStudy={() => {
-          // 回首页刷新本周进度，下次进来仍然停在首页
+          // 关不掉窗口时的兜底：回首页刷新本周进度，下次进来仍然停在首页
           setReciteStarted(false)
           setReciteSession(null)
           setReciteReload(value => value + 1)

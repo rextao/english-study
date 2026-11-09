@@ -154,3 +154,58 @@
   .recite-tasks__col-times { width: 84px; }
   .recite-tasks__chip { font-size: 12px; padding: 1px 8px; }
 }
+
+/* 保存抽屉：按序号一个词一行，右侧按维度调节要增加的次数 */
+.recite-tasks__counts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.recite-tasks__count-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.recite-tasks__count-row:last-child { border-bottom: none; }
+
+.recite-tasks__count-no {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-surface-sunken);
+  color: var(--color-text-subtle);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.recite-tasks__count-word {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  word-break: break-word;
+}
+
+/* 每张卡按维度（会拼 / 会读 / 知意）调节要加的次数，控件与学习成果页编辑次数一致 */
+.recite-tasks__count-tallies {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-left: auto;
+}

@@ -2297,6 +2297,138 @@ r = await call('GET', '/api/recite/sessions/active')
 check('保存后不再有待确认会话',
   r.status === 200 && r.body?.session === null, r.body)
 
+// ── 保存时给单词加的次数：普通卡记知意，拼写卡记会拼 ──────────────────────
+
+console.log('')
+console.log('保存时累加次数')
+
+const timesCtx = makeContext()
+use(timesCtx)
+r = await call('POST', '/api/lists', { name: 'Recite times test' })
+const timesListId = r.body?.id
+r = await call('POST', '/api/lists/' + timesListId + '/import', {
+  items: [{ text: 'apple', translation: '苹果' }],
+})
+check('次数累加词条准备完成', r.body?.added === 1, r.body)
+r = await call('PUT', '/api/recite/task', {
+  perSessionCount: 1,
+  sessionCount: 1,
+  selections: [{ listId: timesListId, word: 'apple' }],
+  spellingWords: ['apple'],
+})
+check('次数累加任务保存完成', r.status === 200 && r.body?.task?.words?.length === 1, r.body)
+r = await call('POST', '/api/recite/sessions/start')
+const timesSessionId = r.body?.session?.sessionId
+const timesCards = r.body?.cards || []
+check('一次学习同时有知意卡和拼写卡',
+  timesCards.some(card => card.cardType === 'meaning')
+  && timesCards.some(card => card.cardType === 'spelling'), timesCards)
+const timesAnswers = timesCards.map(card => ({
+  cardId: card.id,
+  result: card.cardType === 'spelling' ? 'correct' : 'known',
+  answer: card.cardType === 'spelling' ? card.word : undefined,
+  attempts: 0,
+  // 保存抽屉里填的次数：普通卡 3 遍、拼写卡 2 遍
+  times: card.cardType === 'spelling' ? 2 : 3,
+  requestId: 'recite-times-test|' + card.id,
+}))
+r = await call('POST', '/api/recite/sessions/' + timesSessionId + '/commit', { answers: timesAnswers })
+check('带次数的保存能提交完成会话',
+  r.status === 200 && r.body?.completed === true, r.body)
+r = await call('GET', '/api/study/plan')
+const timesItem = (r.body?.items || []).find(item => item.word === 'apple')
+check('普通卡累加知意、拼写卡累加会拼',
+  timesItem?.rememberedCount === 4 && timesItem?.spellingCount === 3, timesItem)
+const repeatTimes = await call('POST', '/api/recite/sessions/' + timesSessionId + '/commit', { answers: timesAnswers })
+check('重复保存不报错', repeatTimes.status === 200, repeatTimes.body)
+r = await call('GET', '/api/study/plan')
+const repeatTimesItem = (r.body?.items || []).find(item => item.word === 'apple')
+check('重复保存不重复累加次数',
+  repeatTimesItem?.rememberedCount === 4 && repeatTimesItem?.spellingCount === 3, repeatTimesItem)
+
+// ── 主动推送一批单词：次数 +1、有进行中就拒绝、跨天没学完按不会收尾 ──────
+
+console.log('')
+console.log('主动推送')
+
+const pushCtx = makeContext()
+use(pushCtx)
+r = await call('POST', '/api/lists', { name: 'Recite push test' })
+const pushListId = r.body?.id
+r = await call('POST', '/api/lists/' + pushListId + '/import', {
+  items: [
+    { text: 'apple', translation: '苹果' },
+    { text: 'banana', translation: '香蕉' },
+    { text: 'cherry', translation: '樱桃' },
+  ],
+})
+check('推送词条准备完成', r.body?.added === 3, r.body)
+r = await call('PUT', '/api/recite/task', {
+  weekStart: singleWeekStart,
+  perSessionCount: 2,
+  sessionCount: 1,
+  selections: [
+    { listId: pushListId, word: 'apple' },
+    { listId: pushListId, word: 'banana' },
+  ],
+  spellingWords: [],
+})
+check('推送任务保存完成', r.status === 200 && r.body?.task?.sessionCount === 1, r.body)
+r = await call('POST', '/api/recite/sessions/start')
+const plannedSessionId = r.body?.session?.sessionId
+check('先把计划的那一次学起来', Boolean(plannedSessionId), r.body)
+r = await call('POST', '/api/recite/push', { weekStart: singleWeekStart, selections: [{ listId: pushListId, word: 'cherry' }] })
+check('有进行中的学习时不能推送',
+  r.status === 409 && /进行中/.test(String(r.body?.error || '')), r.body)
+const plannedCards = (await call('GET', '/api/recite/sessions/active')).body?.cards || []
+const plannedAnswers = plannedCards.map(card => ({
+  cardId: card.id, result: 'known', attempts: 0, requestId: 'push-test|' + card.id,
+}))
+r = await call('POST', '/api/recite/sessions/' + plannedSessionId + '/commit', { answers: plannedAnswers })
+check('计划的那一次提交完成', r.body?.completed === true, r.body)
+r = await call('POST', '/api/recite/push', {
+  weekStart: singleWeekStart,
+  selections: [{ listId: pushListId, word: 'cherry' }, { listId: pushListId, word: 'apple' }],
+  spellingWords: ['apple'],
+})
+check('推送后本周次数 +1 并直接开始',
+  r.status === 200 && r.body?.task?.sessionCount === 2
+  && r.body?.sessionIndex === 2 && r.body?.count === 3, r.body)
+const pushedSessionInfo = r.body?.task?.sessions?.find(item => item.pushed)
+check('推送的那一次标成主动推送',
+  pushedSessionInfo?.index === 2 && pushedSessionInfo?.status === 'active'
+  && pushedSessionInfo?.words?.length === 2
+  && pushedSessionInfo?.words?.includes('cherry')
+  && pushedSessionInfo?.spellingWords?.[0] === 'apple', pushedSessionInfo)
+r = await call('GET', '/api/recite/sessions/active')
+const pushedCards = r.body?.cards || []
+check('推送后直接进这批词的会话，勾了拼写的词带拼写卡',
+  pushedCards.length === 3
+  && pushedCards.some(card => card.word === 'cherry' && card.cardType === 'meaning')
+  && pushedCards.some(card => card.word === 'apple' && card.cardType === 'spelling'), pushedCards)
+r = await call('POST', '/api/recite/push', { weekStart: singleWeekStart, selections: [{ listId: pushListId, word: 'apple' }] })
+check('推送出来的会话也挡着新的推送', r.status === 409, r.body)
+
+// 跨天没学完：把推送会话的开始时间拨回两天前，再读一次任务就该自动收尾
+await db().run(
+  "UPDATE recite_sessions SET started_at = ?, created_at = ? WHERE id LIKE 'recite-push-%'",
+  Date.now() - 2 * DAY_MS, Date.now() - 2 * DAY_MS,
+)
+r = await call('GET', '/api/recite/tasks')
+const sweptTask = (r.body?.tasks || []).find(task => task.weekStart === singleWeekStart)
+const sweptSession = sweptTask?.sessions?.find(item => item.pushed)
+check('跨天没学完的推送自动标成已完成', sweptSession?.status === 'completed', sweptSession)
+r = await call('GET', '/api/recite/sessions/active')
+check('收尾后不再有进行中的会话', r.body?.session === null, r.body)
+r = await call('GET', '/api/recite/history')
+const pushedRecord = (r.body?.records || []).find(record => record.sessionId?.startsWith('recite-push-'))
+check('没打标的知意卡按不会记录',
+  pushedRecord?.cards?.filter(card => card.cardType === 'meaning').every(card => card.result === 'unknown')
+  && pushedRecord?.cards?.filter(card => card.cardType === 'meaning').length === 2, pushedRecord)
+check('没写的拼写卡按跳过记录',
+  pushedRecord?.cards?.filter(card => card.cardType === 'spelling').map(card => card.result).join(',') === 'skipped',
+  pushedRecord)
+
 // ── 背词课堂录音：上传、列表、回放与 15 天保留 ────────────────────────────
 
 console.log('')
