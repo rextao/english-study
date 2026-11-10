@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   completeReciteRecording,
   createReciteRecording,
@@ -12,7 +12,11 @@ import {
  * 学完（或离开页面）立刻停下，然后把整段音频分片上传：
  *   POST 建记录 → PUT 一片一片传 → POST complete
  * 分片是为了不让一次超时 / 断网把整段录音报废——同一片可重复上传，失败只补那几片。
- * 浏览器不支持、没给麦克风权限、上传失败都不影响背单词，只把原因写在页面上。
+ * 浏览器不支持、没给麦克风权限、上传失败都不影响背单词，只把原因写在页面上（页面左下角的录音标识）。
+ *
+ * 为什么还要 prime()：Safari 只认用户手势里的 getUserMedia。点「开始学习」到会话
+ * 建好之间隔了一次网络请求，等会话回来再要麦克风就常常被拒（表现为「有时候没开录音」），
+ * 所以在点击当下先把麦克风流预取到手，正式开录直接用它。
  */
 
 /** Safari 只给 audio/mp4，Chrome 用 webm/opus；按顺序挑第一个能用的 */
@@ -147,7 +151,66 @@ interface ReciteRecordingOptions {
 export function useReciteRecording({ enabled, active, sessionId }: ReciteRecordingOptions) {
   const supported = useMemo(canRecord, [])
   const [recording, setRecording] = useState(false)
+  // 正在要麦克风 / 建 MediaRecorder：标识上显示「正在开启录音」
+  const [starting, setStarting] = useState(false)
+  // 开录就失败（没权限 / 没麦克风 / 浏览器拦截）：标识变红并给一个可点的重试
+  const [startFailed, setStartFailed] = useState(false)
   const [error, setError] = useState('')
+  // 用户手势里预取的麦克风流，正式开录时直接用
+  const primed = useRef<MediaStream | null>(null)
+  const primePending = useRef<Promise<void> | null>(null)
+  const primeSeq = useRef(0)
+  const primeTimer = useRef(0)
+  // 重试计数：左下角红色标识点一下就从这次手势里重新要麦克风
+  const [attempt, setAttempt] = useState(0)
+
+  /** 放开预取的流（含定时器）：不释放会一直占着麦克风，iOS 上还能看到常驻的录音小圆点 */
+  const releasePrimed = useCallback(() => {
+    primeSeq.current += 1
+    primePending.current = null
+    if (primeTimer.current) {
+      window.clearTimeout(primeTimer.current)
+      primeTimer.current = 0
+    }
+    const stream = primed.current
+    primed.current = null
+    if (stream) stream.getTracks().forEach(track => track.stop())
+  }, [])
+
+  /** 点「开始学习」时先要一次麦克风：请求必须落在用户手势里，Safari 才认 */
+  const prime = useCallback(() => {
+    if (!enabled || !supported || primed.current || primePending.current) return
+    const seq = primeSeq.current
+    const pending = navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+      // 期间被释放过 / 已经有流了：别攥着麦克风不放
+      if (seq !== primeSeq.current || primed.current) {
+        stream.getTracks().forEach(track => track.stop())
+        return
+      }
+      primed.current = stream
+      // 会话迟迟没回来就别一直攥着麦克风，正式开录时再要一次就好
+      if (primeTimer.current) window.clearTimeout(primeTimer.current)
+      primeTimer.current = window.setTimeout(releasePrimed, 20_000)
+    }).catch(() => {
+      // 这里不报错：正式开录时会再试一次，失败原因由那次写进 error
+    })
+    primePending.current = pending
+    void pending.then(() => {
+      if (primePending.current === pending) primePending.current = null
+    })
+  }, [enabled, supported, releasePrimed])
+
+  /** 标识上的重试：清掉旧原因，重走一遍开启流程（同样发生在点击手势里） */
+  const retry = useCallback(() => {
+    setError('')
+    setStartFailed(false)
+    setAttempt(value => value + 1)
+    prime()
+  }, [prime])
+
+  // 离开页面 / 家长关掉开关：预取的流不能留着
+  useEffect(() => () => releasePrimed(), [releasePrimed])
+  useEffect(() => { if (!enabled) releasePrimed() }, [enabled, releasePrimed])
 
   useEffect(() => {
     if (!enabled || !active || !sessionId || !supported) return
@@ -207,9 +270,19 @@ export function useReciteRecording({ enabled, active, sessionId }: ReciteRecordi
       }
     }
 
+    setStarting(true)
     void (async () => {
       try {
-        const nextStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        // 预取的授权请求还没回来就先等它：不等就会在没手势的时候再要一次，Safari 直接拒
+        if (primePending.current) await primePending.current
+        // 预取到的流直接拿来录（Google Chrome / Safari 都适用），没有就现要一次
+        const primedStream = primed.current
+        primed.current = null
+        if (primeTimer.current) {
+          window.clearTimeout(primeTimer.current)
+          primeTimer.current = 0
+        }
+        const nextStream = primedStream ?? await navigator.mediaDevices.getUserMedia({ audio: true })
         if (disposed) {
           nextStream.getTracks().forEach(track => track.stop())
           return
@@ -230,22 +303,27 @@ export function useReciteRecording({ enabled, active, sessionId }: ReciteRecordi
         // 每 10 秒切一块：长录音不用等到最后才拿到数据
         recorder.start(10_000)
         setRecording(true)
+        setStarting(false)
+        setStartFailed(false)
         setError('')
         stopTimer = window.setTimeout(stopRecorder, MAX_RECORD_MS)
       } catch (recordError) {
+        setStarting(false)
+        setStartFailed(true)
         setError(recordErrorMessage(recordError))
       }
     })()
 
     return () => {
       disposed = true
+      setStarting(false)
       stopRecorder()
       if (stream) {
         stream.getTracks().forEach(track => track.stop())
         stream = null
       }
     }
-  }, [enabled, active, sessionId, supported])
+  }, [enabled, active, sessionId, supported, attempt])
 
-  return { supported, recording, error }
+  return { supported, recording, starting, startFailed, error, prime, retry }
 }

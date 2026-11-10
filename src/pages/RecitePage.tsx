@@ -30,8 +30,10 @@ interface DraftAnswer {
   attempts: number
 }
 
-/** 键盘只有两行小写字母：第一行 q、w，第二行按 a–z 顺序排列（小朋友按字母表找键更容易，输入统一小写） */
+/** 键盘只有两行小写字母：第一行 q、w，第二行按 a–z 顺序排列（小朋友按字母表找键更容易，输入统一小写）；
+    第二行到 q、w 的位置只留半透明空位，字母表顺序不乱，也不会和第一行重复 */
 const KEYBOARD_ROWS = ['qw', 'abcdefghijklmnopqrstuvwxyz']
+const FIRST_ROW_KEYS = 'qw'
 
 function normalize(value: string) {
   return value.trim().replace(/\s+/g, ' ').toLowerCase()
@@ -260,8 +262,73 @@ export function RecitePage({
       })
   }
 
-  // 首页左下角的录音开关：只有开关本身，没有文字说明
-  const recordToggle = recording.supported ? (
+  // 左下角的录音标识：绿 = 录音中，灰 = 没开，红 = 不可用 / 开录失败，黄 = 正在开启
+  const recordUnavailable = !recording.supported
+  const recordFailed = !recordUnavailable && recordEnabled && recording.startFailed
+  const recordTone = recordUnavailable
+    ? 'bad'
+    : !recordEnabled
+      ? 'off'
+      : recording.recording
+        ? 'on'
+        : recordFailed
+          ? 'bad'
+          : recording.starting
+            ? 'wait'
+            : recording.error
+              ? 'bad'
+              : 'off'
+  const recordLabel = recordUnavailable
+    ? '录音不可用'
+    : !recordEnabled
+      ? '录音已关闭'
+      : recording.recording
+        ? '录音中'
+        : recordFailed
+          ? '录音没开·点此重试'
+          : recording.starting
+            ? '正在开启录音…'
+            : recording.error
+              ? '录音异常'
+              : '录音未开启'
+  const recordHint = recordUnavailable
+    ? '这个浏览器或页面不支持录音（需要 HTTPS 和新版浏览器）'
+    : !recordEnabled
+      ? '课堂录音开关是关的，回首页左下角点一下可以打开'
+      : recording.error
+        || (recording.recording
+          ? '正在录音，学完自动上传'
+          : recording.starting ? '正在请求麦克风…' : '还没开始录，点一下重试')
+
+  // 标识只有一个小图标（不写文字、绝对定位），颜色表示状态：绿 = 录音中，黄 = 正在开启，灰 = 没开，红 = 不可用 / 开录失败
+  const recordIconSvg = (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0" />
+      <path d="M12 17.4V21" />
+    </svg>
+  )
+
+  /** 开录失败时图标本身可点：重试落在点击手势里，Safari 才给麦克风 */
+  const recordIcon = recordFailed ? (
+    <button
+      type="button"
+      className={'recite__rec-icon is-' + recordTone}
+      title={recordHint}
+      aria-label={recordLabel}
+      onClick={recording.retry}
+    >{recordIconSvg}</button>
+  ) : (
+    <span
+      className={'recite__rec-icon is-' + recordTone}
+      title={recordHint}
+      aria-label={recordLabel}
+      role="status"
+    >{recordIconSvg}</span>
+  )
+
+  // 首页左下角的录音开关：能录时一直显示；浏览器 / 页面不支持录音就直接用红色小图标
+  const recordToggle = recordUnavailable ? recordIcon : (
     <button
       type="button"
       role="switch"
@@ -280,7 +347,7 @@ export function RecitePage({
         <span className="recite__record-knob" />
       </span>
     </button>
-  ) : null
+  )
 
   // 首页：本周任务概况 + 开始学习。不创建会话，点开始才进入背词流
   if (!started) {
@@ -291,6 +358,7 @@ export function RecitePage({
             <span className="recite__spinner" aria-hidden="true" />
             <b>正在准备今天的学习…</b>
           </div>
+          {recordToggle}
         </div>
       )
     }
@@ -302,6 +370,7 @@ export function RecitePage({
             <p>{homeError}</p>
             <button type="button" className="recite__state-btn" onClick={onReload}>重试读取</button>
           </div>
+          {recordToggle}
         </div>
       )
     }
@@ -313,6 +382,7 @@ export function RecitePage({
             <b>当前没有待学习内容</b>
             <p>请先在英语学习页准备本周任务。</p>
           </div>
+          {recordToggle}
         </div>
       )
     }
@@ -329,7 +399,12 @@ export function RecitePage({
               : '本周第 ' + nextIndex + ' / ' + homeTask.sessionCount + ' 次，每次 ' + homeTask.perSessionCount + ' 个单词'}
           </p>
           {!finished && (
-            <button type="button" className="recite__state-btn" onClick={onStart}>
+            <button
+              type="button"
+              className="recite__state-btn"
+              // 先在手势里要麦克风再开会话：等会话回来再要，Safari 常常不给
+              onClick={() => { recording.prime(); onStart() }}
+            >
               {homeTask.activeSessionIndex == null ? '开始学习' : '继续学习'}
             </button>
           )}
@@ -346,6 +421,7 @@ export function RecitePage({
           <span className="recite__spinner" aria-hidden="true" />
           <b>正在准备今天的学习…</b>
         </div>
+        {recordToggle}
       </div>
     )
   }
@@ -358,6 +434,7 @@ export function RecitePage({
           <p>{error}</p>
           <button type="button" className="recite__state-btn" onClick={onReload}>重试读取</button>
         </div>
+        {recordToggle}
       </div>
     )
   }
@@ -370,6 +447,7 @@ export function RecitePage({
           <b>当前没有待学习内容</b>
           <p>请先在英语学习页准备本周任务。</p>
         </div>
+        {recordToggle}
       </div>
     )
   }
@@ -406,6 +484,7 @@ export function RecitePage({
           {localError && <p className="recite__error">{localError}</p>}
           <button type="button" className="recite__confirm" onClick={finishAndClose}>完成</button>
         </div>
+        {recordIcon}
       </div>
     )
   }
@@ -511,6 +590,8 @@ export function RecitePage({
               {speakButton}
             </>
           )}
+          {/* 左下角的录音标识：绝对定位在卡片里，不占排版 */}
+          {recordIcon}
         </section>
 
         {isSpelling ? (
@@ -520,15 +601,27 @@ export function RecitePage({
                 key={row}
                 className={'recite-keyboard__row ' + (rowIndex === 0 ? 'recite-keyboard__row--two' : 'recite-keyboard__row--alpha')}
               >
-                {[...row].map(key => (
-                  <button
-                    type="button"
-                    key={key}
-                    className="recite-keyboard__key"
-                    disabled={Boolean(feedback)}
-                    onClick={() => addKey(key)}
-                  >{key}</button>
-                ))}
+                {[...row].map((key, keyIndex) => {
+                  // 第二行的 q、w 已经在第一行：留半透明空位，占住字母表里的位置
+                  if (rowIndex > 0 && FIRST_ROW_KEYS.includes(key)) {
+                    return (
+                      <span
+                        key={key + keyIndex}
+                        className="recite-keyboard__key recite-keyboard__key--ghost"
+                        aria-hidden="true"
+                      />
+                    )
+                  }
+                  return (
+                    <button
+                      type="button"
+                      key={key}
+                      className="recite-keyboard__key"
+                      disabled={Boolean(feedback)}
+                      onClick={() => addKey(key)}
+                    >{key}</button>
+                  )
+                })}
                 {/* 第一行只有 Q、W，空位很多：删除键放在这里，小朋友不用低头找下面的小按钮 */}
                 {rowIndex === 0 && (
                   <button
@@ -543,38 +636,42 @@ export function RecitePage({
               </div>
             ))}
             <div className="recite-keyboard__actions">
-              <button
-                type="button"
-                className="recite__kbd-ghost"
-                onClick={() => setInput('')}
-                disabled={Boolean(feedback)}
-              >清空</button>
-              {feedback === 'wrong' ? (
-                <>
-                  <button type="button" className="recite__kbd-ghost" onClick={() => setFeedback(null)}>重新尝试</button>
-                  <button type="button" className="recite__kbd-primary" onClick={skipSpelling}>跳过看答案</button>
-                </>
-              ) : feedback ? (
-                <button type="button" className="recite__kbd-primary" onClick={nextCard}>
-                  {lastCard ? '完成本轮' : '下一张'}
-                </button>
-              ) : (
-                <>
-                  {/* 完全不会：不用先乱拼一遍，直接记跳过并跳下一张 */}
+              <div className="recite-keyboard__group recite-keyboard__group--left">
+                <button
+                  type="button"
+                  className="recite__kbd-ghost"
+                  onClick={() => setInput('')}
+                  disabled={Boolean(feedback)}
+                >清空</button>
+                {/* 完全不会：不用先乱拼一遍，直接记跳过并跳下一张；和普通卡的「不会」一样贴在左下角 */}
+                {!feedback && (
                   <button
                     type="button"
                     className="recite__kbd-ghost recite__kbd-skip"
                     onClick={skipSpellingDirect}
                     title="完全不会就点这里，记为跳过并直接跳下一张"
                   >不会</button>
+                )}
+              </div>
+              <div className="recite-keyboard__group recite-keyboard__group--right">
+                {feedback === 'wrong' ? (
+                  <>
+                    <button type="button" className="recite__kbd-ghost" onClick={() => setFeedback(null)}>重新尝试</button>
+                    <button type="button" className="recite__kbd-primary" onClick={skipSpelling}>跳过看答案</button>
+                  </>
+                ) : feedback ? (
+                  <button type="button" className="recite__kbd-primary" onClick={nextCard}>
+                    {lastCard ? '完成本轮' : '下一个'}
+                  </button>
+                ) : (
                   <button
                     type="button"
                     className="recite__kbd-primary"
                     onClick={submitSpelling}
                     disabled={!input}
                   >提交</button>
-                </>
-              )}
+                )}
+              </div>
             </div>
           </div>
         ) : (
@@ -594,7 +691,7 @@ export function RecitePage({
               </>
             ) : (
               <button type="button" className="recite__next" onClick={nextCard}>
-                {lastCard ? '完成本轮' : '下一张'}
+                {lastCard ? '完成本轮' : '下一个'}
               </button>
             )}
           </div>
