@@ -212,6 +212,18 @@ export function useReciteRecording({ enabled, active, sessionId }: ReciteRecordi
   useEffect(() => () => releasePrimed(), [releasePrimed])
   useEffect(() => { if (!enabled) releasePrimed() }, [enabled, releasePrimed])
 
+  /**
+   * 刷新 / 直接进背词流时没有经过「开始学习」那一下点击，自动开录的 getUserMedia
+   * 不在手势里（Safari 会拒）。所以开录失败后挂一个一次性监听：接下来随便点哪里
+   * （点卡片、点「会 / 不会」都算），就借这次手势再要一次麦克风。
+   */
+  useEffect(() => {
+    if (!supported || !enabled || !active || !startFailed) return
+    const handler = () => retry()
+    window.addEventListener('pointerdown', handler, { once: true, capture: true })
+    return () => window.removeEventListener('pointerdown', handler, { capture: true })
+  }, [supported, enabled, active, startFailed, retry])
+
   useEffect(() => {
     if (!enabled || !active || !sessionId || !supported) return
     let recorder: MediaRecorder | null = null

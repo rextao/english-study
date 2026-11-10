@@ -178,6 +178,12 @@ export function RecitePage({
     setIndex(index + 1)
   }
 
+  /** 翻面后回看上一张：已答过的卡片会按草稿恢复翻面 / 已输入的拼写 */
+  function previousCard() {
+    if (index === 0) return
+    setIndex(index - 1)
+  }
+
   /** 先更新本地界面，再把草稿写到 Server；写失败时保留本地判定，家长保存时会重新提交 */
   function persistDraft(draft: DraftAnswer) {
     setAnswers(previous => ({ ...previous, [draft.cardId]: draft }))
@@ -690,9 +696,18 @@ export function RecitePage({
                 >会</button>
               </>
             ) : (
-              <button type="button" className="recite__next" onClick={nextCard}>
-                {lastCard ? '完成本轮' : '下一个'}
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="recite__prev"
+                  onClick={previousCard}
+                  disabled={index === 0}
+                  title="回看上一张"
+                >上一个</button>
+                <button type="button" className="recite__next" onClick={nextCard}>
+                  {lastCard ? '完成本轮' : '下一个'}
+                </button>
+              </>
             )}
           </div>
         )}

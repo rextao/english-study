@@ -359,8 +359,18 @@
   width: 100%;
 }
 
-/* 翻面后只有一个「下一个」：贴在右下角 */
-.recite__bar--single { justify-content: flex-end; }
+/* 翻面后：左下角「上一个」、右下角「下一个」，两个按钮一样大、各占一半 */
+.recite__bar--single {
+  justify-content: space-between;
+  gap: clamp(14px, 3vw, 40px);
+}
+
+.recite__bar--single .recite__next,
+.recite__bar--single .recite__prev {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 460px;
+}
 
 .recite__mark {
   /* --mark-edge 是同色的「厚底边」，按下时按钮会真的往下沉 */
@@ -434,6 +444,34 @@
 .recite__next:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, .28), 0 20px 40px -22px rgba(37, 99, 235, .9);
+}
+
+/* 上一个：次要按钮，白底描边，尺寸与「下一个」一致 */
+.recite__prev {
+  min-width: 0;
+  min-height: clamp(64px, 8.4vh, 80px);
+  padding: 0 44px;
+  border: 1px solid #e2e9f6;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, .9);
+  color: #5a6885;
+  font-size: clamp(19px, 2.1vw, 24px);
+  font-weight: 700;
+  letter-spacing: .06em;
+  cursor: pointer;
+  box-shadow: 0 14px 28px -24px rgba(23, 32, 58, .55);
+  transition: transform .16s ease, background .16s ease, box-shadow .16s ease;
+}
+
+.recite__prev:hover:not(:disabled) { background: #eef4ff; }
+
+.recite__prev:active:not(:disabled) { transform: scale(.985); }
+
+.recite__prev:disabled { opacity: .45; cursor: default; }
+
+.recite__prev:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, .32);
 }
 
 /* ---------------- 拼写键盘 ---------------- */
@@ -914,7 +952,8 @@ button.recite__rec-icon:active { transform: scale(.94); }
   .recite__stage { padding: 20px 18px 10px; gap: 12px; }
   .recite-card { min-height: 180px; padding: 18px 26px 68px; }
   .recite__mark { min-height: 60px; }
-  .recite__next { min-height: 58px; }
+  .recite__next,
+  .recite__prev { min-height: 58px; }
 }
 
 @media (max-width: 720px) {
@@ -923,6 +962,9 @@ button.recite__rec-icon:active { transform: scale(.94); }
   .recite-card { border-radius: 26px; min-height: 180px; }
   .recite__bar { gap: 12px; }
   .recite__mark { max-width: none; border-radius: 20px; }
+  /* 窄屏：两个按钮平分一行，只收一收左右内边距 */
+  .recite__bar--single .recite__next,
+  .recite__bar--single .recite__prev { padding: 0 20px; }
   .recite__summary-grid,
   .recite__done-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
