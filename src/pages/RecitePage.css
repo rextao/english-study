@@ -2,16 +2,13 @@
    点「会 / 不会」只改本地草稿，背完在「家长确认」页点确定才统一提交 Server。 */
 
 .recite {
-  /* 柔和粉彩教育风：玫瑰粉主色 + 暖桃正向色 + 米白背景 + 深灰粉文字。
+  /* 柔和粉彩教育风：玫瑰粉主色 + 米白背景 + 深灰粉文字。
      质感 = 轻阴影 + 扁平：阴影只用低透明度的玫瑰灰，不做玻璃高光。 */
   --r-primary: #E88B9A;
   --r-primary-soft: #F2A0A8;
   --r-primary-tint: #FDF0F2;
   --r-primary-wash: #FFF5F6;
   --r-primary-line: #E8A0A8;
-  --r-peach: #FF9E7A;
-  --r-peach-soft: #F7C59F;
-  --r-peach-tint: #FFF3EC;
   --r-ink: #5C4A4E;
   --r-ink-2: #82686F;
   --r-ink-3: #94797F;
@@ -43,26 +40,8 @@
     system-ui,
     sans-serif;
   color: var(--r-ink);
-  /* 米白底 + 三团极淡的玫瑰 / 暖桃 / 薰衣草光晕，安静不刺眼 */
-  background:
-    radial-gradient(900px 520px at 10% -10%, #FBE3E7 0%, rgba(251, 227, 231, 0) 62%),
-    radial-gradient(820px 520px at 94% 108%, #FDE8DC 0%, rgba(253, 232, 220, 0) 60%),
-    radial-gradient(640px 460px at 58% 44%, #F6EEF9 0%, rgba(246, 238, 249, 0) 70%),
-    linear-gradient(160deg, #FDF9F7 0%, #FDF3F4 56%, #FBF7F4 100%);
-}
-
-.recite::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  /* 扁平插画感的细圆点：玫瑰粉 + 暖桃，透明度压得很低 */
-  background-image:
-    radial-gradient(circle at 22% 18%, rgba(232, 139, 154, .07) 0 2px, transparent 3px),
-    radial-gradient(circle at 76% 72%, rgba(255, 158, 122, .07) 0 2px, transparent 3px);
-  background-size: 46px 46px, 62px 62px;
-  opacity: .7;
+  /* 米白底，纯净不刺眼 */
+  background: #FDF9F7;
 }
 
  /* ---------------- 顶部：圆圈进度轨道 ---------------- */
@@ -115,12 +94,12 @@
 
 .recite__node--back:active { transform: scale(.97); }
 
-/* 学过：暖桃渐变 + 深棕字，糖果感、不区分会 / 不会 */
+/* 学过：深玫瑰实色 + 白字，与当前节点（白底光环）拉开层次 */
 .recite__node--done {
   border-color: transparent;
-  background: linear-gradient(140deg, #FBD9C9, var(--r-peach-soft));
-  color: #7A4A34;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .75), 0 8px 16px -12px rgba(239, 139, 99, .55);
+  background: var(--r-primary-deep);
+  color: #fff;
+  box-shadow: 0 8px 16px -12px rgba(188, 85, 102, .55);
 }
 
 /* 当前一张：白底 + 玫瑰光环，从任何底色里都能一眼挑出来 */
@@ -182,19 +161,37 @@
     clamp(26px, 4.5vh, 52px)
     clamp(22px, 4vw, 54px);
   border-radius: 34px;
-  border: 1px solid rgba(247, 231, 234, .95);
-  background: linear-gradient(180deg, rgba(255, 253, 253, .98), rgba(255, 245, 246, .94));
-  box-shadow:
-    0 24px 56px -40px rgba(150, 95, 105, .32),
-    0 2px 0 rgba(255, 255, 255, .9) inset;
+  border: 1px solid var(--r-line);
+  background: #fff;
+  box-shadow: 0 24px 56px -40px rgba(150, 95, 105, .32);
   text-align: center;
   animation: recite-card-in .3s cubic-bezier(.22, .9, .28, 1) both;
 }
 
 .recite-card--flipped {
-  box-shadow:
-    0 28px 64px -42px rgba(150, 95, 105, .36),
-    0 2px 0 rgba(255, 255, 255, .9) inset;
+  box-shadow: 0 28px 64px -42px rgba(150, 95, 105, .36);
+}
+
+/* 回看已学卡片时可以点卡片翻面：指针变手 */
+.recite-card--review { cursor: pointer; }
+
+/* 翻面动画容器：继承卡片的 grid 布局，翻面时做 Y 轴旋转 */
+.recite-card__face {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 16px;
+  width: 100%;
+}
+
+@keyframes recite-card-flip {
+  0% { transform: rotateY(0deg); }
+  50% { transform: rotateY(90deg); }
+  100% { transform: rotateY(0deg); }
+}
+
+.recite-card__face--flip {
+  animation: recite-card-flip .3s ease-in-out;
 }
 
 @keyframes recite-rise {
@@ -226,6 +223,7 @@
 
 /* 单词正下方的圆形喇叭：Google TTS 合成发音；播放时波浪线轻轻跳 */
 .recite-card__speak {
+  margin-top: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -295,32 +293,24 @@
   }
 }
 
-/* 中心单词：字号按单词长度自适应（--len 由组件写入），长单词自动缩字号，
-   不再靠负字间隔硬塞，也不会被卡边裁掉；左右留一点内边距，
-   保证渐变文字（background-clip: text）把字形的外沿一起包进去 */
+/* 中心单词：字号按单词长度自适应（--len 由组件写入），长单词自动缩字号 */
 .recite-card__prompt {
   max-width: 100%;
   padding: 0 .08em;
-  font-size: clamp(30px, min(8.6vw, calc(115vw / var(--len, 6))), 118px);
+  font-size: clamp(38px, min(10vw, calc(130vw / var(--len, 6))), 140px);
   font-weight: 800;
   line-height: 1.06;
   letter-spacing: .03em;
   overflow-wrap: anywhere;
   text-align: center;
-  background: linear-gradient(180deg, #6E575D, #4A3A3E);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--r-ink);
 }
 
 .recite-card__prompt--cn {
   max-width: min(100%, 780px);
   font-size: clamp(28px, 4.2vw, 56px);
   letter-spacing: .01em;
-  background: linear-gradient(180deg, #C4697A, var(--r-primary));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--r-primary-deep);
 }
 
 /* ---------------- 翻面后的中文答案 ---------------- */
@@ -393,26 +383,18 @@
   width: 100%;
 }
 
-/* 翻面后：左下角「上一个」、右下角「下一个」，两个按钮一样大、各占一半 */
+/* 翻面后：左下角「上一个」、右下角「下一个」，和「会 / 不会」同一套尺寸 */
 .recite__bar--single {
   justify-content: space-between;
-  gap: clamp(14px, 3vw, 40px);
-}
-
-.recite__bar--single .recite__next,
-.recite__bar--single .recite__prev {
-  flex: 1 1 0;
-  min-width: 0;
-  max-width: 460px;
 }
 
 .recite__mark {
   /* --mark-edge 是同色的「厚底边」，按下时按钮会真的往下沉 */
   --mark-edge: #F6DDE1;
   flex: 1;
-  max-width: 340px;
+  max-width: 380px;
   min-height: clamp(66px, 9vh, 84px);
-  border: none;
+  border: 1.5px solid transparent;
   border-radius: 24px;
   font-size: clamp(22px, 2.5vw, 28px);
   font-weight: 800;
@@ -433,16 +415,16 @@
   --mark-edge: #F7E3E7;
   border: 1.5px solid var(--r-primary-line);
   background: #fff;
-  color: #B0727F;
+  color: var(--r-ink);
   box-shadow: 0 5px 0 var(--mark-edge), 0 16px 26px -22px rgba(232, 160, 168, .7);
 }
 
-/* 会：暖桃亮色点缀（正向强调），深棕字保证大字号下依然清楚 */
+/* 会：深玫瑰底 + 白字（正向强调），对比度 ≥ 4.5:1 */
 .recite__mark--yes {
-  --mark-edge: #EF8B63;
-  background: linear-gradient(180deg, #FFC4A8 0%, var(--r-peach) 100%);
-  color: #6E3A2B;
-  box-shadow: 0 5px 0 var(--mark-edge), 0 18px 30px -22px rgba(239, 139, 99, .75);
+  --mark-edge: #9A4455;
+  background: var(--r-primary-deep);
+  color: #fff;
+  box-shadow: 0 5px 0 var(--mark-edge), 0 18px 30px -22px rgba(188, 85, 102, .75);
 }
 
 .recite__mark--no:hover:not(:disabled) { background: var(--r-primary-wash); }
@@ -452,63 +434,80 @@
   transform: translateY(-2px);
   filter: brightness(1.03) saturate(1.05);
 }
-
 .recite__mark:active:not(:disabled) {
   transform: translateY(4px);
   box-shadow: 0 3px 0 var(--mark-edge), 0 8px 16px -16px rgba(92, 74, 78, .22);
 }
 
+/* 下一个：深玫瑰底 + 白字，和「会」同一套 3D 厚底边按压效果 */
 .recite__next {
-  min-width: min(380px, 100%);
-  min-height: clamp(64px, 8.4vh, 80px);
-  padding: 0 44px;
-  border: 1px solid rgba(255, 255, 255, .35);
-  border-radius: var(--radius-full);
-  background: linear-gradient(135deg, var(--r-primary) 0%, var(--r-primary-deep) 100%);
+  --mark-edge: #9A4455;
+  flex: 1;
+  max-width: 380px;
+  min-height: clamp(66px, 9vh, 84px);
+  padding: 0 clamp(16px, 3vw, 44px);
+  border: 1.5px solid transparent;
+  border-radius: 24px;
+  background: var(--r-primary-deep);
   color: #fff;
-  font-size: clamp(19px, 2.1vw, 24px);
-  font-weight: 700;
+  font-size: clamp(22px, 2.5vw, 28px);
+  font-weight: 800;
   letter-spacing: .06em;
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 20px 40px -22px rgba(232, 139, 154, .75);
-  transition: transform .16s ease, filter .16s ease, box-shadow .16s ease;
+  box-shadow: 0 5px 0 var(--mark-edge), 0 18px 30px -22px rgba(188, 85, 102, .75);
+  transition: transform .12s ease, box-shadow .12s ease, filter .16s ease;
 }
 
-.recite__next:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.04); }
+.recite__next:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.03) saturate(1.05);
+}
 
-.recite__next:active:not(:disabled) { transform: translateY(0) scale(.985); }
+.recite__next:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 3px 0 var(--mark-edge), 0 8px 16px -16px rgba(92, 74, 78, .22);
+}
 
 .recite__next:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(232, 139, 154, .28), 0 20px 40px -22px rgba(232, 139, 154, .75);
+  box-shadow: 0 0 0 3px rgba(232, 139, 154, .4), 0 7px 0 var(--mark-edge);
 }
 
-/* 上一个：次要按钮，白底描边，尺寸与「下一个」一致 */
+/* 上一个：白底 + 玫瑰描边，和「不会」同一套视觉重量与按压效果 */
 .recite__prev {
-  min-width: 0;
-  min-height: clamp(64px, 8.4vh, 80px);
-  padding: 0 44px;
-  border: 1px solid var(--r-line);
-  border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, .9);
-  color: var(--r-ink-2);
-  font-size: clamp(19px, 2.1vw, 24px);
-  font-weight: 700;
+  --mark-edge: #F7E3E7;
+  flex: 1;
+  max-width: 380px;
+  min-height: clamp(66px, 9vh, 84px);
+  padding: 0 clamp(16px, 3vw, 44px);
+  border: 1.5px solid var(--r-primary-line);
+  border-radius: 24px;
+  background: #fff;
+  color: var(--r-ink);
+  font-size: clamp(22px, 2.5vw, 28px);
+  font-weight: 800;
   letter-spacing: .06em;
   cursor: pointer;
-  box-shadow: 0 14px 28px -24px rgba(92, 74, 78, .3);
-  transition: transform .16s ease, background .16s ease, box-shadow .16s ease;
+  box-shadow: 0 5px 0 var(--mark-edge), 0 16px 26px -22px rgba(232, 160, 168, .7);
+  transition: transform .12s ease, box-shadow .12s ease, filter .16s ease;
 }
 
-.recite__prev:hover:not(:disabled) { background: var(--r-primary-tint); }
+.recite__prev:hover:not(:disabled) {
+  background: var(--r-primary-wash);
+  transform: translateY(-2px);
+  filter: brightness(1.03) saturate(1.05);
+}
 
-.recite__prev:active:not(:disabled) { transform: scale(.985); }
+.recite__prev:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 3px 0 var(--mark-edge), 0 8px 16px -16px rgba(92, 74, 78, .22);
+}
 
-.recite__prev:disabled { opacity: .45; cursor: default; }
+.recite__prev:disabled { opacity: .55; cursor: default; }
 
 .recite__prev:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(232, 139, 154, .32);
+  box-shadow: 0 0 0 3px rgba(232, 139, 154, .4), 0 7px 0 var(--mark-edge);
 }
 
 /* ---------------- 拼写键盘 ---------------- */
@@ -549,7 +548,7 @@
   height: var(--key-h);
   border: 1px solid rgba(243, 226, 229, .9);
   border-radius: 20px;
-  background: linear-gradient(180deg, #fff, var(--r-primary-wash));
+  background: var(--r-primary-wash);
   box-shadow: 0 3px 0 #F6E3E6, 0 12px 24px -18px rgba(150, 95, 105, .32);
   color: var(--r-ink);
   font-size: var(--key-font);
@@ -571,7 +570,7 @@
 /* 删除键：浅玫瑰底，和字母键区分开，但静拼时同样清楚 */
 .recite-keyboard__key--action {
   border-color: rgba(232, 139, 154, .35);
-  background: linear-gradient(180deg, #fff, var(--r-primary-tint));
+  background: var(--r-primary-tint);
   color: var(--r-primary-deep);
   font-size: calc(var(--key-font) * 1.1);
 }
@@ -625,7 +624,7 @@
 
 .recite__kbd-primary {
   border: none;
-  background: linear-gradient(135deg, var(--r-primary), var(--r-primary-deep));
+  background: var(--r-primary-deep);
   color: #fff;
   box-shadow: 0 14px 26px -16px rgba(232, 139, 154, .7);
 }
@@ -639,14 +638,14 @@
 /* 拼写卡的「不会」：淡玫瑰底 + 深玫瑰字，和主按钮「提交」分得开 */
 .recite__kbd-skip {
   border-color: #F6DDE1;
-  background: linear-gradient(180deg, #fff, var(--r-primary-tint));
+  background: var(--r-primary-tint);
   color: var(--r-primary-deep);
   box-shadow: 0 3px 0 #F6DDE1;
 }
 
 .recite__kbd-skip:hover:not(:disabled) {
   border-color: var(--r-primary-line);
-  background: linear-gradient(180deg, #fff, #FBE6EA);
+  background: #FBE6EA;
 }
 
 .recite__kbd-skip:active:not(:disabled) {
@@ -675,7 +674,7 @@
   padding: clamp(28px, 4vw, 48px);
   border-radius: 32px;
   border: 1px solid rgba(255, 255, 255, .92);
-  background: rgba(255, 251, 251, .92);
+  background: rgba(255, 255, 255, .92);
   box-shadow: 0 24px 60px -44px rgba(150, 95, 105, .32);
   backdrop-filter: blur(20px);
   text-align: center;
@@ -711,59 +710,17 @@
   padding: 10px 28px;
   border: none;
   border-radius: var(--radius-full);
-  background: linear-gradient(135deg, var(--r-primary), var(--r-primary-deep));
+  background: var(--r-primary-deep);
   color: #fff;
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 16px 30px -18px rgba(232, 139, 154, .7);
+  box-shadow: 0 16px 30px -18px rgba(188, 85, 102, .7);
 }
 
-/* 首页左下角的录音开关：只有开关本身，没有文字说明；默认开启（柔和薄荷绿轨道） */
-.recite__record {
-  position: absolute;
-  left: 20px;
-  bottom: 20px;
-  z-index: 3;
-  display: inline-flex;
-  padding: 0;
-  border: none;
-  background: none;
-  cursor: pointer;
-  border-radius: var(--radius-full);
-}
-
-.recite__record-track {
-  display: inline-flex;
-  align-items: center;
-  width: 52px;
-  height: 30px;
-  padding: 3px;
-  border-radius: var(--radius-full);
-  background: #EFE2E5;
-  box-shadow: inset 0 1px 2px rgba(92, 74, 78, .1);
-  transition: background .18s ease;
-}
-
-.recite__record-knob {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 2px 6px rgba(92, 74, 78, .16);
-  transition: transform .18s ease;
-}
-
-.recite__record.is-on .recite__record-track {
-  background: linear-gradient(135deg, #6FBF9B, #5FB08C);
-}
-
-
-.recite__record.is-on .recite__record-knob { transform: translateX(22px); }
-
-/* 录音状态小图标（每页左下角）：只有图标、绝对定位，不占排版、不推按钮；
-   绿 = 录音中，黄 = 正在开启，灰 = 没开，红 = 不可用 / 开录失败（可点重试） */
-.recite__rec-icon {
+/* 左下角的调试入口：绝对定位、不占排版；输口令 123 进面板。
+   绿色 = 录音可用，红色 = 录音不可用 / 失败（点开面板能看到原因并重试） */
+.recite__debug-btn {
   position: absolute;
   left: clamp(12px, 2vw, 20px);
   bottom: clamp(12px, 2vh, 20px);
@@ -773,78 +730,10 @@
   width: 30px;
   height: 30px;
   padding: 0;
-  border: 1px solid rgba(196, 160, 168, .35);
+  border: 1px solid rgba(95, 176, 140, .45);
   border-radius: 50%;
-  background: rgba(255, 255, 255, .88);
-  color: #A2878E;
-  box-shadow: 0 6px 14px -10px rgba(92, 74, 78, .35);
-  transition: color .18s ease, background .18s ease, border-color .18s ease;
-}
-
-.recite__rec-icon svg {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-}
-
-/* 麦克风头是实心的，支架是描边 */
-.recite__rec-icon svg rect { fill: currentColor; stroke: none; }
-
-.recite__rec-icon.is-on {
-  border-color: rgba(95, 176, 140, .45);
   background: rgba(240, 250, 245, .95);
   color: #5FB08C;
-  animation: recite-rec-pulse 1.8s ease-in-out infinite;
-}
-
-.recite__rec-icon.is-wait {
-  border-color: rgba(224, 164, 95, .45);
-  background: rgba(255, 248, 236, .95);
-  color: #E0A45F;
-}
-
-.recite__rec-icon.is-bad {
-  border-color: rgba(217, 105, 111, .45);
-  background: rgba(253, 237, 238, .95);
-  color: #D9696F;
-}
-
-@keyframes recite-rec-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: .55; transform: scale(.92); }
-}
-
-button.recite__rec-icon { cursor: pointer; }
-
-button.recite__rec-icon:hover { background: #FDEDEE; }
-
-button.recite__rec-icon:active { transform: scale(.94); }
-
-.recite__record:focus-visible { outline: none; }
-
-.recite__record:focus-visible .recite__record-track {
-  box-shadow: 0 0 0 3px rgba(232, 139, 154, .35);
-}
-
-/* 每页右下角的调试入口：只有图标、绝对定位（和左下角录音标识同一套尺寸），不占排版；
-   灰色 = 一切正常，红色 = 录音不可用 / 开录失败（点开面板能看到原因并重试） */
-.recite__debug-btn {
-  position: absolute;
-  right: clamp(12px, 2vw, 20px);
-  bottom: clamp(12px, 2vh, 20px);
-  z-index: 3;
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 1px solid rgba(196, 160, 168, .35);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, .88);
-  color: #A2878E;
   box-shadow: 0 6px 14px -10px rgba(92, 74, 78, .35);
   cursor: pointer;
   transition: color .18s ease, background .18s ease, border-color .18s ease;
@@ -860,7 +749,7 @@ button.recite__rec-icon:active { transform: scale(.94); }
   stroke-linejoin: round;
 }
 
-.recite__debug-btn:hover { background: #fff; color: var(--r-ink-2); }
+.recite__debug-btn:hover { background: #fff; }
 
 .recite__debug-btn:active { transform: scale(.94); }
 
@@ -937,12 +826,12 @@ button.recite__rec-icon:active { transform: scale(.94); }
 
 .recite__summary-stat--yes,
 .recite__done-stat--yes {
-  border-color: #F9DCC8;
-  background: var(--r-peach-tint);
+  border-color: #F6DCE0;
+  background: var(--r-primary-tint);
 }
 
 .recite__summary-stat--yes b,
-.recite__done-stat--yes b { color: #D97757; }
+.recite__done-stat--yes b { color: var(--r-primary-deep); }
 
 .recite__summary-stat--no,
 .recite__done-stat--no {
@@ -1003,13 +892,13 @@ button.recite__rec-icon:active { transform: scale(.94); }
   min-height: 60px;
   border: none;
   border-radius: var(--radius-full);
-  background: linear-gradient(135deg, var(--r-primary), var(--r-primary-deep));
+  background: var(--r-primary-deep);
   color: #fff;
   font-size: 18px;
   font-weight: 700;
   letter-spacing: .04em;
   cursor: pointer;
-  box-shadow: 0 22px 40px -20px rgba(232, 139, 154, .7);
+  box-shadow: 0 22px 40px -20px rgba(188, 85, 102, .7);
   transition: transform .12s ease, filter .15s ease;
 }
 
@@ -1033,7 +922,7 @@ button.recite__rec-icon:active { transform: scale(.94); }
   .recite-card { min-height: 180px; padding: 18px 26px; }
   .recite__mark { min-height: 60px; }
   .recite__next,
-  .recite__prev { min-height: 58px; }
+  .recite__prev { min-height: 60px; }
 }
 
 @media (max-width: 720px) {
@@ -1041,10 +930,9 @@ button.recite__rec-icon:active { transform: scale(.94); }
   .recite-keyboard { --key-w: 42px; --key-font: clamp(20px, 4.8vw, 28px); }
   .recite-card { border-radius: 26px; min-height: 180px; }
   .recite__bar { gap: 12px; }
-  .recite__mark { max-width: none; border-radius: 20px; }
-  /* 窄屏：两个按钮平分一行，只收一收左右内边距 */
-  .recite__bar--single .recite__next,
-  .recite__bar--single .recite__prev { padding: 0 20px; }
+  .recite__mark,
+  .recite__next,
+  .recite__prev { max-width: none; border-radius: 20px; padding: 0 16px; }
   .recite__summary-grid,
   .recite__done-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -1057,7 +945,6 @@ button.recite__rec-icon:active { transform: scale(.94); }
   .recite__mark,
   .recite__next,
   .recite-keyboard__key { transition: none; }
-  .recite__rec-icon.is-on { animation: none; }
   .recite__spinner { animation-duration: 2s; }
 }
 
@@ -1094,7 +981,7 @@ button.recite__rec-icon:active { transform: scale(.94); }
 
 .confetti--0 { background: #A9D6C8; }
 .confetti--1 { background: var(--r-primary-soft); }
-.confetti--2 { background: var(--r-peach-soft); }
+.confetti--2 { background: #F2C4CA; }
 .confetti--3 { background: #F6B3BA; }
 .confetti--4 { background: #C9B6E4; }
 .confetti--5 { background: #A9CFDF; }
@@ -1113,7 +1000,7 @@ button.recite__rec-icon:active { transform: scale(.94); }
   padding: clamp(30px, 5vw, 56px);
   border-radius: 34px;
   border: 1px solid rgba(255, 255, 255, .95);
-  background: rgba(255, 251, 251, .9);
+  background: rgba(255, 255, 255, .9);
   box-shadow: 0 28px 64px -44px rgba(150, 95, 105, .32);
   backdrop-filter: blur(20px);
   text-align: center;
@@ -1136,7 +1023,7 @@ button.recite__rec-icon:active { transform: scale(.94); }
   font-size: clamp(30px, 5vw, 52px);
   font-weight: 800;
   letter-spacing: -.03em;
-  background: linear-gradient(135deg, var(--r-primary), var(--r-peach));
+  background: linear-gradient(135deg, var(--r-primary-deep), var(--r-primary));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -1183,4 +1070,122 @@ button.recite__rec-icon:active { transform: scale(.94); }
   .confetti { display: none; }
   .recite__celebrate-card,
   .recite__trophy { animation: none; }
+}
+
+/* ---------------- 完成按钮随机庆祝特效 ---------------- */
+
+/* 特效容器：覆盖整屏、不拦截点击；粒子从按钮附近出发 */
+.fx-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.fx-particle {
+  position: absolute;
+  left: 50%;
+  top: 60%;
+  will-change: transform, opacity;
+}
+
+/* 1. 烟花：从按钮上方随机位置炸开成圆形闪烁粒子 */
+.fx-firework {
+  width: 5px;
+  height: 5px;
+  margin: -2.5px;
+  border-radius: 50%;
+  background: var(--color);
+  box-shadow: 0 0 6px var(--color), 0 0 14px var(--color);
+  animation: fx-firework 1s ease-out var(--delay) forwards;
+}
+
+@keyframes fx-firework {
+  0% { transform: translate(0, 0) scale(0); opacity: 0; }
+  15% { transform: translate(0, 0) scale(1.3); opacity: 1; }
+  20% { transform: translate(var(--cx), var(--cy)) scale(1); opacity: 1; }
+  100% { transform: translate(calc(var(--cx) + var(--dx)), calc(var(--cy) + var(--dy))) scale(0); opacity: 0; }
+}
+
+/* 2. 泡泡：大小不一的半透明泡泡缓缓上飘 + 左右摇晃 */
+.fx-bubble {
+  width: var(--size);
+  height: var(--size);
+  margin: calc(var(--size) * -.5);
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .85), rgba(232, 139, 154, .12));
+  border: 1.5px solid rgba(255, 255, 255, .4);
+  box-shadow: inset 0 0 10px rgba(255, 255, 255, .25);
+  animation: fx-bubble 2s ease-out var(--delay) forwards;
+}
+
+@keyframes fx-bubble {
+  0% { transform: translate(0, 0) scale(.3); opacity: 0; }
+  10% { opacity: .8; }
+  25% { transform: translate(calc(var(--drift) * .25), calc(var(--rise) * -.25)) scale(.7); }
+  50% { transform: translate(calc(var(--drift) * -.15), calc(var(--rise) * -.5)) scale(.9); }
+  75% { transform: translate(calc(var(--drift) * .5), calc(var(--rise) * -.75)) scale(1); }
+  100% { transform: translate(var(--drift), calc(var(--rise) * -1)) scale(1.1); opacity: 0; }
+}
+
+/* 3. 礼花彩带：纸屑和星星从中心炸开 + 重力下落 + 旋转 */
+.fx-confetti {
+  width: 8px;
+  height: 14px;
+  margin: -7px;
+  background: var(--color);
+  border-radius: 2px;
+  animation: fx-confetti 1.5s cubic-bezier(.15, .6, .4, 1) var(--delay) forwards;
+}
+
+.fx-confetti--star {
+  width: 16px;
+  height: 16px;
+  margin: -8px;
+  background: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.fx-confetti--star::before {
+  content: '★';
+  color: var(--color);
+  text-shadow: 0 0 6px var(--color);
+}
+
+@keyframes fx-confetti {
+  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  40% { transform: translate(var(--dx), var(--dy)) rotate(calc(var(--spin) * .4)); opacity: 1; }
+  100% { transform: translate(var(--dx), calc(var(--dy) + 280px)) rotate(var(--spin)); opacity: 0; }
+}
+
+/* 4. 爱心飘升：发光爱心从按钮处向上飘浮 + 摇摆 + 放大淡出 */
+.fx-heart {
+  font-size: var(--size);
+  line-height: 1;
+  margin: calc(var(--size) * -.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #E88B9A;
+  text-shadow: 0 0 8px rgba(232, 139, 154, .5), 0 0 16px rgba(232, 139, 154, .25);
+  animation: fx-heart 1.8s ease-out var(--delay) forwards;
+}
+
+.fx-heart::before { content: '♥'; }
+
+@keyframes fx-heart {
+  0% { transform: translate(0, 0) scale(.3); opacity: 0; }
+  10% { opacity: 1; }
+  30% { transform: translate(calc(var(--drift) * .3), calc(var(--rise) * -.3)) scale(.8); }
+  60% { transform: translate(calc(var(--drift) * .6), calc(var(--rise) * -.6)) scale(1.1); }
+  100% { transform: translate(var(--drift), calc(var(--rise) * -1)) scale(1.5); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-particle { animation: none; }
 }

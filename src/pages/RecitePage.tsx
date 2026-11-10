@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { saveReciteDraft } from '../hooks/useRecite'
 import { readRecordPref, useReciteRecording, writeRecordPref } from '../hooks/useReciteRecording'
@@ -41,6 +41,58 @@ function normalize(value: string) {
   return value.trim().replace(/\s+/g, ' ').toLowerCase()
 }
 
+/** 完成按钮随机庆祝特效：烟花 / 泡泡 / 礼花彩带 / 爱心飘升 */
+type FxParticle = { key: number; className: string; style: CSSProperties }
+const FX_DURATION = 1800
+
+function generateFx(type: number): FxParticle[] {
+  const particles: FxParticle[] = []
+  const rand = (min: number, max: number) => min + Math.random() * (max - min)
+  const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)]
+  const palette = ['#E88B9A', '#FFD700', '#FF6B6B', '#4ECDC4', '#95E1D3', '#F38181', '#AA96DA', '#FCBAD3', '#F9A26C', '#6FBF9B']
+
+  if (type === 0) {
+    // 烟花：6 朵在按钮上方随机位置炸开，每朵 14 粒
+    for (let b = 0; b < 6; b++) {
+      const cx = rand(-25, 25), cy = rand(-55, -15), color = pick(palette), delay = b * 0.1
+      for (let i = 0; i < 14; i++) {
+        const angle = (i / 14) * Math.PI * 2, dist = rand(40, 100)
+        particles.push({ key: b * 14 + i, className: 'fx-particle fx-firework', style: {
+          '--cx': cx + 'vw', '--cy': cy + 'vh',
+          '--dx': Math.cos(angle) * dist + 'px', '--dy': Math.sin(angle) * dist + 'px',
+          '--color': color, '--delay': delay + 's',
+        } as CSSProperties })
+      }
+    }
+  } else if (type === 1) {
+    // 泡泡：18 个大小不一的半透明泡泡缓缓上飘 + 左右摇晃
+    for (let i = 0; i < 18; i++) {
+      particles.push({ key: i, className: 'fx-particle fx-bubble', style: {
+        '--size': rand(16, 60) + 'px', '--drift': rand(-80, 80) + 'px',
+        '--rise': rand(180, 280) + 'px', '--delay': rand(0, 0.5) + 's',
+      } as CSSProperties })
+    }
+  } else if (type === 2) {
+    // 礼花彩带：40 片纸屑 + 星星从按钮中心炸开 + 重力下落
+    for (let i = 0; i < 40; i++) {
+      const angle = rand(0, Math.PI * 2), dist = rand(60, 200), isStar = Math.random() < 0.25
+      particles.push({ key: i, className: isStar ? 'fx-particle fx-confetti fx-confetti--star' : 'fx-particle fx-confetti', style: {
+        '--dx': Math.cos(angle) * dist + 'px', '--dy': Math.sin(angle) * dist + 'px',
+        '--color': pick(palette), '--delay': rand(0, 0.15) + 's', '--spin': rand(-720, 720) + 'deg',
+      } as CSSProperties })
+    }
+  } else {
+    // 爱心飘升：16 个发光爱心从按钮处向上飘浮 + 摇摆 + 放大淡出
+    for (let i = 0; i < 16; i++) {
+      particles.push({ key: i, className: 'fx-particle fx-heart', style: {
+        '--size': rand(20, 50) + 'px', '--drift': rand(-100, 100) + 'px',
+        '--rise': rand(200, 300) + 'px', '--delay': rand(0, 0.4) + 's',
+      } as CSSProperties })
+    }
+  }
+  return particles
+}
+
 export function RecitePage({
   payload,
   loading,
@@ -71,6 +123,13 @@ export function RecitePage({
   const playToken = useRef(0)
   // 点「下一张」先把卡片滑出去（180ms）再换下一张，换卡不是硬切
   const [leaving, setLeaving] = useState(false)
+  // 回看已学卡片时点卡片正反面切换的翻面动画
+  const [flipAnim, setFlipAnim] = useState(false)
+  // 完成页随机庆祝特效粒子（会话开始时随机选一种）
+  const [fx, setFx] = useState<FxParticle[]>([])
+  const fxTimer = useRef(0)
+  // 每次会话随机一种特效（刷新不变，完成后触发）
+  const fxType = useRef(Math.floor(Math.random() * 4))
   const leaveTimer = useRef(0)
   // 完成页点「完成」后的兜底定时器：浏览器没让 window.close() 生效时回首页
   const exitTimer = useRef(0)
@@ -108,18 +167,23 @@ export function RecitePage({
    * 关不掉的情况：iOS 添加到主屏幕的 PWA、普通标签页、以及窗口历史不是只有一条时的 Chrome。
    */
   const finishAndClose = () => {
-    try {
-      window.close()
-    } catch {
-      // 某些浏览器不允许脚本关自己，直接落到下面的兜底
-    }
+    try { window.close() } catch { /* 忽略 */ }
     if (exitTimer.current) window.clearTimeout(exitTimer.current)
     exitTimer.current = window.setTimeout(onExitStudy, 300)
+  }
+
+  // 点「完成」先播特效再退出
+  function handleFinish() {
+    if (fx.length > 0) return
+    setFx(generateFx(fxType.current))
+    if (fxTimer.current) window.clearTimeout(fxTimer.current)
+    fxTimer.current = window.setTimeout(finishAndClose, FX_DURATION)
   }
 
   // 换会话：草稿来自 Server，已经判完的会话直接进完成动画
   useEffect(() => {
     if (!payload?.session) return
+    setFx([])
     const list = payload.cards ?? []
     const seeded: Record<string, DraftAnswer> = {}
     for (const draft of payload.drafts ?? []) {
@@ -148,7 +212,7 @@ export function RecitePage({
     // 回看已答过的卡片时直接展示当时的判定：meaning 翻面看中文，spelling 看对错
     const target = cards[index]
     const draft = target ? answers[target.id] : undefined
-    setFlipped(Boolean(draft && target.cardType === 'meaning'))
+    setFlipped(false)
     setInput(draft && target.cardType === 'spelling' ? draft.answer ?? '' : '')
     setAttempts(draft?.attempts ?? 0)
     setFeedback(
@@ -168,21 +232,18 @@ export function RecitePage({
   const total = session?.cardCount || cards.length || 0
   const lastCard = index + 1 >= cards.length
 
-  const stats = useMemo(() => {
-    let known = 0
-    let unknown = 0
-    let correct = 0
-    let skipped = 0
-    for (const item of cards) {
-      const draft = answers[item.id]
-      if (!draft) continue
-      if (draft.result === 'known') known++
-      else if (draft.result === 'unknown') unknown++
-      else if (draft.result === 'correct') correct++
-      else skipped++
-    }
-    return { known, unknown, correct, skipped, total: known + unknown + correct + skipped }
-  }, [answers, cards])
+  // 是否是已答过的回看卡片（进度轨道点进来的）
+  const isReview = card ? Boolean(answers[card.id]) : false
+
+  // 回看时点卡片正反面切换（带 3D 翻转动画）
+  function flipCard() {
+    if (!isReview || isSpelling) return
+    setFlipAnim(true)
+    setTimeout(() => {
+      setFlipped(v => !v)
+      setFlipAnim(false)
+    }, 150)
+  }
 
   function advance() {
     if (index + 1 >= cards.length) {
@@ -285,93 +346,16 @@ export function RecitePage({
   // 左下角的录音标识：绿 = 录音中，灰 = 没开，红 = 不可用 / 开录失败，黄 = 正在开启
   const recordUnavailable = !recording.supported
   const recordFailed = !recordUnavailable && recordEnabled && recording.startFailed
-  const recordTone = recordUnavailable
-    ? 'bad'
-    : !recordEnabled
-      ? 'off'
-      : recording.recording
-        ? 'on'
-        : recordFailed
-          ? 'bad'
-          : recording.starting
-            ? 'wait'
-            : recording.error
-              ? 'bad'
-              : 'off'
-  const recordLabel = recordUnavailable
-    ? '录音不可用'
-    : !recordEnabled
-      ? '录音已关闭'
-      : recording.recording
-        ? '录音中'
-        : recordFailed
-          ? '录音没开·点此重试'
-          : recording.starting
-            ? '正在开启录音…'
-            : recording.error
-              ? '录音异常'
-              : '录音未开启'
-  const recordHint = recordUnavailable
-    ? '这个浏览器或页面不支持录音（需要 HTTPS 和新版浏览器）'
-    : !recordEnabled
-      ? '课堂录音开关是关的，回首页左下角点一下可以打开'
-      : recording.error
-        || (recording.recording
-          ? '正在录音，学完自动上传'
-          : recording.starting ? '正在请求麦克风…' : '还没开始录，点一下重试')
+  // 录音状态合并进设置按钮颜色：绿色 = 可用，红色 = 不可用 / 失败
+  const recordOk = !recordUnavailable && !recordFailed && !recording.error
 
-  // 标识只有一个小图标（不写文字、绝对定位），颜色表示状态：绿 = 录音中，黄 = 正在开启，灰 = 没开，红 = 不可用 / 开录失败
-  const recordIconSvg = (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <rect x="9" y="3" width="6" height="11" rx="3" />
-      <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0" />
-      <path d="M12 17.4V21" />
-    </svg>
-  )
-
-  /** 开录失败时图标本身可点：重试落在点击手势里，Safari 才给麦克风 */
-  const recordIcon = recordFailed ? (
-    <button
-      type="button"
-      className={'recite__rec-icon is-' + recordTone}
-      title={recordHint}
-      aria-label={recordLabel}
-      onClick={recording.retry}
-    >{recordIconSvg}</button>
-  ) : (
-    <span
-      className={'recite__rec-icon is-' + recordTone}
-      title={recordHint}
-      aria-label={recordLabel}
-      role="status"
-    >{recordIconSvg}</span>
-  )
-
-  // 首页左下角的录音开关：能录时一直显示；浏览器 / 页面不支持录音就直接用红色小图标
-  const recordToggle = recordUnavailable ? recordIcon : (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={recordEnabled}
-      aria-label={recordEnabled ? '关闭课堂录音' : '开启课堂录音'}
-      title={recordEnabled ? '课堂录音已开启，点一下关闭' : '课堂录音已关闭，点一下开启'}
-      className={'recite__record' + (recordEnabled ? ' is-on' : '')}
-      onClick={() => applyRecordPref(!recordEnabled)}
-    >
-      <span className="recite__record-track" aria-hidden="true">
-        <span className="recite__record-knob" />
-      </span>
-    </button>
-  )
-
-  // 右下角的调试入口：只有图标、绝对定位，和左下角录音标识同一套尺寸，不占排版；
-  // 灰色 = 一切正常，红色 = 录音不可用 / 开录失败（进面板能看到原因并重试）
+  // 左下角的调试入口：绿色 = 录音可用，红色 = 录音不可用 / 失败；输口令 123 进调试面板
   const debugButton = (
     <button
       type="button"
-      className={'recite__debug-btn' + (recordTone === 'bad' ? ' is-bad' : '')}
+      className={'recite__debug-btn' + (recordOk ? ' is-ok' : ' is-bad')}
       aria-label="打开调试面板"
-      title={recordTone === 'bad' ? '录音有问题，点开看看调试面板' : '调试面板'}
+      title={recordOk ? '调试面板' : '录音有问题，点开看看'}
       onClick={() => setDebugOpen(true)}
     >
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -405,8 +389,7 @@ export function RecitePage({
             <span className="recite__spinner" aria-hidden="true" />
             <b>正在准备今天的学习…</b>
           </div>
-          {recordToggle}
-          {debugButton}
+                    {debugButton}
           {debugPanel}
         </div>
       )
@@ -419,8 +402,7 @@ export function RecitePage({
             <p>{homeError}</p>
             <button type="button" className="recite__state-btn" onClick={onReload}>重试读取</button>
           </div>
-          {recordToggle}
-          {debugButton}
+                    {debugButton}
           {debugPanel}
         </div>
       )
@@ -433,8 +415,7 @@ export function RecitePage({
             <b>当前没有待学习内容</b>
             <p>请先在英语学习页准备本周任务。</p>
           </div>
-          {recordToggle}
-          {debugButton}
+                    {debugButton}
           {debugPanel}
         </div>
       )
@@ -462,8 +443,7 @@ export function RecitePage({
             </button>
           )}
         </div>
-        {recordToggle}
-        {debugButton}
+                {debugButton}
         {debugPanel}
       </div>
     )
@@ -476,8 +456,7 @@ export function RecitePage({
           <span className="recite__spinner" aria-hidden="true" />
           <b>正在准备今天的学习…</b>
         </div>
-        {recordToggle}
-        {debugButton}
+                {debugButton}
         {debugPanel}
       </div>
     )
@@ -491,8 +470,7 @@ export function RecitePage({
           <p>{error}</p>
           <button type="button" className="recite__state-btn" onClick={onReload}>重试读取</button>
         </div>
-        {recordToggle}
-        {debugButton}
+                {debugButton}
         {debugPanel}
       </div>
     )
@@ -506,15 +484,13 @@ export function RecitePage({
           <b>当前没有待学习内容</b>
           <p>请先在英语学习页准备本周任务。</p>
         </div>
-        {recordToggle}
-        {debugButton}
+                {debugButton}
         {debugPanel}
       </div>
     )
   }
 
   if (payload.complete || stage === 'celebrate') {
-    const weekDone = Boolean(payload.complete)
     return (
       <div className="recite recite--celebrate">
         <div className="recite__confetti" aria-hidden="true">
@@ -529,23 +505,14 @@ export function RecitePage({
         <div className="recite__celebrate-card">
           <div className="recite__trophy" aria-hidden="true">🏆</div>
           <h1 className="recite__celebrate-title">太棒啦，全部完成！</h1>
-          <p className="recite__celebrate-sub">
-            {weekDone
-              ? `本周 ${payload.task.sessionCount} 次学习全部完成`
-              : `今天背了 ${stats.total} 张卡片，等家长确认后保存记录`}
-          </p>
-          {!weekDone && (
-            <div className="recite__celebrate-stats">
-              <div><b>{stats.known}</b><span>会</span></div>
-              <div><b>{stats.unknown}</b><span>不会</span></div>
-              <div><b>{stats.correct}</b><span>拼写正确</span></div>
-              <div><b>{stats.skipped}</b><span>拼写跳过</span></div>
-            </div>
-          )}
           {localError && <p className="recite__error">{localError}</p>}
-          <button type="button" className="recite__confirm" onClick={finishAndClose}>完成</button>
+          <button type="button" className="recite__confirm" onClick={handleFinish} disabled={fx.length > 0}>完成</button>
         </div>
-        {recordIcon}
+        {fx.length > 0 && (
+          <div className="fx-overlay" aria-hidden="true">
+            {fx.map(p => <span key={p.key} className={p.className} style={p.style} />)}
+          </div>
+        )}
         {debugButton}
         {debugPanel}
       </div>
@@ -623,7 +590,9 @@ export function RecitePage({
             'recite-card'
             + (flipped ? ' recite-card--flipped' : '')
             + (leaving ? ' recite-card--leaving' : '')
+            + (isReview && !isSpelling ? ' recite-card--review' : '')
           }
+          onClick={isReview && !isSpelling ? flipCard : undefined}
         >
           {isSpelling ? (
             <>
@@ -641,20 +610,22 @@ export function RecitePage({
                 <div className="recite-card__feedback recite-card__feedback--wrong">答案：{answer}</div>
               )}
             </>
-          ) : flipped ? (
-            <div className="recite-card__back">
-              <span className="recite-card__back-word">{card.word}</span>
-              <strong className="recite-card__back-translation">{card.translation || '暂无中文含义'}</strong>
-              {speakButton}
-            </div>
           ) : (
-            <>
-              <div className="recite-card__prompt" style={promptStyle}>{display}</div>
-              {speakButton}
-            </>
+            <div className={'recite-card__face' + (flipAnim ? ' recite-card__face--flip' : '')}>
+              {flipped ? (
+                <div className="recite-card__back">
+                  <span className="recite-card__back-word">{card.word}</span>
+                  <strong className="recite-card__back-translation">{card.translation || '暂无中文含义'}</strong>
+                  {speakButton}
+                </div>
+              ) : (
+                <>
+                  <div className="recite-card__prompt" style={promptStyle}>{display}</div>
+                  {speakButton}
+                </>
+              )}
+            </div>
           )}
-          {/* 左下角的录音标识：绝对定位在卡片里，不占排版 */}
-          {recordIcon}
           {debugButton}
         </section>
 
@@ -725,7 +696,7 @@ export function RecitePage({
                   </>
                 ) : feedback ? (
                   <button type="button" className="recite__kbd-primary" onClick={nextCard}>
-                    {lastCard ? '完成本轮' : '下一个'}
+                    {lastCard ? '完成' : '下一个'}
                   </button>
                 ) : (
                   <button
@@ -763,7 +734,7 @@ export function RecitePage({
                   title="回看上一张"
                 >上一个</button>
                 <button type="button" className="recite__next" onClick={nextCard}>
-                  {lastCard ? '完成本轮' : '下一个'}
+                  {lastCard ? '完成' : '下一个'}
                 </button>
               </>
             )}
