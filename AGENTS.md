@@ -46,7 +46,7 @@ src/pages/AchievementsPage.tsx    学习成果页（tab=achievements）：目标
 src/pages/GoalPage.tsx            目标页（tab=goal，导航「更多」里有入口）：长期里程碑时间轴 + 单词目标四项进度；周期与目标词数全在 src/config/goalMilestones.ts，页面不写死阶段数量
 src/pages/LearningRecordsPage.tsx  学习记录页：学习 / 打卡日志明细 + 筛选 + 批量删除；默认 embedded 进设置页「学习记录」分区，也仍挂在 #/records 上独立成页（导航里没有，从成果页进，带 onBack 和页头）；默认先只显示物理删除不可找回的红字提示（revealed=false 时不发请求），确认后才拉列表
 src/pages/RecitePage.tsx          横屏背单词（tab=recite）：小朋友的全屏独立页，不渲染导航，也没有返回 / 退出按钮，只能从查词首页右上角「开始背单词」进；先停在本周任务首页（只读 GET /api/recite/task，不创建会话，避免一进页面就把词条标成「已开始」），点「开始 / 继续学习」才建会话；刷新 / 重新进页面时 task.activeSessionIndex 不为 null 就直接进背词流回到当前那张卡；
-                                  普通卡只显示英文（中文与音标不显示），拼写卡显示中文 + 两行放大的虚拟键盘（第一行 Q、W + 删除键，第二行 A–Z 顺序，q、w 位置留半透明空位，一行放不下自动折行；「不会」在左下、「提交 / 下一个」在右下）；点「会 / 不会」先写服务端草稿 /api/recite/sessions/:id/drafts（不推进轮次，家长换设备也能读），翻面后底行左下角是「上一个」（第一张禁用，按草稿恢复上一张的翻面 / 输入）、右下角是「下一个」；顶部进度轨道上已学过的节点可点击回看（从草稿恢复判定状态：普通卡翻面、拼写卡回填）；最后一张后进完成动画页（彩带 + 奖杯 + 会 / 不会 / 拼写统计），「完成」按钮先试 window.close() 直接关掉已安装的 PWA 窗口（浏览器允许才行），关不掉 300ms 后兜底回任务首页；顶部进度轨道只有最后一张是 🎁 礼物节点，其余都是序号；单词卡右下角圆形喇叭按钮（纯图标）= utils/speech.ts 播 Google TTS（拼写卡判定前不出声，按钮始终渲染），请求 / 播放失败把原因（缺密钥 / 断网 / 超时 / 浏览器拦截）写在页面上；左下角录音小图标（每页都有，只有图标不写文字、绝对定位不占排版）：绿=录音中 / 灰=没开 / 黄=正在开启 / 红=不可用或开录失败（红图标可点重试）；首页同一位置是可点的开关（默认开启，偏好存 localStorage es-recite-record），浏览器 / 页面不支持录音时换成红色小图标；点「开始学习」时先在手势里预取麦克风（Safari 只认手势，等会话回来再要常被拒）；刷新 / 直接进背词流时自动开录没手势，失败后红图标可点重试，且下一次任意点击（点卡片 / 会 / 不会）会自动再要一次，进背词流开始 MediaRecorder 录音，学完 / 离开页面自动停并把整段传到 /api/recite/recordings
+                                  普通卡只显示英文（中文与音标不显示），拼写卡显示中文 + 两行放大的虚拟键盘（第一行 Q、W + 删除键，第二行 A–Z 顺序，q、w 位置留半透明空位，一行放不下自动折行；「不会」在左下、「提交 / 下一个」在右下）；点「会 / 不会」先写服务端草稿 /api/recite/sessions/:id/drafts（不推进轮次，家长换设备也能读），翻面后底行左下角是「上一个」（第一张禁用，按草稿恢复上一张的翻面 / 输入）、右下角是「下一个」；顶部进度轨道上已学过的节点可点击回看（从草稿恢复判定状态：普通卡翻面、拼写卡回填）；最后一张后进完成动画页（彩带 + 奖杯 + 会 / 不会 / 拼写统计），「完成」按钮先试 window.close() 直接关掉已安装的 PWA 窗口（浏览器允许才行），关不掉 300ms 后兜底回任务首页；顶部进度轨道只有最后一张是 🎁 礼物节点，其余都是序号；单词卡右下角圆形喇叭按钮（纯图标）= utils/speech.ts 播 Google TTS（拼写卡判定前不出声，按钮始终渲染），请求 / 播放失败把原因（缺密钥 / 断网 / 超时 / 浏览器拦截）写在页面上；左下角录音小图标（每页都有，只有图标不写文字、绝对定位不占排版）：绿=录音中 / 灰=没开 / 黄=正在开启 / 红=不可用或开录失败（红图标可点重试）；首页同一位置是可点的开关（默认开启，偏好存 localStorage es-recite-record），浏览器 / 页面不支持录音时换成红色小图标；点「开始学习」时先在手势里预取麦克风（Safari 只认手势，等会话回来再要常被拒）；刷新 / 直接进背词流时自动开录没手势，失败后红图标可点重试，且下一次任意点击（点卡片 / 会 / 不会）会自动再要一次，进背词流开始 MediaRecorder 录音，学完 / 离开页面自动停并把整段传到 /api/recite/recordings；打开页面还没点「开始学习」时 useRecitePreload 先把本周发音预取到本地；右下角齿轮（绝对定位、不占排版；灰=正常，红=录音不可用 / 开录失败）输入口令 123 打开 ReciteDebugPanel 看录音状态与本地缓存情况
 src/pages/ReciteParentPage.tsx    家长端（#/recite/parent，保留的独立页，已没有 UI 入口）：按日期列出待保存 / 已保存的背诵记录，逐词显示 会 / 不会 / 拼写正确 / 拼写跳过；「保存记录」才统一提交 commit 推进轮次与次数。家长确认主入口在 #/recite/tasks 的任务列表行内直接判定与保存
 src/pages/ReciteTasksPage.tsx     背词任务配置二级页（#/recite/tasks，从英语学习页进，页头可返回）：一周一行，本周到 12 周后；第 1 列日期区间（周一开始，只有本周标「本周」），无任务的周给「配置本周 / 这一周任务」按钮，有任务的周按每次一行展开：第 2 列「第 N 次」（已完成 / 学习中 / 主动推送 Tag），第 3 列读的词，第 4 列背的词；本周日期格子下面有「推送」按钮（有进行中会话时禁用）：弹 RecitePushPanel 选一批词强行推送，本周次数 +1 并直接开始这一次；两列单词前面都有序号（任务接口 wordOrder：已完成 / 学习中的次数取实际卡片位置，没开始的按 startSession 同一套 sortCards 预测），与背词页卡片出现顺序一致；
                                   已完成的次数在单词后直接显示判定（读的列只显知意，背的列知意 + 拼写，来自 fetchReciteHistory 60 条）；进行中的那一次读 sessions/active 的卡片与草稿同样行内显示（没判定的单词不显示标记），行右侧「保存」先弹保存抽屉（Drawer）：按背词页卡片序号列出这次还没保存的卡片，每张默认加 1 次（普通卡记「知意」、拼写卡记「会拼」，上下按钮 0–10 可调），点抽屉里的「保存」才 commit（30 张一批）并按填的次数累加熟悉度，点「取消」不写库；没开始（todo）/ 学习中（active）的那一次整行可点，点行只改这一行的词，学习中改词会把这次会话作废、这批单词需要重新学（行内右侧「保存」按钮不触发编辑），已学过的次数不可改；行内「修改配置」改整周，只在整周还没开始时出现；每一次「次数」单元格下面有喇叭（components/ReciteRecordingButton.tsx），这一次有课堂录音时点它能试听（同时只播一条，失败原因显示在表格上方）；保存后重读任务列表 / history / sessions/active 三份数据
@@ -67,6 +67,7 @@ src/components/ReciteTaskPanel.tsx  背词任务配置弹窗（受控 Modal）�
 src/components/ReciteTaskConfirm.tsx  家长确认弹窗（**已无调用方、死代码，待删**）：行内保存改造前的旧实现，功能已由 ReciteTasksPage 的行内判定 + 行右侧「保存」按钮取代
 src/components/AudioRepair.tsx    设置页「补充音频」分区（embedded 进 SettingsPage）：列出学习列表里还没有 tts_cache 缓存的词 / 句子，一键排进后台预合成队列，轮询进度、失败可重试；Google TTS 未配置（缺 GOOGLE_TTS_API_KEY secret）时给配置指引并禁用按钮
 src/components/ReciteRecordingManager.tsx  设置页「课堂录音」分区：列出最近 15 天的录音（时间 / 第几次 / 时长 / 大小），可试听、全选或多选后统一删除（DELETE /api/recite/recordings，音频分片一起删）；播放按钮 ReciteRecordingButton.tsx 同时用在 recite/tasks 每行的「次数」下面
+src/components/ReciteDebugPanel.tsx 背词页右下角齿轮弹出的调试面板（输入口令 123 才进）：录音状态（支持 / 当前状态 / 失败原因，能开关录音与重试）+ 本地缓存情况（本周拉取进度、本地音频条数与占用、失败词单独重试 / 重新拉取本周 / 清空本地缓存）
 
 src/hooks/useTabRoute.ts          hash 路由（#/search #/lists #/settings #/achievements #/records #/study #/recite），刷新与前进后退都停在原页；二级页 #/recite/parent、#/recite/tasks 走独立 hash；LEGACY_TABS 把 #/import → #/search、#/libraries → #/settings，老书签不会失效
 src/hooks/useSearch.ts            useVocabMatch：词 → 命中的词库 id 列表（纯内存 Map，不走网络）
@@ -82,6 +83,7 @@ src/hooks/usePrintBatches.ts      打印批次：留档 + 整批打卡 + 删记�
 src/hooks/useStudyGoal.ts         目标词库读写 GET|PUT /api/study/goal
 src/hooks/useVocabLibraries.ts    构建期打包 vocab/*.json + 标签读写 + localStorage 镜像与迁移
 src/hooks/useLearningRecords.ts   学习记录页的数据层：achievements / history 分页 / 删事件 / 清词 / purge
+src/hooks/useRecitePreload.ts     背词首页的发音预取：没点「开始学习」时把本周词池的发音并发 2 拉到 IndexedDB，优先下一次要学的那一次（activeSessionIndex ?? completedSessions+1），主动推送的那次排最后；已缓存跳过，503 / 401 整体停下并给原因；点开始后暂停，调试面板可重试失败词
 
 src/ui/                           手写组件库：Button Select Dropdown Input(含 TextArea) Checkbox Tag Popconfirm Popover Modal Drawer + useDismiss；统一从 src/ui/index.ts 导出（它顺带 import ui.css）
 
@@ -90,7 +92,8 @@ src/utils/apiCache.ts             所有只读接口共用的会话级缓存：q
 src/utils/flashcards.ts           打印卡片：fetchCards（顺手补释义）/ pickSenses / mirrorRows / buildFlashcardsHtml / openCardWindow / renderCardsInto（打印会话 + 卡片右上角 ✕）；偶数页逐行左右镜像；卡片反面只印音标 + 中文，英文释义不上卡片
 src/utils/analytics.ts            PostHog 会话回放：initAnalytics / getAnalyticsConsent / setAnalyticsConsent / trackPageview；默认 opt-out（同意前不采集、不录像），输入框统一 maskAllInputs 打码，同意状态存 localStorage es-analytics-consent；没配 VITE_POSTHOG_KEY 就整个跳过
 src/utils/translations.ts         中文词义工具：translationOptions / selectedTranslationOptions / formatTranslationOptions；formatTranslationWithCustom 把自定义词义并进摘要
-src/utils/speech.ts               背单词发音：speak / stopSpeech / speechErrorMessage（错误翻成页面提示）；/api/tts 的 base64 MP3 解成 Blob URL 复用（会话内按词缓存，换词掐掉上一段）；fetchSpeechStatus（/api/tts/status）只留作诊断
+src/utils/speech.ts               背单词发音：speak / stopSpeech / speechErrorMessage（错误翻成页面提示）；优先读 utils/reciteCache 的 IndexedDB 本地音频（背词首页预取的那份，断网也能播），没有才 /api/tts 现取并顺手落一份；base64 MP3 解成 Blob URL 复用（会话内按词缓存，换词掐掉上一段）；fetchSpeechStatus（/api/tts/status）只留作诊断
+src/utils/reciteCache.ts          背词页本地音频缓存（IndexedDB）：audio / audioMeta / meta 三个仓库，键 = trim + 压空白 + 小写（与 speech.ts 同一套）；音频留 30 天、每 50 次写清一次过期；no-IDB / 隐私模式全静默降级成不缓存；导出 loadPersistedAudio / storePersistedAudio / getAudioCacheStats / saveReciteMeta / loadReciteMeta / clearReciteCache
 
 worker/src/index.js               Worker 入口：/api/* 先校验 Bearer 令牌（safeEqual 恒定时间比较，health 免鉴权）再进 handleApi；其余请求交给 env.ASSETS（vite 构建产物，SPA 回落）
 worker/src/app.js                 每请求应用上下文 createApp(env, waitUntil)：db 适配层 + 各 store + config

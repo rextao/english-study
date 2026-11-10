@@ -10,6 +10,7 @@
 
 import { apiFetch } from './apiBase'
 import { queryApi } from './apiCache'
+import { loadPersistedAudio, storePersistedAudio } from './reciteCache'
 
 export interface SpeechStatus {
   available: boolean
@@ -58,13 +59,25 @@ async function loadAudioUrl(text: string): Promise<string> {
   if (pending) return pending
 
   const task = (async () => {
+    // 先看本地缓存：背词首页打开时已经把本周单词的发音预取进 IndexedDB，
+    // 命中就不必再打 /api/tts（断网也能播）
+    const persisted = await loadPersistedAudio(key)
+    if (persisted?.audio) {
+      const cachedUrl = URL.createObjectURL(base64ToBlob(persisted.audio, persisted.mime || 'audio/mpeg'))
+      rememberUrl(key, cachedUrl)
+      return cachedUrl
+    }
+
     const response = await apiFetch('/api/tts?text=' + encodeURIComponent(text))
     let payload: { audio?: string; mime?: string; error?: string } | null = null
     try { payload = await response.json() } catch { payload = null }
     if (!response.ok || !payload?.audio) {
       throw new Error(payload?.error || '语音合成失败')
     }
-    const url = URL.createObjectURL(base64ToBlob(payload.audio, payload.mime || 'audio/mpeg'))
+    const mime = payload.mime || 'audio/mpeg'
+    // 顺手落一份到本地：下次进页面 / 断网时还能播（失败不影响这次播放）
+    void storePersistedAudio(key, payload.audio, mime)
+    const url = URL.createObjectURL(base64ToBlob(payload.audio, mime))
     rememberUrl(key, url)
     return url
   })()

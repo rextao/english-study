@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { saveReciteDraft } from '../hooks/useRecite'
 import { readRecordPref, useReciteRecording, writeRecordPref } from '../hooks/useReciteRecording'
+import { useRecitePreload } from '../hooks/useRecitePreload'
 import type { ReciteSessionPayload, ReciteTask } from '../hooks/useRecite'
+import { ReciteDebugPanel } from '../components/ReciteDebugPanel'
 import { speak, speechErrorMessage, stopSpeech } from '../utils/speech'
 import './RecitePage.css'
 
@@ -79,6 +81,18 @@ export function RecitePage({
     active: started && stage === 'cards' && payload?.session?.status === 'active',
     sessionId: payload?.session?.sessionId ?? null,
   })
+
+  // 打开页面、还没点「开始学习」时，把本周的单词发音预取到本地（优先下一次要学的那一次）
+  const preload = useRecitePreload(homeTask, !started)
+  // 右下角齿轮：输入口令 123 后打开调试面板（录音状态 + 本地缓存情况）
+  const [debugOpen, setDebugOpen] = useState(false)
+  const week = homeTask ?? payload?.task ?? null
+
+  /** 录音开关的偏好：开关本身和调试面板里的按钮都走这里 */
+  const applyRecordPref = (next: boolean) => {
+    setRecordEnabled(next)
+    writeRecordPref(next)
+  }
 
   useEffect(() => stopSpeech, [])
 
@@ -342,17 +356,44 @@ export function RecitePage({
       aria-label={recordEnabled ? '关闭课堂录音' : '开启课堂录音'}
       title={recordEnabled ? '课堂录音已开启，点一下关闭' : '课堂录音已关闭，点一下开启'}
       className={'recite__record' + (recordEnabled ? ' is-on' : '')}
-      onClick={() => {
-        setRecordEnabled(value => {
-          writeRecordPref(!value)
-          return !value
-        })
-      }}
+      onClick={() => applyRecordPref(!recordEnabled)}
     >
       <span className="recite__record-track" aria-hidden="true">
         <span className="recite__record-knob" />
       </span>
     </button>
+  )
+
+  // 右下角的调试入口：只有图标、绝对定位，和左下角录音标识同一套尺寸，不占排版；
+  // 灰色 = 一切正常，红色 = 录音不可用 / 开录失败（进面板能看到原因并重试）
+  const debugButton = (
+    <button
+      type="button"
+      className={'recite__debug-btn' + (recordTone === 'bad' ? ' is-bad' : '')}
+      aria-label="打开调试面板"
+      title={recordTone === 'bad' ? '录音有问题，点开看看调试面板' : '调试面板'}
+      onClick={() => setDebugOpen(true)}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <circle cx="12" cy="12" r="3.1" />
+        <path d="M19.1 14.6a1.5 1.5 0 0 0 .3 1.65l.05.05a1.8 1.8 0 1 1-2.55 2.55l-.05-.05a1.5 1.5 0 0 0-1.65-.3 1.5 1.5 0 0 0-.9 1.37V20a1.8 1.8 0 1 1-3.6 0v-.08a1.5 1.5 0 0 0-.98-1.37 1.5 1.5 0 0 0-1.65.3l-.05.05a1.8 1.8 0 1 1-2.55-2.55l.05-.05a1.5 1.5 0 0 0 .3-1.65 1.5 1.5 0 0 0-1.37-.9H4a1.8 1.8 0 1 1 0-3.6h.08a1.5 1.5 0 0 0 1.37-.98 1.5 1.5 0 0 0-.3-1.65l-.05-.05A1.8 1.8 0 1 1 7.65 4.9l.05.05a1.5 1.5 0 0 0 1.65.3h.07a1.5 1.5 0 0 0 .9-1.37V3.8a1.8 1.8 0 1 1 3.6 0v.08a1.5 1.5 0 0 0 .9 1.37 1.5 1.5 0 0 0 1.65-.3l.05-.05a1.8 1.8 0 1 1 2.55 2.55l-.05.05a1.5 1.5 0 0 0-.3 1.65v.07a1.5 1.5 0 0 0 1.37.9H20a1.8 1.8 0 1 1 0 3.6h-.08a1.5 1.5 0 0 0-1.37.9z" />
+      </svg>
+    </button>
+  )
+
+  // 调试面板放在 .recite 根节点里：卡片上带 transform 动画，弹窗挂在卡片里会被当成固定定位的参照
+  const debugPanel = (
+    <ReciteDebugPanel
+      open={debugOpen}
+      onClose={() => setDebugOpen(false)}
+      recording={recording}
+      recordEnabled={recordEnabled}
+      onRecordToggle={applyRecordPref}
+      preload={preload}
+      onReloadCache={preload.reload}
+      weekStart={week?.weekStart ?? null}
+      weekEnd={week?.weekEnd ?? null}
+    />
   )
 
   // 首页：本周任务概况 + 开始学习。不创建会话，点开始才进入背词流
@@ -365,6 +406,8 @@ export function RecitePage({
             <b>正在准备今天的学习…</b>
           </div>
           {recordToggle}
+          {debugButton}
+          {debugPanel}
         </div>
       )
     }
@@ -377,6 +420,8 @@ export function RecitePage({
             <button type="button" className="recite__state-btn" onClick={onReload}>重试读取</button>
           </div>
           {recordToggle}
+          {debugButton}
+          {debugPanel}
         </div>
       )
     }
@@ -389,6 +434,8 @@ export function RecitePage({
             <p>请先在英语学习页准备本周任务。</p>
           </div>
           {recordToggle}
+          {debugButton}
+          {debugPanel}
         </div>
       )
     }
@@ -416,6 +463,8 @@ export function RecitePage({
           )}
         </div>
         {recordToggle}
+        {debugButton}
+        {debugPanel}
       </div>
     )
   }
@@ -428,6 +477,8 @@ export function RecitePage({
           <b>正在准备今天的学习…</b>
         </div>
         {recordToggle}
+        {debugButton}
+        {debugPanel}
       </div>
     )
   }
@@ -441,6 +492,8 @@ export function RecitePage({
           <button type="button" className="recite__state-btn" onClick={onReload}>重试读取</button>
         </div>
         {recordToggle}
+        {debugButton}
+        {debugPanel}
       </div>
     )
   }
@@ -454,6 +507,8 @@ export function RecitePage({
           <p>请先在英语学习页准备本周任务。</p>
         </div>
         {recordToggle}
+        {debugButton}
+        {debugPanel}
       </div>
     )
   }
@@ -491,6 +546,8 @@ export function RecitePage({
           <button type="button" className="recite__confirm" onClick={finishAndClose}>完成</button>
         </div>
         {recordIcon}
+        {debugButton}
+        {debugPanel}
       </div>
     )
   }
@@ -598,6 +655,7 @@ export function RecitePage({
           )}
           {/* 左下角的录音标识：绝对定位在卡片里，不占排版 */}
           {recordIcon}
+          {debugButton}
         </section>
 
         {isSpelling ? (
@@ -715,6 +773,7 @@ export function RecitePage({
         {speechError && <div className="recite__error" role="alert">{speechError}</div>}
         {recording.error && <div className="recite__error" role="alert">{recording.error}</div>}
       </main>
+      {debugPanel}
     </div>
   )
 }

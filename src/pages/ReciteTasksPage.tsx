@@ -5,6 +5,7 @@ import { PageHeader } from '../components/PageHeader'
 import { ReciteTaskPanel } from '../components/ReciteTaskPanel'
 import { RecitePushPanel } from '../components/RecitePushPanel'
 import { ReciteRecordingButton } from '../components/ReciteRecordingButton'
+import { ReciteRecordingPlayer } from '../components/ReciteRecordingPlayer'
 import { TallyCounter } from '../components/TallyCounter'
 import type { TallyKind } from '../components/TallyCounter'
 import {
@@ -645,14 +646,7 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
       <Drawer
         open={saveOpen}
         width="wide"
-        title={
-          <span className="recite-tasks__drawer-title">
-            确认这次学习的次数
-            {activeRecording && (
-              <ReciteRecordingButton recording={activeRecording} onError={setDrawerPlayError} />
-            )}
-          </span>
-        }
+        title="确认这次学习的次数"
         onClose={closeSaveDrawer}
         footer={
           <>
@@ -668,6 +662,7 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
           </>
         }
       >
+        <ReciteRecordingPlayer recording={activeRecording} onError={setDrawerPlayError} />
         {activeMissing > 0 && (
           <p className="callout callout--warn">还有 {activeMissing} 张卡片没有判定，等孩子背完再保存。</p>
         )}

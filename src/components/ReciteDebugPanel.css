@@ -1,0 +1,91 @@
+/* 背词页调试面板：输口令后看录音状态与本地缓存，两段卡片式分区 */
+
+.recite-debug__gate {
+  display: grid;
+  gap: 10px;
+}
+
+.recite-debug__gate-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 13px;
+}
+
+.recite-debug__section + .recite-debug__section {
+  margin-top: 20px;
+}
+
+.recite-debug__heading {
+  margin: 0 0 10px;
+  color: #17203a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.recite-debug__rows {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.recite-debug__rows > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13.5px;
+}
+
+.recite-debug__rows dt {
+  flex: 0 0 auto;
+  color: #6a7896;
+}
+
+.recite-debug__rows dd {
+  margin: 0;
+  color: #17203a;
+  font-weight: 600;
+  text-align: right;
+  word-break: break-word;
+}
+
+.recite-debug__row--error dd {
+  color: #b42318;
+}
+
+.recite-debug__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.recite-debug__note {
+  margin: 8px 0 0;
+  color: #b45309;
+  font-size: 13px;
+}
+
+.recite-debug__failed {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px dashed #f3cfc8;
+  border-radius: 14px;
+  background: #fdeeed;
+}
+
+.recite-debug__failed-label {
+  color: #b42318;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.recite-debug__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.recite-debug__chips .ui-tag {
+  margin: 0;
+}

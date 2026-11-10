@@ -1,0 +1,138 @@
+/* 保存抽屉顶部的课堂录音播放器：有录音给播放 / 暂停 + 拖动进度 + 倍速，没有就显示「暂无音频」 */
+.recite-player {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border, #dbe2ef);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.recite-player--empty {
+  justify-content: center;
+  gap: 8px;
+  color: var(--color-text-subtle, #8b97b0);
+  font-size: 13px;
+  border-style: dashed;
+  background: rgba(255, 255, 255, .6);
+}
+
+/* 播放 / 暂停：圆形主色按钮 */
+.recite-player__toggle {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 8px 18px -12px rgba(37, 99, 235, .9);
+  transition: transform .12s ease, filter .15s ease;
+}
+
+.recite-player__toggle:hover:not(:disabled) { filter: brightness(1.05); }
+.recite-player__toggle:active:not(:disabled) { transform: scale(.94); }
+.recite-player__toggle:disabled { opacity: .5; cursor: default; }
+
+.recite-player__toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.recite-player__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+/* 进度条：手写拖动（Pointer Events + setPointerCapture），touch-action 关掉避免横向拖动触发竖滚 */
+.recite-player__track {
+  position: relative;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.recite-player__track.is-disabled { cursor: default; }
+
+.recite-player__track:focus-visible {
+  outline: none;
+}
+
+.recite-player__track:focus-visible .recite-player__rail {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .25);
+}
+
+.recite-player__rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 6px;
+  border-radius: 3px;
+  background: #e6ecf5;
+}
+
+.recite-player__fill {
+  position: absolute;
+  left: 0;
+  height: 6px;
+  border-radius: 3px;
+  background: #2563eb;
+}
+
+.recite-player__knob {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  border: 2px solid #2563eb;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(23, 32, 58, .25);
+}
+
+.recite-player__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.recite-player__times {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-subtle, #8b97b0);
+}
+
+/* 倍速：胶囊小按钮，循环 1 → 1.25 → 1.5 → 2 */
+.recite-player__rate {
+  flex-shrink: 0;
+  min-height: 26px;
+  padding: 2px 12px;
+  border: 1px solid var(--color-border, #dbe2ef);
+  border-radius: var(--radius-full, 999px);
+  background: #fff;
+  color: #35405c;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease;
+}
+
+.recite-player__rate:hover:not(:disabled) {
+  border-color: #2563eb;
+  background: #eef4ff;
+}
+
+.recite-player__rate:disabled { opacity: .55; cursor: default; }
+
