@@ -42,6 +42,9 @@ function recordingResponse(row) {
     sessionIndex: row.session_index == null ? undefined : Number(row.session_index),
     sessionId: row.session_id || undefined,
     weekStart: row.week_start == null ? undefined : Number(row.week_start),
+    /** 片段开始录制的时间（客户端毫秒）与它在这次学习里的序号：同一个会话的多段按它排序 */
+    recordedAt: row.recorded_at == null ? undefined : Number(row.recorded_at),
+    segmentIndex: row.segment_index == null ? undefined : Number(row.segment_index),
   }
 }
 
@@ -68,8 +71,27 @@ export function createReciteRecordingStore(db) {
     return expired.length
   }
 
-  /** 开始上传：先落一条 uploading 记录，之后逐片往里塞 */
-  async function createUpload({ sessionId, mime, durationMs, sizeBytes, partCount, now = Date.now() }) {
+  /**
+   * 开始上传：先落一条 uploading 记录，之后逐片往里塞。
+   * clientKey 是客户端生成的片段幂等键：本地缓存补传时带着同一个键，
+   * 已经入库过就直接把原记录返回（客户端接着补分片 / 补 complete），不会多出一条。
+   */
+  async function createUpload({
+    sessionId, mime, durationMs, sizeBytes, partCount, clientKey, recordedAt, segmentIndex, now = Date.now(),
+  }) {
+    const key = String(clientKey ?? '').trim()
+    if (key) {
+      const existing = await db.first('SELECT * FROM recite_recordings WHERE client_key = ?', key)
+      if (existing) return recordingResponse(existing)
+    }
+    const segment = segmentIndex == null ? null : Math.round(Number(segmentIndex))
+    if (segment != null && (!Number.isInteger(segment) || segment < 0)) {
+      throw badRequest('录音片段序号无效', 'RECORDING_SEGMENT')
+    }
+    const recorded = recordedAt == null ? null : Math.round(Number(recordedAt))
+    if (recorded != null && (!Number.isFinite(recorded) || recorded <= 0)) {
+      throw badRequest('录音时间无效', 'RECORDING_TIME')
+    }
     const type = String(mime ?? '').trim() || 'audio/mp4'
     if (!/^audio\//i.test(type)) throw badRequest('录音格式不支持', 'RECORDING_MIME')
     const size = Math.round(Number(sizeBytes) || 0)
@@ -95,8 +117,9 @@ export function createReciteRecordingStore(db) {
     const id = createRecordingId()
     await db.run(
       `INSERT INTO recite_recordings
-        (id, session_id, week_start, session_index, mime, duration_ms, size_bytes, chunk_count, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'uploading', ?)`,
+        (id, session_id, week_start, session_index, mime, duration_ms, size_bytes, chunk_count,
+         client_key, recorded_at, segment_index, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'uploading', ?)`,
       id,
       sessionRow ? sessionRow.id : null,
       sessionRow?.week_start == null ? null : Number(sessionRow.week_start),
@@ -105,6 +128,9 @@ export function createReciteRecordingStore(db) {
       Math.max(0, Math.round(Number(durationMs) || 0)),
       size,
       parts,
+      key || null,
+      recorded,
+      segment,
       now,
     )
     await purgeExpired(now)
@@ -118,6 +144,9 @@ export function createReciteRecordingStore(db) {
       duration_ms: Math.max(0, Math.round(Number(durationMs) || 0)),
       size_bytes: size,
       chunk_count: parts,
+      client_key: key || null,
+      recorded_at: recorded,
+      segment_index: segment,
       created_at: now,
     })
   }
@@ -166,7 +195,8 @@ export function createReciteRecordingStore(db) {
     const asked = Number(limit)
     const size = Number.isFinite(asked) && asked > 0 ? Math.min(Math.floor(asked), MAX_LIMIT) : DEFAULT_LIMIT
     const rows = await db.all(
-      `SELECT id, session_id, week_start, session_index, mime, duration_ms, size_bytes, chunk_count, status, created_at
+      `SELECT id, session_id, week_start, session_index, mime, duration_ms, size_bytes, chunk_count,
+              recorded_at, segment_index, status, created_at
        FROM recite_recordings WHERE status = 'ready' ORDER BY created_at DESC LIMIT ?`,
       size,
     )

@@ -3,7 +3,7 @@ import type { TabKey } from '../components/Nav'
 
 const TAB_KEYS: TabKey[] = [
   'search', 'lists', 'settings', 'achievements', 'records', 'study', 'goal', 'passages', 'recite', 'recite-parent',
-  'recite-tasks',
+  'recite-tasks', 'games',
 ]
 const DEFAULT_TAB: TabKey = 'search'
 
@@ -11,6 +11,7 @@ const DEFAULT_TAB: TabKey = 'search'
 function tabHash(tab: TabKey) {
   if (tab === 'recite-parent') return '#/recite/parent'
   if (tab === 'recite-tasks') return '#/recite/tasks'
+  if (tab === 'games') return '#/games'
   return '#/' + tab
 }
 
@@ -25,6 +26,8 @@ const LEGACY_TABS: Record<string, TabKey> = {
 /** 从 #/lists 这种 hash 里取出页面名，认不出来就回落到查词页 */
 function parseHash(): TabKey {
   const raw = window.location.hash.replace(/^#\/?/, '').trim()
+  // 游戏页带 slug（#/games/xiaoxiaole），哪个游戏由 GamesPage 自己再读一次
+  if (raw === 'games' || raw.startsWith('games/')) return 'games'
   // raw 是 string，TAB_KEYS 是 TabKey[]，这里窄化一下类型
   if (TAB_KEYS.includes(raw as TabKey)) return raw as TabKey
   return LEGACY_TABS[raw] ?? DEFAULT_TAB
@@ -41,6 +44,9 @@ export function useTabRoute(): [TabKey, (next: TabKey) => void] {
 
   // 首次进入时把地址栏补成规范形式（空 hash 或非法 hash），用 replace 不留历史记录
   useEffect(() => {
+    // 游戏地址带着 slug（#/games/xiaoxiaole），不能被补成 #/games 而丢掉游戏名
+    const raw = window.location.hash.replace(/^#\/?/, '').trim()
+    if (raw.startsWith('games/') && raw.length > 'games/'.length) return
     const normalized = tabHash(parseHash())
     if (window.location.hash !== normalized) {
       window.history.replaceState(null, '', normalized)

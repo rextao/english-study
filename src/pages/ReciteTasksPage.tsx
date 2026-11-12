@@ -26,6 +26,8 @@ import type {
   ReciteTaskWord,
 } from '../hooks/useRecite'
 import type { StudyListApi } from '../hooks/useStudyList'
+import { groupReciteRecordings } from '../utils/reciteRecordings'
+import type { RecordingGroup } from '../utils/reciteRecordings'
 import './ReciteTasksPage.css'
 
 const DAY = 86400000
@@ -204,8 +206,8 @@ function WeekRows({ task, isThisWeek, onEdit, onPush, pushDisabled, pushReason, 
   activeSave?: { saving: boolean; missing: number; onSave: () => void }
   /** 进行中的那一次已全部判完（背词页停在完成动画），这次按已完成展示，保存按钮仍在 */
   activeJudged?: boolean
-  /** 课堂录音：key = 周 + 第几次 */
-  recordings?: Map<string, ReciteRecordingSummary>
+  /** 课堂录音：key = 周 + 第几次；同一次学习的几段已经归好组 */
+  recordings?: Map<string, RecordingGroup>
   onPlaybackError: (message: string) => void
 }) {
   const per = Math.max(1, task.perSessionCount)
@@ -297,8 +299,8 @@ function SessionCells({ task, index, per, marks, session, order, saveSlot, recor
   /** 这一次学习的单词出现顺序，两侧单词都用它标序号 */
   order?: string[]
   saveSlot?: ReactNode
-  /** 这一次学习留下的课堂录音（没有就不显示喇叭） */
-  recording?: ReciteRecordingSummary
+  /** 这一次学习留下的课堂录音（可能因为关页面 / 切后台分成好几段，已经归好组） */
+  recording?: RecordingGroup
   onPlaybackError: (message: string) => void
   /** 进行中的那一次已全部判完（背词页停在完成动画），这次按已完成展示，保存按钮仍在 */
   activeJudged?: boolean
@@ -329,7 +331,7 @@ function SessionCells({ task, index, per, marks, session, order, saveSlot, recor
             <Tag color={activeJudged ? 'green' : 'gold'}>{activeJudged ? '已完成' : '学习中'}</Tag>
           )}
         </div>
-        {recording && <ReciteRecordingButton recording={recording} onError={onPlaybackError} />}
+        {recording && <ReciteRecordingButton group={recording} onError={onPlaybackError} />}
       </td>
       <td className="recite-tasks__words-cell">
         <WordChips items={read} marks={marks} order={order} />
@@ -427,12 +429,15 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
     return map
   }, [historyRecords])
 
-  /** 课堂录音按「周 + 第几次」索引，行内直接取 */
+  /**
+   * 课堂录音按「周 + 第几次」归组：一次学习可能录成好几段（关页面 / 切后台），
+   * 顺序可信就在行内当一条播，不可信就分段各给一个按钮。
+   */
   const recordingBySession = useMemo(() => {
-    const map = new Map<string, ReciteRecordingSummary>()
-    for (const item of recordings) {
-      if (item.weekStart == null || item.sessionIndex == null) continue
-      map.set(item.weekStart + ':' + item.sessionIndex, item)
+    const map = new Map<string, RecordingGroup>()
+    for (const [key, group] of groupReciteRecordings(recordings)) {
+      if (key.startsWith('recording:')) continue
+      map.set(key, group)
     }
     return map
   }, [recordings])
@@ -662,7 +667,7 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
           </>
         }
       >
-        <ReciteRecordingPlayer recording={activeRecording} onError={setDrawerPlayError} />
+        <ReciteRecordingPlayer group={activeRecording} onError={setDrawerPlayError} />
         {activeMissing > 0 && (
           <p className="callout callout--warn">还有 {activeMissing} 张卡片没有判定，等孩子背完再保存。</p>
         )}

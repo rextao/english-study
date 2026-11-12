@@ -6,6 +6,7 @@ import { useRecitePreload } from '../hooks/useRecitePreload'
 import type { ReciteSessionPayload, ReciteTask } from '../hooks/useRecite'
 import { ReciteDebugPanel } from '../components/ReciteDebugPanel'
 import { speak, speechErrorMessage, stopSpeech } from '../utils/speech'
+import { flushQueuedRecordings } from '../utils/reciteRecordingUpload'
 import './RecitePage.css'
 
 interface RecitePageProps {
@@ -19,8 +20,6 @@ interface RecitePageProps {
   homeLoading: boolean
   homeError: string | null
   onStart: () => void
-  /** 完成页点「完成」：关不掉 PWA 窗口时退回任务首页，顺便刷新本周进度 */
-  onExitStudy: () => void
 }
 
 type MeaningResult = 'known' | 'unknown'
@@ -41,54 +40,125 @@ function normalize(value: string) {
   return value.trim().replace(/\s+/g, ' ').toLowerCase()
 }
 
-/** 完成按钮随机庆祝特效：烟花 / 泡泡 / 礼花彩带 / 爱心飘升 */
-type FxParticle = { key: number; className: string; style: CSSProperties }
-const FX_DURATION = 1800
+/**
+ * 完成按钮的庆祝特效：一次只放一种，每次打开 / 刷新完成页随机挑一种。
+ * 四种都是「从页面底部出发」，互不叠加。
+ */
+type FxKind = 'smoke' | 'firework' | 'bubble' | 'heart'
+const FX_KINDS: FxKind[] = ['smoke', 'firework', 'bubble', 'heart']
+type FxParticle = { key: string; className: string; style: CSSProperties }
+/** 各特效的总时长：最长的一条粒子走完就清掉，避免拖尾的空等 */
+const FX_DURATION: Record<FxKind, number> = { smoke: 4300, firework: 2600, bubble: 4600, heart: 3700 }
+/** 同时最多叠几次特效：满了就等最早那次播完再响应点击 */
+const MAX_FX_ROUNDS = 3
+/** 一轮特效：id 用作重新挂载的 key，播完只移除自己那一轮，不影响后来叠上的 */
+type FxRound = { id: number; particles: FxParticle[] }
 
-function generateFx(type: number): FxParticle[] {
+function pickFxKind(): FxKind {
+  return FX_KINDS[Math.floor(Math.random() * FX_KINDS.length)]
+}
+
+function generateFx(kind: FxKind): FxParticle[] {
   const particles: FxParticle[] = []
   const rand = (min: number, max: number) => min + Math.random() * (max - min)
   const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)]
-  const palette = ['#E88B9A', '#FFD700', '#FF6B6B', '#4ECDC4', '#95E1D3', '#F38181', '#AA96DA', '#FCBAD3', '#F9A26C', '#6FBF9B']
+  // 五彩缤纷：烟雾每团换一种颜色，烟花每朵换一种颜色
+  const palette = ['#FF6B6B', '#FFD93D', '#4ECDC4', '#95E1D3', '#AA96DA', '#FCBAD3', '#F9A26C', '#6FBF9B', '#5AA9E6', '#F38181']
 
-  if (type === 0) {
-    // 烟花：6 朵在按钮上方随机位置炸开，每朵 14 粒
-    for (let b = 0; b < 6; b++) {
-      const cx = rand(-25, 25), cy = rand(-55, -15), color = pick(palette), delay = b * 0.1
-      for (let i = 0; i < 14; i++) {
-        const angle = (i / 14) * Math.PI * 2, dist = rand(40, 100)
-        particles.push({ key: b * 14 + i, className: 'fx-particle fx-firework', style: {
-          '--cx': cx + 'vw', '--cy': cy + 'vh',
-          '--dx': Math.cos(angle) * dist + 'px', '--dy': Math.sin(angle) * dist + 'px',
-          '--color': color, '--delay': delay + 's',
-        } as CSSProperties })
+  if (kind === 'smoke') {
+    // 五彩烟雾：从页面底部各处升起，一路摇晃长大，飘到顶部后淡出
+    for (let i = 0; i < 20; i += 1) {
+      particles.push({
+        key: 'smoke-' + i,
+        className: 'fx-particle fx-smoke',
+        style: {
+          '--x': rand(2, 98) + '%',
+          '--size': rand(26, 74) + 'px',
+          '--color': pick(palette),
+          // 往上飘一整屏多一点，保证能飘到顶部
+          '--rise': rand(92, 118) + 'vh',
+          '--drift': rand(-70, 70) + 'px',
+          '--delay': rand(0, 1) + 's',
+          '--dur': rand(2.4, 3.2) + 's',
+        } as CSSProperties,
+      })
+    }
+    return particles
+  }
+
+  if (kind === 'firework') {
+    // 烟花：底部发射一枚火箭升到空中炸开，每朵 12 粒火花
+    for (let b = 0; b < 5; b += 1) {
+      const x = rand(12, 88)
+      const cy = rand(48, 82)
+      const color = pick(palette)
+      const launch = rand(0, 0.7)
+      particles.push({
+        key: 'rocket-' + b,
+        className: 'fx-particle fx-rocket',
+        style: {
+          '--x': x + '%',
+          '--cy': cy + 'vh',
+          '--drift': rand(-3, 3) + 'vw',
+          '--color': color,
+          '--delay': launch + 's',
+        } as CSSProperties,
+      })
+      for (let i = 0; i < 12; i += 1) {
+        const angle = (i / 12) * Math.PI * 2
+        const dist = rand(46, 104)
+        particles.push({
+          key: 'burst-' + b + '-' + i,
+          className: 'fx-particle fx-firework',
+          style: {
+            '--x': x + '%',
+            '--cy': cy + 'vh',
+            '--dx': Math.cos(angle) * dist + 'px',
+            '--dy': Math.sin(angle) * dist + 'px',
+            '--color': color,
+            // 等火箭升到位再炸开（火花前 30% 是跟着上升，看不见）
+            '--delay': launch + 0.45 + 's',
+          } as CSSProperties,
+        })
       }
     }
-  } else if (type === 1) {
-    // 泡泡：18 个大小不一的半透明泡泡缓缓上飘 + 左右摇晃
-    for (let i = 0; i < 18; i++) {
-      particles.push({ key: i, className: 'fx-particle fx-bubble', style: {
-        '--size': rand(16, 60) + 'px', '--drift': rand(-80, 80) + 'px',
-        '--rise': rand(180, 280) + 'px', '--delay': rand(0, 0.5) + 's',
-      } as CSSProperties })
+    return particles
+  }
+
+  if (kind === 'bubble') {
+    // 泡泡：数量少一些，从底部摇晃上飘到页面顶部，到顶后放大炸开消失
+    for (let i = 0; i < 9; i += 1) {
+      particles.push({
+        key: 'bubble-' + i,
+        className: 'fx-particle fx-bubble',
+        style: {
+          '--x': rand(6, 94) + '%',
+          '--size': rand(18, 56) + 'px',
+          // 飘到接近屏幕顶部才炸：比一屏略矮，爆破点留在可视区
+          '--rise': rand(80, 92) + 'vh',
+          '--drift': rand(-70, 70) + 'px',
+          '--delay': rand(0, 1.2) + 's',
+          '--dur': rand(2.6, 3.4) + 's',
+        } as CSSProperties,
+      })
     }
-  } else if (type === 2) {
-    // 礼花彩带：40 片纸屑 + 星星从按钮中心炸开 + 重力下落
-    for (let i = 0; i < 40; i++) {
-      const angle = rand(0, Math.PI * 2), dist = rand(60, 200), isStar = Math.random() < 0.25
-      particles.push({ key: i, className: isStar ? 'fx-particle fx-confetti fx-confetti--star' : 'fx-particle fx-confetti', style: {
-        '--dx': Math.cos(angle) * dist + 'px', '--dy': Math.sin(angle) * dist + 'px',
-        '--color': pick(palette), '--delay': rand(0, 0.15) + 's', '--spin': rand(-720, 720) + 'deg',
-      } as CSSProperties })
-    }
-  } else {
-    // 爱心飘升：16 个发光爱心从按钮处向上飘浮 + 摇摆 + 放大淡出
-    for (let i = 0; i < 16; i++) {
-      particles.push({ key: i, className: 'fx-particle fx-heart', style: {
-        '--size': rand(20, 50) + 'px', '--drift': rand(-100, 100) + 'px',
-        '--rise': rand(200, 300) + 'px', '--delay': rand(0, 0.4) + 's',
-      } as CSSProperties })
-    }
+    return particles
+  }
+
+  // 爱心飘升：发光爱心从底部向上飘浮 + 摇摆 + 放大淡出
+  for (let i = 0; i < 16; i += 1) {
+    particles.push({
+      key: 'heart-' + i,
+      className: 'fx-particle fx-heart',
+      style: {
+        '--x': rand(4, 96) + '%',
+        '--size': rand(20, 52) + 'px',
+        '--rise': rand(80, 105) + 'vh',
+        '--drift': rand(-110, 110) + 'px',
+        '--delay': rand(0, 0.8) + 's',
+        '--dur': rand(2.2, 2.8) + 's',
+      } as CSSProperties,
+    })
   }
   return particles
 }
@@ -103,7 +173,6 @@ export function RecitePage({
   homeLoading,
   homeError,
   onStart,
-  onExitStudy,
 }: RecitePageProps) {
   const cards = payload?.cards ?? []
   const session = payload?.session ?? null
@@ -125,21 +194,39 @@ export function RecitePage({
   const [leaving, setLeaving] = useState(false)
   // 回看已学卡片时点卡片正反面切换的翻面动画
   const [flipAnim, setFlipAnim] = useState(false)
-  // 完成页随机庆祝特效粒子（会话开始时随机选一种）
-  const [fx, setFx] = useState<FxParticle[]>([])
-  const fxTimer = useRef(0)
-  // 每次会话随机一种特效（刷新不变，完成后触发）
-  const fxType = useRef(Math.floor(Math.random() * 4))
+  // 完成页正在播的庆祝特效：每点一次「完成」叠一轮新的，旧的继续播完，最多同时 3 轮
+  const [fxRounds, setFxRounds] = useState<FxRound[]>([])
+  // 这次打开页面固定用哪一种特效（刷新才重新随机），点「完成」只重播这一种
+  const [fxKind] = useState<FxKind>(pickFxKind)
+  const fxId = useRef(0)
+  // 还在播的轮数：用 ref 数而不是读 state，连点两下也不会超叠到第 4 轮
+  const fxActive = useRef(0)
+  // 每轮特效自己的清理定时器：播完的那轮自己下线，剩下的继续播
+  const fxTimers = useRef(new Map<number, number>())
   const leaveTimer = useRef(0)
-  // 完成页点「完成」后的兜底定时器：浏览器没让 window.close() 生效时回首页
-  const exitTimer = useRef(0)
+  // 还有没判过的卡片才算在学：完成页刷新进来时所有卡片都有服务端草稿，不能再自动开录
+  const draftCardIds = new Set((payload?.drafts ?? []).map(draft => draft.cardId))
+  const hasCardToLearn = cards.some(item => item.status === 'pending' && !draftCardIds.has(item.id))
+  const recordingActive = started
+    && stage === 'cards'
+    && !payload?.complete
+    && payload?.session?.status === 'active'
+    && hasCardToLearn
   // 课堂录音：首页左下角的开关默认开启；进背词流开始录，学完 / 离开页面自动停并上传
   const [recordEnabled, setRecordEnabled] = useState(readRecordPref)
   const recording = useReciteRecording({
     enabled: recordEnabled,
-    active: started && stage === 'cards' && payload?.session?.status === 'active',
+    active: recordingActive,
     sessionId: payload?.session?.sessionId ?? null,
   })
+
+  // 上次没传完的录音片段：一进背词页就补传，网络恢复时再试（传完才删本地副本）
+  useEffect(() => {
+    void flushQueuedRecordings()
+    const onOnline = () => { void flushQueuedRecordings() }
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [])
 
   // 打开页面、还没点「开始学习」时，把本周的单词发音预取到本地（优先下一次要学的那一次）
   const preload = useRecitePreload(homeTask, !started)
@@ -155,35 +242,43 @@ export function RecitePage({
 
   useEffect(() => stopSpeech, [])
 
-  // 离开页面时把未走完的换卡 / 退出定时器清掉
+  // 离开页面时把未走完的换卡 / 特效定时器清掉
   useEffect(() => () => {
     if (leaveTimer.current) window.clearTimeout(leaveTimer.current)
-    if (exitTimer.current) window.clearTimeout(exitTimer.current)
+    for (const timer of fxTimers.current.values()) window.clearTimeout(timer)
+    fxTimers.current.clear()
   }, [])
 
-  /**
-   * 完成页的「完成」：先尝试直接关掉当前页面（已安装的 PWA 窗口在部分浏览器里可以这么关，
-   * 回到桌面），浏览器拦下 window.close() 时页面还在，等一下再兜底退回任务首页。
-   * 关不掉的情况：iOS 添加到主屏幕的 PWA、普通标签页、以及窗口历史不是只有一条时的 Chrome。
-   */
-  const finishAndClose = () => {
-    try { window.close() } catch { /* 忽略 */ }
-    if (exitTimer.current) window.clearTimeout(exitTimer.current)
-    exitTimer.current = window.setTimeout(onExitStudy, 300)
+  /** 把所有正在播的特效一起收掉（换会话时用） */
+  function clearFx() {
+    for (const timer of fxTimers.current.values()) window.clearTimeout(timer)
+    fxTimers.current.clear()
+    fxActive.current = 0
+    setFxRounds([])
   }
 
-  // 点「完成」先播特效再退出
+  /**
+   * 点「完成」只放庆祝特效：不关窗口、也不跳回任务首页（跳转会重新拉数据，容易弹出令牌门）。
+   * 新的一轮叠在旧的上，不清掉之前那几次；已经叠满 3 轮时先不响应，等最早那轮播完就能再点。
+   */
   function handleFinish() {
-    if (fx.length > 0) return
-    setFx(generateFx(fxType.current))
-    if (fxTimer.current) window.clearTimeout(fxTimer.current)
-    fxTimer.current = window.setTimeout(finishAndClose, FX_DURATION)
+    if (fxActive.current >= MAX_FX_ROUNDS) return
+    fxActive.current += 1
+    fxId.current += 1
+    const id = fxId.current
+    setFxRounds(rounds => [...rounds, { id, particles: generateFx(fxKind) }])
+    const timer = window.setTimeout(() => {
+      fxTimers.current.delete(id)
+      fxActive.current -= 1
+      setFxRounds(rounds => rounds.filter(round => round.id !== id))
+    }, FX_DURATION[fxKind])
+    fxTimers.current.set(id, timer)
   }
 
   // 换会话：草稿来自 Server，已经判完的会话直接进完成动画
   useEffect(() => {
     if (!payload?.session) return
-    setFx([])
+    clearFx()
     const list = payload.cards ?? []
     const seeded: Record<string, DraftAnswer> = {}
     for (const draft of payload.drafts ?? []) {
@@ -493,26 +588,17 @@ export function RecitePage({
   if (payload.complete || stage === 'celebrate') {
     return (
       <div className="recite recite--celebrate">
-        <div className="recite__confetti" aria-hidden="true">
-          {Array.from({ length: 26 }, (_, piece) => (
-            <span
-              key={piece}
-              className={'confetti confetti--' + (piece % 6)}
-              style={{ left: (piece * 3.9 + 1) + '%', animationDelay: ((piece % 9) * 0.16).toFixed(2) + 's' }}
-            />
-          ))}
-        </div>
         <div className="recite__celebrate-card">
           <div className="recite__trophy" aria-hidden="true">🏆</div>
           <h1 className="recite__celebrate-title">太棒啦，全部完成！</h1>
           {localError && <p className="recite__error">{localError}</p>}
-          <button type="button" className="recite__confirm" onClick={handleFinish} disabled={fx.length > 0}>完成</button>
+          <button type="button" className="recite__confirm" onClick={handleFinish}>完成</button>
         </div>
-        {fx.length > 0 && (
-          <div className="fx-overlay" aria-hidden="true">
-            {fx.map(p => <span key={p.key} className={p.className} style={p.style} />)}
+        {fxRounds.map(round => (
+          <div className="fx-overlay" key={round.id} aria-hidden="true">
+            {round.particles.map(p => <span key={p.key} className={p.className} style={p.style} />)}
           </div>
-        )}
+        ))}
         {debugButton}
         {debugPanel}
       </div>

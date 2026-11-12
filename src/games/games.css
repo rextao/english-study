@@ -1,0 +1,61 @@
+/* 游戏外壳：和背词页一样是给小朋友的全屏页，不渲染导航。
+   只有地址栏直接访问 #/games/<id> 才进得来，页面里暂时没有任何入口。 */
+
+.games {
+  /* 与背词页同一套粉彩变量，游戏子文件夹里的样式直接用 --g-* */
+  --g-primary: #E88B9A;
+  --g-primary-tint: #FDF0F2;
+  --g-primary-wash: #FFF5F6;
+  --g-line: #F3E2E5;
+  --g-ink: #5C4A4E;
+  --g-ink-2: #82686F;
+  --g-ink-3: #94797F;
+  --g-primary-deep: #BC5566;
+  --radius-full: 999px;
+
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding:
+    env(safe-area-inset-top)
+    env(safe-area-inset-right)
+    env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+  background: #FDF9F7;
+  color: var(--g-ink);
+  font-family:
+    ui-rounded,
+    -apple-system,
+    'SF Pro Rounded',
+    'Hiragino Sans GB',
+    'PingFang SC',
+    'HarmonyOS Sans SC',
+    'Microsoft YaHei',
+    system-ui,
+    sans-serif;
+}
+.games__notice {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--g-ink-2);
+}
+
+.games__notice-sub {
+  font-size: 12px;
+  color: var(--g-ink-3);
+}
+
+.games__notice code {
+  font-size: 12px;
+  color: var(--g-primary-deep);
+}

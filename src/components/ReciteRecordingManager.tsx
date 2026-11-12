@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button, Checkbox, Popconfirm } from '../ui'
 import { ReciteRecordingButton } from './ReciteRecordingButton'
 import { deleteReciteRecordings, fetchReciteRecordings } from '../hooks/useRecite'
 import type { ReciteRecordingSummary } from '../hooks/useRecite'
+import { buildRecordingGroup } from '../utils/reciteRecordings'
+import type { RecordingGroup } from '../utils/reciteRecordings'
 import './ReciteRecordingManager.css'
 
 /**
@@ -88,6 +90,12 @@ export function ReciteRecordingManager() {
   }
 
   const allSelected = items.length > 0 && selected.size === items.length
+  // 这里一条录音一行（不合并）：每行单独一个组，保持组件内 group 引用稳定
+  const groups = useMemo(() => {
+    const map = new Map<string, RecordingGroup>()
+    for (const item of items) map.set(item.id, buildRecordingGroup([item]))
+    return map
+  }, [items])
 
   return (
     <div className="recite-recordings">
@@ -145,7 +153,7 @@ export function ReciteRecordingManager() {
                 <span className="recite-recordings__size">
                   {fmtDuration(item.durationMs)} · {fmtSize(item.size)}
                 </span>
-                <ReciteRecordingButton recording={item} onError={setError} />
+                <ReciteRecordingButton group={groups.get(item.id) ?? buildRecordingGroup([item])} onError={setError} />
               </li>
             ))}
           </ul>

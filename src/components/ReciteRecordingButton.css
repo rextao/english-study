@@ -1,3 +1,11 @@
+/* 同一次学习录成几段又没法可靠排序时，并排放几个按钮（不合并，各播各的） */
+.recite-audio-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
 /* 课堂录音的播放按钮：背词任务表每行「次数」下面、设置页录音列表里都用它 */
 .recite-audio-btn {
   display: inline-flex;

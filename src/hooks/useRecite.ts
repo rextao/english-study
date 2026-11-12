@@ -333,6 +333,10 @@ export interface ReciteRecordingSummary {
   sessionId?: string
   /** 所在周的周一 0 点 */
   weekStart?: number
+  /** 片段开始录制的时间（客户端毫秒），同一次学习的多段按它排时间顺序 */
+  recordedAt?: number
+  /** 片段在这次学习里的序号（从 0 起），与 recordedAt 一起保证拼接顺序不出错 */
+  segmentIndex?: number
 }
 
 /** 课堂录音列表：服务端只保留最近 15 天 */
@@ -363,14 +367,24 @@ export async function createReciteRecording(input: {
   durationMs: number
   sizeBytes: number
   partCount: number
-}): Promise<{ id: string; partCount: number }> {
+  /** 片段幂等键：断网 / 关页面后从本地缓存补传，带着同一个键就不会重复入库 */
+  clientKey?: string
+  /** 片段开始录制的时间（客户端毫秒） */
+  recordedAt?: number
+  /** 片段在这次学习里的序号（从 0 起） */
+  segmentIndex?: number
+}): Promise<{ id: string; partCount: number; status?: 'uploading' | 'ready' }> {
   const response = await apiFetch('/api/recite/recordings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   })
   const data = await readJson<{ recording: ReciteRecordingSummary }>(response)
-  return { id: data.recording.id, partCount: data.recording.partCount || input.partCount }
+  return {
+    id: data.recording.id,
+    partCount: data.recording.partCount || input.partCount,
+    status: data.recording.status,
+  }
 }
 
 /** 上传一片（同序号重复上传会覆盖，可安全重试） */

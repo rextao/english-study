@@ -210,11 +210,17 @@ CREATE TABLE IF NOT EXISTS recite_recordings (
   duration_ms INTEGER NOT NULL DEFAULT 0,
   size_bytes INTEGER NOT NULL DEFAULT 0,
   chunk_count INTEGER NOT NULL DEFAULT 0,
+  -- 客户端一次录音片段的上传幂等键：本地缓存的片段重传不会重复入库
+  client_key TEXT,
+  -- 片段开始录制的时间（客户端毫秒）与会话内序号：同一次学习的多段按它拼回时间顺序
+  recorded_at INTEGER,
+  segment_index INTEGER,
   -- uploading = 分片还没传齐，ready = 可播放；只有 ready 的出现在列表里
   status TEXT NOT NULL DEFAULT 'ready',
   created_at INTEGER NOT NULL
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_recite_recordings_created_at ON recite_recordings(created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_recite_recordings_client_key ON recite_recordings(client_key);
 
 -- 音频按段存：D1 单行有大小上限，整段 base64 塞一行会写不进去
 CREATE TABLE IF NOT EXISTS recite_recording_chunks (

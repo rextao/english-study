@@ -2466,6 +2466,27 @@ check('录音先建一条上传记录并关联到第几次学习',
   r.status === 201 && r.body?.recording?.status === 'uploading'
   && r.body?.recording?.sessionIndex === 1 && r.body?.recording?.partCount === 2, r.body)
 const recordingId = r.body?.recording?.id
+// 本地缓存补传：片段带幂等键 + 录制时间 + 序号，同一片段重传不会多出一条
+const segmentBody = {
+  sessionId: recordSessionId,
+  mime: 'audio/mp4',
+  durationMs: 1000,
+  sizeBytes: 8,
+  partCount: 1,
+  clientKey: 'recite-segment-key-1',
+  recordedAt: 1700000000000,
+  segmentIndex: 0,
+}
+r = await call('POST', '/api/recite/recordings', segmentBody)
+const idempotentId = r.body?.recording?.id
+check('片段带序号与录制时间入库',
+  r.status === 201 && r.body?.recording?.segmentIndex === 0
+  && r.body?.recording?.recordedAt === 1700000000000, r.body)
+r = await call('POST', '/api/recite/recordings', segmentBody)
+check('同一片段重传（clientKey 相同）还是同一条记录',
+  r.status === 201 && r.body?.recording?.id === idempotentId, r.body)
+r = await call('POST', '/api/recite/recordings', { ...segmentBody, clientKey: 'recite-segment-key-bad', segmentIndex: -1 })
+check('片段序号非法拒绝', r.status === 400, r.body)
 // 分片还没传齐时不该出现在列表里，也不能播放
 r = await call('GET', '/api/recite/recordings')
 check('没传完的录音不对外可见', r.status === 200 && r.body?.recordings?.length === 0, r.body)

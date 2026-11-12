@@ -46,15 +46,15 @@ src/pages/AchievementsPage.tsx    学习成果页（tab=achievements）：目标
 src/pages/GoalPage.tsx            目标页（tab=goal，导航「更多」里有入口）：长期里程碑时间轴 + 单词目标四项进度；周期与目标词数全在 src/config/goalMilestones.ts，页面不写死阶段数量
 src/pages/LearningRecordsPage.tsx  学习记录页：学习 / 打卡日志明细 + 筛选 + 批量删除；默认 embedded 进设置页「学习记录」分区，也仍挂在 #/records 上独立成页（导航里没有，从成果页进，带 onBack 和页头）；默认先只显示物理删除不可找回的红字提示（revealed=false 时不发请求），确认后才拉列表
 src/pages/RecitePage.tsx          横屏背单词（tab=recite）：小朋友的全屏独立页，不渲染导航，也没有返回 / 退出按钮，只能从查词首页右上角「开始背单词」进；先停在本周任务首页（只读 GET /api/recite/task，不创建会话，避免一进页面就把词条标成「已开始」），点「开始 / 继续学习」才建会话；刷新 / 重新进页面时 task.activeSessionIndex 不为 null 就直接进背词流回到当前那张卡；
-                                  普通卡只显示英文（中文与音标不显示），拼写卡显示中文 + 两行放大的虚拟键盘（第一行 Q、W + 删除键，第二行 A–Z 顺序，q、w 位置留半透明空位，一行放不下自动折行；「不会」在左下、「提交 / 下一个」在右下）；点「会 / 不会」先写服务端草稿 /api/recite/sessions/:id/drafts（不推进轮次，家长换设备也能读），翻面后底行左下角是「上一个」（第一张禁用，按草稿恢复上一张的翻面 / 输入）、右下角是「下一个」；顶部进度轨道上已学过的节点可点击回看（从草稿恢复判定状态：普通卡翻面、拼写卡回填）；最后一张后进完成动画页（彩带 + 奖杯 + 会 / 不会 / 拼写统计），「完成」按钮先试 window.close() 直接关掉已安装的 PWA 窗口（浏览器允许才行），关不掉 300ms 后兜底回任务首页；顶部进度轨道只有最后一张是 🎁 礼物节点，其余都是序号；单词卡右下角圆形喇叭按钮（纯图标）= utils/speech.ts 播 Google TTS（拼写卡判定前不出声，按钮始终渲染），请求 / 播放失败把原因（缺密钥 / 断网 / 超时 / 浏览器拦截）写在页面上；左下角录音小图标（每页都有，只有图标不写文字、绝对定位不占排版）：绿=录音中 / 灰=没开 / 黄=正在开启 / 红=不可用或开录失败（红图标可点重试）；首页同一位置是可点的开关（默认开启，偏好存 localStorage es-recite-record），浏览器 / 页面不支持录音时换成红色小图标；点「开始学习」时先在手势里预取麦克风（Safari 只认手势，等会话回来再要常被拒）；刷新 / 直接进背词流时自动开录没手势，失败后红图标可点重试，且下一次任意点击（点卡片 / 会 / 不会）会自动再要一次，进背词流开始 MediaRecorder 录音，学完 / 离开页面自动停并把整段传到 /api/recite/recordings；打开页面还没点「开始学习」时 useRecitePreload 先把本周发音预取到本地；右下角齿轮（绝对定位、不占排版；灰=正常，红=录音不可用 / 开录失败）输入口令 123 打开 ReciteDebugPanel 看录音状态与本地缓存情况
+                                  普通卡只显示英文（中文与音标不显示），拼写卡显示中文 + 两行放大的虚拟键盘（第一行 Q、W + 删除键，第二行 A–Z 顺序，q、w 位置留半透明空位，一行放不下自动折行；「不会」在左下、「提交 / 下一个」在右下）；点「会 / 不会」先写服务端草稿 /api/recite/sessions/:id/drafts（不推进轮次，家长换设备也能读），翻面后底行左下角是「上一个」（第一张禁用，按草稿恢复上一张的翻面 / 输入）、右下角是「下一个」；顶部进度轨道上已学过的节点可点击回看（从草稿恢复判定状态：普通卡翻面、拼写卡回填）；最后一张后进完成动画页（奖杯 + 会 / 不会 / 拼写统计，页面背景无彩条也无背景动画），「完成」按钮只重播庆祝特效：特效共四种（五彩烟雾上飘 / 底部发射烟花 / 泡泡上飘到顶放大炸开 / 爱心上飘），每次打开或刷新完成页随机挑一种（同一次打开里反复点「完成」重播的总是同一种，且新的一轮叠在旧的上面、最多同时叠 3 轮，满了再点要等最早那轮播完才响应；不关窗口、不跳转，避免跳回首页时重新拉数据触发令牌门）；顶部进度轨道只有最后一张是 🎁 礼物节点，其余都是序号；单词卡右下角圆形喇叭按钮（纯图标）= utils/speech.ts 播 Google TTS（拼写卡判定前不出声，按钮始终渲染），请求 / 播放失败把原因（缺密钥 / 断网 / 超时 / 浏览器拦截）写在页面上；左下角录音小图标（每页都有，只有图标不写文字、绝对定位不占排版）：绿=录音中 / 灰=没开 / 黄=正在开启 / 红=不可用或开录失败（红图标可点重试）；首页同一位置是可点的开关（默认开启，偏好存 localStorage es-recite-record），浏览器 / 页面不支持录音时换成红色小图标；点「开始学习」时先在手势里预取麦克风（Safari 只认手势，等会话回来再要常被拒）；刷新 / 直接进背词流时自动开录没手势，失败后红图标可点重试，且下一次任意点击（点卡片 / 会 / 不会）会自动再要一次，进背词流开始 MediaRecorder 录音（还有没判过的卡片才录：完成页刷新进来不会自动开录），学完 / 切后台 / 关页面 / 离开页面 / 连续 1 分钟没声音都会停下这一段：先落本地队列再上传，传不上去留在本机等下次补传；因静音停下的，下一次点页面或按键会自动重开（见 useReciteRecording.ts）；打开页面还没点「开始学习」时 useRecitePreload 先把本周发音预取到本地；右下角齿轮（绝对定位、不占排版；灰=正常，红=录音不可用 / 开录失败）输入口令 123 打开 ReciteDebugPanel 看录音状态与本地缓存情况
 src/pages/ReciteParentPage.tsx    家长端（#/recite/parent，保留的独立页，已没有 UI 入口）：按日期列出待保存 / 已保存的背诵记录，逐词显示 会 / 不会 / 拼写正确 / 拼写跳过；「保存记录」才统一提交 commit 推进轮次与次数。家长确认主入口在 #/recite/tasks 的任务列表行内直接判定与保存
 src/pages/ReciteTasksPage.tsx     背词任务配置二级页（#/recite/tasks，从英语学习页进，页头可返回）：一周一行，本周到 12 周后；第 1 列日期区间（周一开始，只有本周标「本周」），无任务的周给「配置本周 / 这一周任务」按钮，有任务的周按每次一行展开：第 2 列「第 N 次」（已完成 / 学习中 / 主动推送 Tag），第 3 列读的词，第 4 列背的词；本周日期格子下面有「推送」按钮（有进行中会话时禁用）：弹 RecitePushPanel 选一批词强行推送，本周次数 +1 并直接开始这一次；两列单词前面都有序号（任务接口 wordOrder：已完成 / 学习中的次数取实际卡片位置，没开始的按 startSession 同一套 sortCards 预测），与背词页卡片出现顺序一致；
-                                  已完成的次数在单词后直接显示判定（读的列只显知意，背的列知意 + 拼写，来自 fetchReciteHistory 60 条）；进行中的那一次读 sessions/active 的卡片与草稿同样行内显示（没判定的单词不显示标记），行右侧「保存」先弹保存抽屉（Drawer）：按背词页卡片序号列出这次还没保存的卡片，每张默认加 1 次（普通卡记「知意」、拼写卡记「会拼」，上下按钮 0–10 可调），点抽屉里的「保存」才 commit（30 张一批）并按填的次数累加熟悉度，点「取消」不写库；没开始（todo）/ 学习中（active）的那一次整行可点，点行只改这一行的词，学习中改词会把这次会话作废、这批单词需要重新学（行内右侧「保存」按钮不触发编辑），已学过的次数不可改；行内「修改配置」改整周，只在整周还没开始时出现；每一次「次数」单元格下面有喇叭（components/ReciteRecordingButton.tsx），这一次有课堂录音时点它能试听（同时只播一条，失败原因显示在表格上方）；保存后重读任务列表 / history / sessions/active 三份数据
+                                  已完成的次数在单词后直接显示判定（读的列只显知意，背的列知意 + 拼写，来自 fetchReciteHistory 60 条）；进行中的那一次读 sessions/active 的卡片与草稿同样行内显示（没判定的单词不显示标记），行右侧「保存」先弹保存抽屉（Drawer）：按背词页卡片序号列出这次还没保存的卡片，每张默认加 1 次（普通卡记「知意」、拼写卡记「会拼」，上下按钮 0–10 可调），点抽屉里的「保存」才 commit（30 张一批）并按填的次数累加熟悉度，点「取消」不写库；没开始（todo）/ 学习中（active）的那一次整行可点，点行只改这一行的词，学习中改词会把这次会话作废、这批单词需要重新学（行内右侧「保存」按钮不触发编辑），已学过的次数不可改；行内「修改配置」改整周，只在整周还没开始时出现；每一次「次数」单元格下面有喇叭（components/ReciteRecordingButton.tsx），这一次有课堂录音时点它能试听（同一次学习因为关页面 / 切后台录成几段时，顺序可信就合成一条连着播，不可信就分段各给一个按钮；同时只播一条，失败原因显示在表格上方）；保存后重读任务列表 / history / sessions/active 三份数据
 src/pages/PassagesPage.tsx        短文页（tab=passages）：短文正文 + 生词分组（分批 / 很久没复习 / 知意或会读次数少 / 从未知意或会读），文中生词点开看释义、可打「会读 / 知意」标记；数据层 src/hooks/usePassages.ts
 src/config/goalMilestones.ts      目标里程碑与各周期累计词数（改目标只改这里，GoalPage 自动重算）
 
 src/components/Nav.tsx            顶部导航：普通 tab = 查词 / 学习列表 / 学习成果（列表角标 = totalItems）+ 右侧「英语学习」流光胶囊（角标 = plan.dueCount）+ 齿轮图标按钮（设置）；TabKey 定义在此（settings / records 都不在 tab 里，visibleActive 把 records 高亮到「学习成果」；recite-parent / recite-tasks 也高亮到「英语学习」）
-src/components/TokenGate.tsx      访问令牌门：首次打开 / 401 时填令牌；令牌存 localStorage（key es-api-token）
+src/components/TokenGate.tsx      访问令牌门：首次打开 / 401 时填令牌；令牌存 localStorage（key es-api-token）+ 同名 cookie 兜底（iOS PWA / 隐私模式清掉 localStorage 后不用重输）
 src/components/AnalyticsConsent.tsx  回放同意条（main.tsx 里挂在 App 旁边）：没配 key 或已选过就不渲染
 src/components/PageHeader.tsx     页标题区（title / subtitle / actions），样式在 App.css
 src/components/WordCard.tsx       词卡：音标 / 词库标签 / 中文释义 / 右上角「加入学习」小按钮；卡片上不显示英文释义、也不显示例句
@@ -69,7 +69,7 @@ src/components/AudioRepair.tsx    设置页「补充音频」分区（embedded �
 src/components/ReciteRecordingManager.tsx  设置页「课堂录音」分区：列出最近 15 天的录音（时间 / 第几次 / 时长 / 大小），可试听、全选或多选后统一删除（DELETE /api/recite/recordings，音频分片一起删）；播放按钮 ReciteRecordingButton.tsx 同时用在 recite/tasks 每行的「次数」下面
 src/components/ReciteDebugPanel.tsx 背词页右下角齿轮弹出的调试面板（输入口令 123 才进）：录音状态（支持 / 当前状态 / 失败原因，能开关录音与重试）+ 本地缓存情况（本周拉取进度、本地音频条数与占用、失败词单独重试 / 重新拉取本周 / 清空本地缓存）
 
-src/hooks/useTabRoute.ts          hash 路由（#/search #/lists #/settings #/achievements #/records #/study #/recite），刷新与前进后退都停在原页；二级页 #/recite/parent、#/recite/tasks 走独立 hash；LEGACY_TABS 把 #/import → #/search、#/libraries → #/settings，老书签不会失效
+src/hooks/useTabRoute.ts          hash 路由（#/search #/lists #/settings #/achievements #/records #/study #/recite），刷新与前进后退都停在原页；二级页 #/recite/parent、#/recite/tasks 走独立 hash；#/games/<id> 归到 tab=games 且首次进入时不会被规范成 #/games（保住游戏名）；LEGACY_TABS 把 #/import → #/search、#/libraries → #/settings，老书签不会失效
 src/hooks/useSearch.ts            useVocabMatch：词 → 命中的词库 id 列表（纯内存 Map，不走网络）
 src/hooks/useDictionary.ts        单词查询 GET /api/dict；走共享读缓存 apiCache（TTL 5 分钟），同一个词反复查不再打接口；服务端回错误状态码 → 'error'（这次没抓到释义），请求根本没发出去 → 'no-server'
 src/hooks/useDictBatch.ts         批量读缓存 POST /api/dict/batch → entries / missing / incomplete
@@ -83,16 +83,35 @@ src/hooks/usePrintBatches.ts      打印批次：留档 + 整批打卡 + 删记�
 src/hooks/useStudyGoal.ts         目标词库读写 GET|PUT /api/study/goal
 src/hooks/useVocabLibraries.ts    构建期打包 vocab/*.json + 标签读写 + localStorage 镜像与迁移
 src/hooks/useLearningRecords.ts   学习记录页的数据层：achievements / history 分页 / 删事件 / 清词 / purge
+src/hooks/useReciteRecording.ts   背词页课堂录音（MediaRecorder）：每 10 秒切块，Web Audio AnalyserNode 每 250ms 量一次音量（RMS ≥ 0.02 算有声音），连续 60 秒无声音就停下这一段并在下次点击 / 按键时重开；任何一次停（学完 / 切后台 / 关页面 / 离开页面 / 静音 / 录满 30 分钟或 16MB）都先把整段字节写进 IndexedDB 队列，再分片上传，传完才删本地副本；每段带会话 id、片段序号（localStorage es-recite-seg:<sessionId> 自增）、录制时间，永远绑在当前这次学习上；回前台 / 从 bfcache 回来重新开一段
+src/hooks/useReciteRecordingPlayback.ts  课堂录音播放：把一次学习的一个 / 多个片段当成一条音频顺序播（按需拉 /api/recite/recordings/:id/audio、跨段进度与拖动、全站同时只播一条）
 src/hooks/useRecitePreload.ts     背词首页的发音预取：没点「开始学习」时把本周词池的发音并发 2 拉到 IndexedDB，优先下一次要学的那一次（activeSessionIndex ?? completedSessions+1），主动推送的那次排最后；已缓存跳过，503 / 401 整体停下并给原因；点开始后暂停，调试面板可重试失败词
 
 src/ui/                           手写组件库：Button Select Dropdown Input(含 TextArea) Checkbox Tag Popconfirm Popover Modal Drawer + useDismiss；统一从 src/ui/index.ts 导出（它顺带 import ui.css）
 
-src/utils/apiBase.ts              API 基址（恒为 ''，同源）+ getStoredToken/setStoredToken + apiFetch（统一带 Bearer 头、401 时广播 AUTH_REQUIRED_EVENT）+ apiJson
+src/games/data.ts                 游戏统一数据层：useGameWords 取当期单词（与背词页同源：进行中的会话卡片 → 本周任务词表，句子卡与无释义的不要，按小写去重、去掉词性前缀）；shuffleWords / createWordDeck / dealWordRounds 提供「每个词只取一次」的牌堆，取完即这一局单词全部用完；所有游戏只从这里拿词，组件自己不请求接口
+src/games/types.ts                游戏公共类型：GameWord（单词 + 中文释义）/ GameProps（外壳下发的 words，已去重）/ GameManifest（id + title + subtitle + Component）
+src/games/registry.ts             游戏清单 GAMES + findGame(id)：加新游戏只往这里加一条，其余文件不动
+src/games/GamesPage.tsx           游戏外壳（tab=games，全屏、不渲染导航，页内暂时没有任何入口，只能手输 #/games/<id>）：从 hash 取 slug → findGame，单词由 src/games/data.ts 的 useGameWords 统一提供（与背词页同一份词表，去重、去掉词性前缀）当 GameWord[] 下发；无页头也没有返回按钮，未找到 / 加载中 / 无任务 / 词太少都有中文提示
+src/games/games.css              游戏外壳布局与 --g-* 粉彩变量（与背词页同一套配色，游戏子文件夹直接用）
+src/games/xiaoxiaole/index.ts    消消乐清单项（id=xiaoxiaole，标题「单词消消乐」）
+src/games/xiaoxiaole/XiaoxiaoleGame.tsx  单词消消乐：一关 6 对（12 张牌，4 列 3 行），英文牌与中文牌打乱混排，先点一张再点另一张，同组（同一对）就按两张牌中心画一条 SVG 线（stroke-dashoffset 描边动画）再一起缩掉；不同组则两张红外抖动 + 失误 +1；消掉的牌留在格子里透明（牌桌不重排）；每一关的词由 data.ts 的 dealWordRounds 从牌堆里发（7 个词切成 4+3，不留只有一对的尾巴；一个词整局只出现一次，打完最后一关 = 单词全部用完），每关底部「下一关」，全消完给用时 / 失误 /「再玩一次」（重洗牌回第一关）；游戏只管关卡与判定，不碰接口
+src/games/xiaoxiaole/xiaoxiaole.css  消消乐牌面 / 连线 / 过关面板样式（横屏竖屏都能一屏放下 12 张牌，reduced-motion 关动画）
+src/games/monster/index.ts       打怪兽清单项（id=monster，标题「单词打怪兽」）
+src/games/monster/MonsterGame.tsx  单词打怪兽：场地桌面上限 1200×840 居中、手机横屏铺满（顶部怪兽带 = 场地高度 25%，保底 110px），得分 / 连击绝对定位在小怪兽右侧；顶部一只小怪兽往下扔中英文小球（开局先把 5 个单词、共 10 张球铺到底部再落下，之后同一时间只有一颗在飞：前一颗落定——含正被拖走的那颗——才发下一颗；球更大，单词球单行不换行、中文球最多 3 行，约 2 秒穿场落地），按住一个球拖到它的英文 / 中文配对上盖住就配对成功——两张球一起消失、得分 / 连击立刻结算，并从合并点朝小怪兽胸前打出一颗魔法飞弹（magicMissile.ts），命中那一刻才掉血 + 抖动 / 受击表情 / 伤害数字；配错则两张闪红并弹开（只计失误）；落下的球受重力、在球堆和地面上滚动（physics.ts 负责碰撞与休眠），球堆越高小怪兽扔得越慢，球堆顶逼近小怪兽时暂停发球（留出下一颗球的直径 + PILE_GAP；场上若只剩单张球则补发它的搭档防卡死），清出空间后自动继续，没有堆满判输；血量 = 本局全部单词配对完的总伤害（平时一刀 100、每 5 刀一次 200），牌堆里每个词只发一次、发完不再补：单词全部配对完的那一刻正好打倒小怪兽，这局结束（没有倒计时，也不重复出词），怪兽本体用 MONSTER_SHEETS 图库里的横排 4 状态精灵图（满血 / 受击 / 残血 / 最后关头，images/monster1–7 共 7 只，按列表轮换出场；2–7 每只的帧范围与竖直带都按透明像素单独量过，底部 746–878 是图上的 AI 水印要避开；7 号用抠掉白色棋盘底的 images/monster7-cutout.png），四帧在源图里并不等宽，按逐帧量好的像素范围裁剪，不会把下一格的脚带进来；按受击、剩余词数与血量切状态（场上只剩最后 3 个词就切到第 4 格那个最后状态），挨打时闪白变红、胸前飘红色伤害数字；打赢不弹窗：场地中心直接摆胜利奖杯图案 + 得分 / 配错，只有「再玩一次」按钮可点，最后一击结算时立即 reset 飞弹并清掉爆点 / 伤害飘字（胜利画面上不再残留攻击特效），场上残留的球与小怪兽淡出；发球门禁看「这一帧的真实位移」而不是 resting 标记（墙边抖动的球不会再把发球卡死），且上一颗球等超过 STUCK_WAIT = 3 秒仍未落定就照常发下一颗；每帧在 ref 里推进物理和飞弹再用 setFrame 重绘，不碰接口；prefers-reduced-motion 或画布没准备好时跳过飞弹、直接结算伤害
+src/games/monster/physics.ts     打怪兽小球物理（纯函数、不碰 React / 接口）：重力 + 空气阻力下落（fallSpeed 约 2.6 秒穿过整块场地）、圆–圆分离与切向滚动、墙面 / 地面夹紧、静止休眠（落地或两颗球夹成凹槽才睡；一帧位移小于 STILL_EPSILON = 1.2px 也算「没动」，卡在墙边 / 夹缝里抖零点几像素的球不会再一直醒着）与 wakeUnsupported 从下往上唤醒、卡死兜底；骑在一颗球顶上（单支撑）不算落定，会按重力沿球面的切向被推开（ROLL_PUSH）滚向左右两边（球心正好压在上方时按场地左右半边选边），只有被旁边另一颗睡着的球卡住（pinned）才允许睡，不会叠成柱子
+src/games/monster/magicMissile.ts  魔法飞弹特效（纯 canvas、不碰 React / 接口）：合并点 → 小怪兽胸前飞一颗像素飞弹，蓄力光点 → 扭动光带拖尾 → 命中星芒 + 冲击环 + 四散火星；画布按 1/3 低分辨率渲染（有序抖动 + 加色光缓冲），CSS 用 image-rendering: pixelated 放大；参考 pixelfx 的 projectiles/magic-missile（MIT）重写，不引运行时依赖；update() 在命中那一帧返回 CSS 坐标的 impact，由游戏结算伤害
+src/games/monster/monster.css    打怪兽的场地（桌面上限 1200×840 居中）/ 底部地面色带 / 小怪兽（血条 + 0×0 定位锚 + 逐帧裁剪的四状态本体）/ 得分连击 HUD（绝对定位在小怪兽右侧）/ 小球（单词球 nowrap 单行）/ 魔法飞弹画布（.mst__fx，铺满场地、不挡指针）/ 命中特效（images/hit-fx.png，由 hit.png 抠掉灰底转成的透明爆炸图）/ 受击闪光 / 伤害飘字 / 开始面板与胜利层（中心奖杯图案、场上残留淡出）
+
+src/utils/apiBase.ts              API 基址（恒为 ''，同源）+ getStoredToken/setStoredToken（localStorage 主、cookie 兜底）+ apiFetch（统一带 Bearer 头、401 时广播 AUTH_REQUIRED_EVENT）+ apiJson
 src/utils/apiCache.ts             所有只读接口共用的会话级缓存：queryApi / peekApiCache / invalidateApiCache / ApiError；key = 登录态 + URL（参数排序）+ 方法 + body，按 tag 作废，同 key 在途请求合并；写入按 LRU 封顶 200 条；带 refresh=1 的请求既不读也不写缓存
 src/utils/flashcards.ts           打印卡片：fetchCards（顺手补释义）/ pickSenses / mirrorRows / buildFlashcardsHtml / openCardWindow / renderCardsInto（打印会话 + 卡片右上角 ✕）；偶数页逐行左右镜像；卡片反面只印音标 + 中文，英文释义不上卡片
 src/utils/analytics.ts            PostHog 会话回放：initAnalytics / getAnalyticsConsent / setAnalyticsConsent / trackPageview；默认 opt-out（同意前不采集、不录像），输入框统一 maskAllInputs 打码，同意状态存 localStorage es-analytics-consent；没配 VITE_POSTHOG_KEY 就整个跳过
-src/utils/translations.ts         中文词义工具：translationOptions / selectedTranslationOptions / formatTranslationOptions；formatTranslationWithCustom 把自定义词义并进摘要
+src/utils/translations.ts         中文词义工具：translationOptions / selectedTranslationOptions / formatTranslationOptions；formatTranslationWithCustom 把自定义词义并进摘要；stripTranslationPos 去掉每个词性组的 n. / v. 前缀（游戏里只显中文）
 src/utils/speech.ts               背单词发音：speak / stopSpeech / speechErrorMessage（错误翻成页面提示）；优先读 utils/reciteCache 的 IndexedDB 本地音频（背词首页预取的那份，断网也能播），没有才 /api/tts 现取并顺手落一份；base64 MP3 解成 Blob URL 复用（会话内按词缓存，换词掐掉上一段）；fetchSpeechStatus（/api/tts/status）只留作诊断
+src/utils/reciteRecordingQueue.ts  录音片段本地待传队列（IndexedDB es-recite-uploads）：存原始字节，上传成功才删；15 天过期、最多 80 段，no-IDB 静默降级
+src/utils/reciteRecordingUpload.ts  录音分片上传（POST 建记录带幂等 clientKey → PUT 400KB 一片 → POST complete，每片重试 3 次）+ flushQueuedRecordings 把本地队列依次补传
+src/utils/reciteRecordings.ts      课堂录音归组与合并判定：按「周 + 第几次」归组，全部带片段序号 / 录制时间、序号不重复且序号顺序与时间顺序一致才 merged=true，否则分段显示（宁可不合并也不拼错顺序）
 src/utils/reciteCache.ts          背词页本地音频缓存（IndexedDB）：audio / audioMeta / meta 三个仓库，键 = trim + 压空白 + 小写（与 speech.ts 同一套）；音频留 30 天、每 50 次写清一次过期；no-IDB / 隐私模式全静默降级成不缓存；导出 loadPersistedAudio / storePersistedAudio / getAudioCacheStats / saveReciteMeta / loadReciteMeta / clearReciteCache
 
 worker/src/index.js               Worker 入口：/api/* 先校验 Bearer 令牌（safeEqual 恒定时间比较，health 免鉴权）再进 handleApi；其余请求交给 env.ASSETS（vite 构建产物，SPA 回落）
@@ -293,6 +312,7 @@ D1 english-study-sync（wrangler.toml 绑定为 DB；沿用同步时代建好的
   recite_cards          卡片与结果（session_id+position 唯一；card_type / result / request_id 唯一）
   recite_card_drafts    学生端暂存的判定（主键 session_id+card_id；不推进轮次，家长 commit 后删除）
   recite_recordings     课堂录音（id / session_id / week_start / session_index / mime / duration_ms / created_at；
+                        client_key 上传幂等键唯一索引、recorded_at 录制时间、segment_index 会话内片段序号；
                         只保留 15 天，读写接口顺带清过期数据）
   recite_recording_chunks  录音音频分段（主键 recording_id+idx；base64，按 200KB 一段存）
 
@@ -369,15 +389,33 @@ applyReview() 是打卡的唯一实现：列表打卡（/api/lists/:id/review）
 history 里能直接看到这批结果。startSession 取「1..次数 里第一条没建过会话的序号」，
 推送的会话不按顺序完成也不会撞号。
 
-**课堂录音**：背词页首页左下角的开关默认开启（偏好存 localStorage），进背词流后用 MediaRecorder 录整段，
-学完 / 离开页面自动停。上传分三步：POST /api/recite/recordings 先建一条 `uploading` 记录（带分片数）→
+**课堂录音**：背词页首页左下角的开关默认开启（偏好存 localStorage），进背词流后用 MediaRecorder 录音。
+
+一次学习可能录成**多段**：学完、切后台（visibilitychange → hidden）、关页面（pagehide）、离开页面、**连续 1 分钟没声音**
+都会先停下当前这段；回前台 / 从 bfcache 回来再开一段，静音停下后则在下一次点页面 / 按键时重开（重新要麦克风发生在那次手势里，Safari 也认）。
+静音检测走 AudioContext + AnalyserNode（每 250ms 一次，归一化 RMS ≥ 0.02 算有声音，AudioContext 接到 gain=0 再进 destination 保证图在跑），
+不支持 AudioContext 时退化成不检测、照常录。注意停止时不会把尾部那 60 秒静音裁掉，音频里会保留这段空白。每段都记住会话 id、片段序号（localStorage `es-recite-seg:<sessionId>` 自增）
+和录制时间，所以无论怎么停，录音都绑在当前这次学习上，补传后也能按时间拼回去。
+
+**不丢音频**：停下的第一时间把整段字节写进 IndexedDB 队列（`es-recite-uploads`），再上传；上传成功才删本地副本。
+断网 / 关页面 / 上传失败时副本留在本机，下次进背词页（或网络恢复）由 `flushQueuedRecordings` 依次补传，
+`client_key` 幂等键保证重传不会多出重复记录。
+
+上传分三步：POST /api/recite/recordings 先建一条 `uploading` 记录（带分片数、clientKey、recordedAt、segmentIndex）→
 PUT /api/recite/recordings/:id/parts/:index 按 400KB 一片传（幂等，每片重试 3 次、失败的片再补一轮）→
 POST /api/recite/recordings/:id/complete 校验片数齐了才标 `ready`。断网只丢某一片、重传那一片即可，
 不会整段报废。24kbps 语音 6MB ≈ 33 分钟；单条上限 16MB，录满 30 分钟或撞上限自动停。服务端一片一行存在
 recite_recording_chunks（D1 单行有大小上限，不能整段塞一行），元数据在 recite_recordings；只保留 15 天
-（没传完的半成品 1 天），没有 cron，读写时顺带清过期数据。recite/tasks 每一行「次数」下面有喇叭可试听，音频走
-/api/recite/recordings/:id/audio（同样要 Bearer）。设置页「课堂录音」分区可逐条试听、全选后统一删除
-（DELETE /api/recite/recordings，只删音频，不动学习记录）。
+（没传完的半成品 1 天），没有 cron，读写时顺带清过期数据。
+
+**显示**：recite/tasks 每一行「次数」下面有喇叭，音频走 /api/recite/recordings/:id/audio（同样要 Bearer）。
+同一次学习的多段按会话归组：全部带片段序号与录制时间、序号不重复且序号顺序与录制时间顺序一致，才当成一条连着播；
+任何一项不满足（老数据没序号、跨会话、时间倒退）就**不合并**，分段各给一个按钮——宁可不合并，也不拼错时间顺序。
+顺序播放由 `useReciteRecordingPlayback` 统一处理（跨段进度、拖动、倍速，全站同时只播一条）。
+设置页「课堂录音」分区仍逐条展示 / 试听、全选后统一删除（DELETE /api/recite/recordings，只删音频，不动学习记录）。
+
+已有库要先跑 `worker/migrations/2026-11-11-recording-segments.sql` 再加三列（client_key / recorded_at / segment_index）
+与唯一索引，否则新代码写录音会报错。
 
 ## 词典链路（云端：缓存 → 外部）
 

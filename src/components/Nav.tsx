@@ -2,7 +2,7 @@ import './Nav.css'
 import { Dropdown } from '../ui'
 import type { MenuItemType } from '../ui'
 
-export type TabKey = 'search' | 'lists' | 'settings' | 'achievements' | 'records' | 'study' | 'goal' | 'passages' | 'recite' | 'recite-parent' | 'recite-tasks'
+export type TabKey = 'search' | 'lists' | 'settings' | 'achievements' | 'records' | 'study' | 'goal' | 'passages' | 'recite' | 'recite-parent' | 'recite-tasks' | 'games'
 
 // extra = 手机端收进折叠菜单的 tab（查词始终留在导航栏上）
 const TABS: { key: TabKey; label: string; extra?: boolean }[] = [

@@ -1,0 +1,219 @@
+/* 单词消消乐：和背词页同一套粉彩教育风（颜色由 .games 上的 --g-* 变量给），
+   牌面自己撑满剩余高度，横屏也能一屏放下 12 张牌。 */
+
+.xxl {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 4px clamp(12px, 3vw, 28px) clamp(12px, 3vw, 24px);
+}
+
+.xxl__stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.xxl__chip {
+  padding: 3px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--g-line);
+  background: #fff;
+  color: var(--g-ink-2);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.xxl__hint {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--g-ink-3);
+}
+
+/* 牌桌：4 列，行高平分成整屏剩余高度 */
+.xxl__board {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: clamp(8px, 1.6vw, 14px);
+  padding: 2px;
+}
+
+.xxl__tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  padding: 8px clamp(8px, 1.4vw, 14px);
+  border-radius: clamp(14px, 2vw, 20px);
+  border: 2px solid transparent;
+  background: #fff;
+  color: var(--g-ink);
+  font-family: inherit;
+  font-weight: 600;
+  line-height: 1.28;
+  text-align: center;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 12px 24px -20px rgba(150, 95, 105, .55);
+  transition: transform .16s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease;
+}
+
+.xxl__tile--word {
+  font-size: clamp(15px, 2.5vw, 23px);
+  letter-spacing: -.01em;
+}
+
+.xxl__tile--meaning {
+  background: var(--g-primary-wash);
+  border-color: var(--g-line);
+  color: var(--g-ink-2);
+  font-size: clamp(13px, 1.9vw, 18px);
+  font-weight: 500;
+}
+
+.xxl__tile:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 28px -22px rgba(150, 95, 105, .7);
+}
+
+.xxl__tile.is-selected {
+  border-color: var(--g-primary);
+  background: var(--g-primary-tint);
+  color: var(--g-primary-deep);
+  box-shadow: 0 0 0 3px rgba(232, 139, 154, .3), 0 14px 26px -20px rgba(232, 139, 154, .8);
+}
+
+/* 连错：红一下 + 抖两下，不消牌 */
+.xxl__tile.is-wrong {
+  border-color: #E05858;
+  background: #FFF1F1;
+  color: #B23A3A;
+  animation: xxl-shake .4s ease-in-out;
+}
+
+@keyframes xxl-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  45% { transform: translateX(5px); }
+  70% { transform: translateX(-3px); }
+}
+
+/* 连对：两张牌先一起弹一下，再缩掉 */
+.xxl__tile.is-linking {
+  border-color: var(--g-primary);
+  background: var(--g-primary-tint);
+  animation: xxl-pop .26s ease-out forwards;
+}
+
+@keyframes xxl-pop {
+  55% { transform: scale(1.06); }
+  100% { transform: scale(.45); opacity: 0; }
+}
+
+/* 消掉后原位留空：占着格子，牌桌不重排 */
+.xxl__tile.is-cleared {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(.45);
+}
+
+/* 连线：从第一张的中心拉到第二张的中心 */
+.xxl__link {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.xxl__link line {
+  stroke: var(--g-primary);
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-dasharray: var(--len);
+  stroke-dashoffset: var(--len);
+  filter: drop-shadow(0 0 7px rgba(232, 139, 154, .6));
+  animation: xxl-draw .22s ease-out forwards;
+}
+
+@keyframes xxl-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* 过关 / 通关面板 */
+.xxl__panel {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  background: rgba(253, 249, 247, .82);
+  animation: xxl-fade .2s ease-out;
+}
+
+@keyframes xxl-fade {
+  from { opacity: 0; }
+}
+
+.xxl__panel-card {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  width: min(340px, 84%);
+  padding: clamp(20px, 3vw, 32px);
+  border-radius: 24px;
+  border: 1px solid var(--g-line);
+  background: #fff;
+  box-shadow: 0 24px 48px -34px rgba(150, 95, 105, .6);
+  text-align: center;
+}
+
+.xxl__panel-title {
+  margin: 0;
+  font-size: clamp(17px, 2.4vw, 21px);
+  font-weight: 700;
+  color: var(--g-ink);
+}
+
+.xxl__panel-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--g-ink-3);
+}
+
+.xxl__btn {
+  margin-top: 10px;
+  padding: 9px 26px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--g-primary-deep);
+  color: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 12px 22px -16px rgba(188, 85, 102, .9);
+}
+
+.xxl__btn:hover { background: #A94A5A; }
+
+@media (prefers-reduced-motion: reduce) {
+  .xxl__tile,
+  .xxl__tile.is-wrong,
+  .xxl__tile.is-linking,
+  .xxl__link line { animation: none; transition: none; }
+}

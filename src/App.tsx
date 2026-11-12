@@ -17,6 +17,7 @@ import { LearningRecordsPage } from './pages/LearningRecordsPage'
 import { GoalPage } from './pages/GoalPage'
 import { PassagesPage } from './pages/PassagesPage'
 import { RecitePage } from './pages/RecitePage'
+import { GamesPage } from './games/GamesPage'
 import { ReciteParentPage } from './pages/ReciteParentPage'
 import { ReciteTasksPage } from './pages/ReciteTasksPage'
 import { startReciteSession } from './hooks/useRecite'
@@ -157,14 +158,13 @@ export default function App() {
         homeLoading={reciteTaskLoading}
         homeError={reciteTaskError}
         onStart={() => setReciteStarted(true)}
-        onExitStudy={() => {
-          // 关不掉窗口时的兜底：回首页刷新本周进度，下次进来仍然停在首页
-          setReciteStarted(false)
-          setReciteSession(null)
-          setReciteReload(value => value + 1)
-        }}
       />
     )
+  }
+
+  // 小游戏也是全屏独立页：目前没有界面入口，只能用 #/games/<id> 这种地址进
+  if (tab === 'games') {
+    return <GamesPage />
   }
 
   return (

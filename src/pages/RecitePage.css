@@ -961,35 +961,6 @@
     max(clamp(20px, 4vw, 40px), env(safe-area-inset-left));
 }
 
-.recite__confetti {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.confetti {
-  position: absolute;
-  top: -14%;
-  width: 10px;
-  height: 16px;
-  border-radius: 3px;
-  opacity: .9;
-  animation: confetti-fall 2.9s linear infinite;
-}
-
-.confetti--0 { background: #A9D6C8; }
-.confetti--1 { background: var(--r-primary-soft); }
-.confetti--2 { background: #F2C4CA; }
-.confetti--3 { background: #F6B3BA; }
-.confetti--4 { background: #C9B6E4; }
-.confetti--5 { background: #A9CFDF; }
-
-@keyframes confetti-fall {
-  to { transform: translateY(118vh) rotate(560deg); }
-}
-
 .recite__celebrate-card {
   position: relative;
   z-index: 2;
@@ -1067,14 +1038,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .confetti { display: none; }
   .recite__celebrate-card,
   .recite__trophy { animation: none; }
 }
 
-/* ---------------- 完成按钮随机庆祝特效 ---------------- */
+/* ---------------- 完成按钮庆祝特效（每次刷新随机一种） ---------------- */
 
-/* 特效容器：覆盖整屏、不拦截点击；粒子从按钮附近出发 */
+/* 特效容器：覆盖整屏、不拦截点击；所有粒子都从页面底部出发 */
 .fx-overlay {
   position: fixed;
   inset: 0;
@@ -1085,95 +1055,112 @@
 
 .fx-particle {
   position: absolute;
-  left: 50%;
-  top: 60%;
+  left: var(--x, 50%);
+  bottom: 0;
   will-change: transform, opacity;
 }
 
-/* 1. 烟花：从按钮上方随机位置炸开成圆形闪烁粒子 */
+/* 1. 五彩烟雾：从底部往上飘满一屏，一路摇晃、长大、变淡 */
+.fx-smoke {
+  width: var(--size);
+  height: var(--size);
+  margin-left: calc(var(--size) * -.5);
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, rgba(255, 255, 255, .85), var(--color) 58%, transparent 74%);
+  filter: blur(2px);
+  opacity: 0;
+  animation: fx-smoke var(--dur) ease-out var(--delay) forwards;
+}
+
+@keyframes fx-smoke {
+  0% { transform: translate(0, 0) scale(.35); opacity: 0; }
+  12% { opacity: .85; }
+  50% { transform: translate(calc(var(--drift) * .5), calc(var(--rise) * -.5)) scale(.85); opacity: .7; }
+  100% { transform: translate(var(--drift), calc(var(--rise) * -1)) scale(1.25); opacity: 0; }
+}
+
+/* 2a. 烟花的发射轨迹：一枚小火箭从底部升到炸开高度 */
+.fx-rocket {
+  width: 4px;
+  height: 12px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--color);
+  box-shadow: 0 0 8px var(--color), 0 0 16px var(--color);
+  animation: fx-rocket .8s cubic-bezier(.3, .8, .6, 1) var(--delay) forwards;
+}
+
+@keyframes fx-rocket {
+  0% { transform: translate(0, 0) scaleY(.5); opacity: 0; }
+  15% { opacity: 1; }
+  85% { transform: translate(var(--drift), calc(var(--cy) * -1)) scaleY(1); opacity: 1; }
+  100% { transform: translate(var(--drift), calc(var(--cy) * -1)) scaleY(.2); opacity: 0; }
+}
+
+/* 2b. 火花：跟着火箭升到同一高度，再向四周炸开 */
 .fx-firework {
   width: 5px;
   height: 5px;
-  margin: -2.5px;
+  margin-left: -2.5px;
   border-radius: 50%;
   background: var(--color);
   box-shadow: 0 0 6px var(--color), 0 0 14px var(--color);
-  animation: fx-firework 1s ease-out var(--delay) forwards;
+  animation: fx-firework 1.2s ease-out var(--delay) forwards;
 }
 
 @keyframes fx-firework {
-  0% { transform: translate(0, 0) scale(0); opacity: 0; }
-  15% { transform: translate(0, 0) scale(1.3); opacity: 1; }
-  20% { transform: translate(var(--cx), var(--cy)) scale(1); opacity: 1; }
-  100% { transform: translate(calc(var(--cx) + var(--dx)), calc(var(--cy) + var(--dy))) scale(0); opacity: 0; }
+  0% { transform: translate(0, 0) scale(.4); opacity: 0; }
+  30% { transform: translate(0, calc(var(--cy) * -1)) scale(.5); opacity: 0; }
+  38% { transform: translate(0, calc(var(--cy) * -1)) scale(1.25); opacity: 1; }
+  100% { transform: translate(var(--dx), calc(var(--cy) * -1 + var(--dy))) scale(.2); opacity: 0; }
 }
 
-/* 2. 泡泡：大小不一的半透明泡泡缓缓上飘 + 左右摇晃 */
+/* 3. 泡泡：半透明泡泡从底部缓缓上飘，一路左右摇晃 */
 .fx-bubble {
   width: var(--size);
   height: var(--size);
-  margin: calc(var(--size) * -.5);
+  margin-left: calc(var(--size) * -.5);
   border-radius: 50%;
-  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .85), rgba(232, 139, 154, .12));
-  border: 1.5px solid rgba(255, 255, 255, .4);
-  box-shadow: inset 0 0 10px rgba(255, 255, 255, .25);
-  animation: fx-bubble 2s ease-out var(--delay) forwards;
+  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .85), rgba(255, 255, 255, .06) 62%, transparent 72%);
+  border: 1.5px solid rgba(255, 255, 255, .55);
+  box-shadow: inset 0 0 10px rgba(255, 255, 255, .35);
+  opacity: 0;
+  animation: fx-bubble var(--dur) ease-out var(--delay) forwards;
 }
 
+/* 上飘的 0–84% 慢慢晃；到顶后先缩一下蓄力，最后一小段猛地放大炸开 */
 @keyframes fx-bubble {
-  0% { transform: translate(0, 0) scale(.3); opacity: 0; }
-  10% { opacity: .8; }
-  25% { transform: translate(calc(var(--drift) * .25), calc(var(--rise) * -.25)) scale(.7); }
-  50% { transform: translate(calc(var(--drift) * -.15), calc(var(--rise) * -.5)) scale(.9); }
-  75% { transform: translate(calc(var(--drift) * .5), calc(var(--rise) * -.75)) scale(1); }
-  100% { transform: translate(var(--drift), calc(var(--rise) * -1)) scale(1.1); opacity: 0; }
+  0% { transform: translate(0, 0) scale(.35); opacity: 0; }
+  8% { opacity: .85; }
+  30% { transform: translate(calc(var(--drift) * .3), calc(var(--rise) * -.3)) scale(.8); }
+  58% { transform: translate(calc(var(--drift) * -.2), calc(var(--rise) * -.6)) scale(.95); }
+  84% {
+    transform: translate(calc(var(--drift) * .55), calc(var(--rise) * -.9)) scale(1);
+    opacity: .95;
+    animation-timing-function: cubic-bezier(.2, .8, .3, 1);
+  }
+  88% {
+    transform: translate(calc(var(--drift) * .7), calc(var(--rise) * -.97)) scale(.82);
+    opacity: 1;
+    box-shadow: inset 0 0 18px rgba(255, 255, 255, .9);
+    animation-timing-function: cubic-bezier(.1, .9, .2, 1);
+  }
+  100% {
+    transform: translate(var(--drift), calc(var(--rise) * -1)) scale(2.4);
+    opacity: 0;
+    box-shadow: inset 0 0 4px rgba(255, 255, 255, 0);
+  }
 }
 
-/* 3. 礼花彩带：纸屑和星星从中心炸开 + 重力下落 + 旋转 */
-.fx-confetti {
-  width: 8px;
-  height: 14px;
-  margin: -7px;
-  background: var(--color);
-  border-radius: 2px;
-  animation: fx-confetti 1.5s cubic-bezier(.15, .6, .4, 1) var(--delay) forwards;
-}
-
-.fx-confetti--star {
-  width: 16px;
-  height: 16px;
-  margin: -8px;
-  background: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  line-height: 1;
-}
-
-.fx-confetti--star::before {
-  content: '★';
-  color: var(--color);
-  text-shadow: 0 0 6px var(--color);
-}
-
-@keyframes fx-confetti {
-  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
-  40% { transform: translate(var(--dx), var(--dy)) rotate(calc(var(--spin) * .4)); opacity: 1; }
-  100% { transform: translate(var(--dx), calc(var(--dy) + 280px)) rotate(var(--spin)); opacity: 0; }
-}
-
-/* 4. 爱心飘升：发光爱心从按钮处向上飘浮 + 摇摆 + 放大淡出 */
+/* 4. 爱心：发光爱心从底部向上飘浮，摇摆 + 放大淡出 */
 .fx-heart {
   font-size: var(--size);
   line-height: 1;
-  margin: calc(var(--size) * -.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  margin-left: calc(var(--size) * -.5);
   color: #E88B9A;
-  text-shadow: 0 0 8px rgba(232, 139, 154, .5), 0 0 16px rgba(232, 139, 154, .25);
-  animation: fx-heart 1.8s ease-out var(--delay) forwards;
+  text-shadow: 0 0 8px rgba(232, 139, 154, .55), 0 0 16px rgba(232, 139, 154, .3);
+  opacity: 0;
+  animation: fx-heart var(--dur) ease-out var(--delay) forwards;
 }
 
 .fx-heart::before { content: '♥'; }

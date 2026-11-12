@@ -48,6 +48,17 @@ export function splitTranslationText(text: string, fallbackPos?: string): Array<
         .map(item => ({ text: item.trim(), pos }))
         .filter(item => item.text)
     })
+}/**
+ * 去掉中文摘要里每个词性组的词性前缀（n. / v. / a. …），只留中文本身。
+ * 词性也可能是两个词（如 modal verb.、phrasal verb.），一并去掉。
+ * 游戏这类只给孩子看中文的地方用它，格式仍是 n. 天气,气象；a. 迎风的 → 天气,气象；迎风的。
+ */
+export function stripTranslationPos(text: string): string {
+  return String(text ?? '')
+    .split(/[；;]/)
+    .map(group => group.trim().replace(/^[a-zA-Z]{1,12}(?:\s+[a-zA-Z]{1,12})?\.\s*/, '').trim())
+    .filter(Boolean)
+    .join('；')
 }
 
 /** 为前端选项展开旧缓存中仍未拆开的摘要，并保持可回传服务端的 ID。 */

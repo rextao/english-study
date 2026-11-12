@@ -933,7 +933,8 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     return { status: 200, body: { ok: true, ...(await app.recordings.remove(ids)) } }
   }
 
-  // POST /api/recite/recordings — 开始上传：{ sessionId?, mime, durationMs, sizeBytes, partCount }
+  // POST /api/recite/recordings — 开始上传：
+  // { sessionId?, mime, durationMs, sizeBytes, partCount, clientKey?, recordedAt?, segmentIndex? }
   if (method === 'POST' && pathname === '/api/recite/recordings') {
     try {
       const recording = await app.recordings.createUpload({
@@ -942,6 +943,10 @@ export async function handleApi(method, pathname, searchParams, body, app) {
         durationMs: body?.durationMs,
         sizeBytes: body?.sizeBytes,
         partCount: body?.partCount,
+        // 片段幂等键 + 录制时间 / 序号：本地缓存补传不重复入库，同一次学习的多段能按时间拼回
+        clientKey: body?.clientKey,
+        recordedAt: body?.recordedAt,
+        segmentIndex: body?.segmentIndex,
       })
       return { status: 201, body: { ok: true, recording } }
     } catch (error) {
