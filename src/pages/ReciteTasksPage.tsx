@@ -88,9 +88,9 @@ function sessionState(task: ReciteTask, index: number): SessionState {
   return 'todo'
 }
 
-/** 任务是否已经开始（有完成的会话或正在进行中的会话），开始了配置就锁定 */
+/** 任务是否已经开始（建过任何一次会话，含学完待保存的），开始了配置就锁定 */
 function isStarted(task: ReciteTask): boolean {
-  return task.completedSessions > 0 || task.activeSessionIndex != null
+  return task.completedSessions > 0 || task.activeSessionIndex != null || (task.sessions?.length ?? 0) > 0
 }
 
 interface SessionWord {
@@ -189,7 +189,7 @@ function WordChips({ items, marks, showSpelling, order }: {
  * 一周的明细行：第 1 列日期（rowSpan 跨整周），后面每次学习一行。
  * 已完成的次数在单词后直接带判定；进行中的那一次在行右侧保存；没开始的次数点行改这一周的词。
  */
-function WeekRows({ task, isThisWeek, onEdit, onPush, pushDisabled, pushReason, sessionMarks, activeMarks, activeSave, activeJudged, recordings, onPlaybackError }: {
+function WeekRows({ task, isThisWeek, onEdit, onPush, pushDisabled, pushReason, sessionMarks, activeMarks, activeIndex, activeWeek, activeSave, activeJudged, recordings, onPlaybackError }: {
   task: ReciteTask
   isThisWeek: boolean
   /** 点行传 session（1-based）只改这一行；点「修改配置」不传，改整周 */
@@ -202,6 +202,10 @@ function WeekRows({ task, isThisWeek, onEdit, onPush, pushDisabled, pushReason, 
   sessionMarks: Map<number, Map<string, SessionWord>>
   /** 正在进行那一次的逐词判定（来自当前会话的卡片与草稿） */
   activeMarks?: Map<string, SessionWord>
+  /** 当前这次会话是第几次（1-based）：判定 / 保存按钮 / 已完成标记只落在这一行 */
+  activeIndex?: number
+  /** 当前这次会话属于哪一周，避免其他周的同序号行也挂上判定 */
+  activeWeek?: number
   /** 进行中那一次的保存按钮状态；没有进行中的会话时不传 */
   activeSave?: { saving: boolean; missing: number; onSave: () => void }
   /** 进行中的那一次已全部判完（背词页停在完成动画），这次按已完成展示，保存按钮仍在 */
@@ -218,13 +222,15 @@ function WeekRows({ task, isThisWeek, onEdit, onPush, pushDisabled, pushReason, 
       {Array.from({ length: task.sessionCount }, (_, index) => {
         const state = sessionState(task, index)
         const session = task.sessions?.find(item => item.index === index + 1)
+        /** 只有当前读回来的那次会话有判定和保存按钮：学完待保存的那一次也能看到自己的判定 */
+        const isActiveRow = state === 'active' && index + 1 === activeIndex && task.weekStart === activeWeek
         const marks = state === 'done'
           ? sessionMarks.get(index + 1)
-          : state === 'active' ? activeMarks : undefined
+          : isActiveRow ? activeMarks : undefined
         /** 主动推送的那一次不占本周计划的词表，也不能点行改词 */
         const pushed = Boolean(session?.pushed)
         /** 整周任务开始后不能再改整周配置；没开始 / 正在学习中的这一次仍然可以点行改它自己的单词 */
-        const clickable = state !== 'done' && !pushed
+        const clickable = state !== 'done' && !pushed && !(isActiveRow && activeJudged)
         return (
           <tr
             key={index}
@@ -269,8 +275,8 @@ function WeekRows({ task, isThisWeek, onEdit, onPush, pushDisabled, pushReason, 
               order={task.wordOrder?.[index]}
               recording={recordings?.get(task.weekStart + ':' + (index + 1))}
               onPlaybackError={onPlaybackError}
-             activeJudged={activeJudged}
-              saveSlot={state === 'active' && activeSave ? (
+              activeJudged={isActiveRow ? activeJudged : undefined}
+              saveSlot={isActiveRow && activeSave ? (
                 <Button
                   type="primary"
                   size="small"
@@ -543,6 +549,10 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
     : undefined
   /** 进行中的那一次已全部判完（背词页会停在完成动画）：按已完成展示，但还没保存，保存按钮仍在 */
   const activeJudged = Boolean(active?.session) && activeMissing === 0
+  /** 只有还没学完的那一次才档着推送；已经学完只是没点保存的，推送时服务端会先按默认次数保存 */
+  const pushBlocked = Boolean(taskByWeek.get(thisWeek)?.sessions?.some(
+    session => session.status === 'active' && !session.judged,
+  ))
   /** 进行中那一次的课堂录音（抽屉标题旁试听，没有录音就不显示） */
   const activeRecording = active?.session && active.task
     ? recordingBySession.get(active.task.weekStart + ':' + active.session.sessionIndex)
@@ -552,7 +562,7 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
     <div className="page page--wide">
       <PageHeader
         title="配置背词任务"
-        subtitle="一周一行；已完成的次数在单词后直接看判定，进行中的那一次在行右侧保存。没开始或正在学习的次数点行可以改这一次的单词，学习中改词需要重新学。"
+        subtitle="一周一行；已完成的次数在单词后直接看判定，学完的那一次在行右侧保存。没开始或正在学习的次数点行可以改这一次的单词，学习中改词需要重新学；学完还没点保存也不影响孩子继续学下一次。"
         actions={<Button onClick={onBack}>返回英语学习</Button>}
       />
 
@@ -618,10 +628,12 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
                       isThisWeek={isThisWeek}
                       onEdit={(next, session) => { setModalWeek(next); setModalSession(session ?? null) }}
                       onPush={() => setPushWeek(task.weekStart)}
-                      pushDisabled={Boolean(active?.session)}
+                      pushDisabled={pushBlocked}
                       pushReason="有进行中的一次学习，学完再推送"
                       sessionMarks={marksByWeek.get(week) ?? new Map()}
                       activeMarks={activeMarks}
+                      activeIndex={active?.session?.sessionIndex}
+                      activeWeek={active?.task?.weekStart}
                       activeSave={activeSave}
                       activeJudged={activeJudged}
                       recordings={recordingBySession}
@@ -713,7 +725,7 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
         open={pushWeek !== null}
         study={study}
         weekStart={pushWeek ?? thisWeek}
-        blockedReason={active?.session ? '有进行中的一次学习，学完再推送' : undefined}
+        blockedReason={pushBlocked ? '有进行中的一次学习，学完再推送' : undefined}
         onClose={() => setPushWeek(null)}
         onPushed={() => {
           setPushWeek(null)

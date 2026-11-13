@@ -40,7 +40,11 @@ npm run db:local:sync
 npm run dev             # wrangler dev(8788) + vite(5173)，vite 的 /api 代理到 8788
 ```
 
-打开 http://localhost:5173，首次会弹出令牌门，填 `.dev.vars` 里的 `API_TOKEN`（默认 `dev-local-token`）即可。
+打开 https://localhost:5173，首次会弹出令牌门，填 `.dev.vars` 里的 `API_TOKEN`（默认 `dev-local-token`）即可。
+
+开发服务器默认用 HTTPS：`npm run dev` 会先跑 `scripts/dev-cert.mjs`，用本机 mkcert（没有就用 openssl 自签）在 `.certs/` 生成一张覆盖 `localhost` 和当前局域网 IP 的证书，vite 看到它就按 https 启动。
+录音（`navigator.mediaDevices` / `MediaRecorder` / `crypto.randomUUID`）只在「安全上下文」里可用，而 `host: true` 让手机访问的是 `http://<本机IP>:5173`，浏览器会直接禁用麦克风——所以背词页要测录音必须走 https（或本机的 `http://localhost:5173`）。
+局域网 IP 变了会自动重签证书；想临时回到 http 用 `DEV_HTTPS=0 npm run dev`。
 
 ### 本地环境变量：只有 `.dev.vars`
 
@@ -79,7 +83,7 @@ npm run db:local:sync
 
 | 命令 | 作用 |
 | --- | --- |
-| `npm run dev` | 先检查 Node 版本，再启动 wrangler dev + vite（`/api` 走本地 D1） |
+| `npm run dev` | 先检查 Node 版本、生成本地 https 证书，再启动 wrangler dev + vite（`/api` 走本地 D1） |
 | `npm run db:local:sync` | 导出远端 D1 的表结构和数据并导入本地 D1（会覆盖本地同名表数据） |
 | `npm run build` | 类型检查 + 打包到 `dist/` |
 | `npm run test:server` | 服务端测试，跑在临时目录的 node:sqlite shim 上、不联网，不会动你的数据 |

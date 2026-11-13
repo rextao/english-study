@@ -22,17 +22,21 @@
   min-height: 0;
   border-radius: clamp(18px, 2.4vw, 26px);
   border: 1px solid var(--g-line);
-  background:
-    radial-gradient(circle at 50% 0%, #FFF1F4 0%, rgba(255, 244, 246, 0) 58%),
-    linear-gradient(180deg, #FFFDFC 0%, #FDF6F7 100%);
+  /* 图还没加载完时的兜底：草地色，避免闪白 */
+  background: #B7DA74;
   box-shadow: 0 18px 40px -32px rgba(150, 95, 105, .55);
   overflow: hidden;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+  /* 站立线 = 怪兽脚底 = 怪兽带高度，由组件按场地高度内联成像素值；
+     远景 / 台面 / 地面三层背景全部钉在这条线上，所以任何宽高比都不会错位 */
+  --mst-feet: 25%;
+  /* 台面条带高度：按场地宽度等比缩，组件内联算出 */
+  --mst-stage: 40px;
 }
 
-/* 地面：一道淡淡的颜色带，提示小球在这里停住、一层层往上堆 */
+/* 地面底部压一道投影，球堆到底时和草地分开一点 */
 .mst__field::after {
   content: '';
   position: absolute;
@@ -40,7 +44,73 @@
   right: 0;
   bottom: 0;
   height: 56px;
-  background: linear-gradient(180deg, rgba(244, 210, 217, 0), rgba(244, 210, 217, .5));
+  background: linear-gradient(180deg, rgba(70, 110, 40, 0), rgba(70, 110, 40, .18));
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ---------- 背景三层 ---------- */
+
+/* 远景（天空 / 远山 / 湖 / 城堡）：底边贴住站立线。窄屏只会裁掉顶上一截天空，
+   不会把城堡和城墙挤走，所以站立线永远是对的 */
+.mst__sky {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--mst-feet);
+  z-index: 0;
+  background: url('./images/bg-sky.jpg') center bottom / cover no-repeat;
+  /* 背景比粉彩小怪兽艳，压一点饱和度让它退到后面 */
+  filter: saturate(.86);
+  pointer-events: none;
+}
+
+/* 远景上盖一层白纱：顶上薄、底下略厚，和台面的亮色接上，小怪兽边缘也更清楚 */
+.mst__sky::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .18), rgba(255, 255, 255, .04) 62%, rgba(255, 255, 255, .22));
+}
+
+/* 台面条带（台面前沿 + 石护栏）：顶边比站立线高约 1/10 条带高度，
+   让怪兽的脚被台沿盖住一点点，看着才真的踩在上面；条带带一道向下投影落到崖壁上 */
+.mst__stage {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--mst-feet) - var(--mst-stage) * 0.095);
+  height: var(--mst-stage);
+  z-index: 4;
+  background: url('./images/bg-stage.jpg') center top / 100% 100% no-repeat;
+  box-shadow: 0 14px 18px -14px rgba(60, 90, 40, .5);
+  pointer-events: none;
+}
+
+/* 地面草地：从台面条带底部一直铺到场地底部；草是低频纹理，放大 / 横向裁切都看不出来，
+   手机竖屏（场地又高又窄）也能填满，球不会落在空白上 */
+.mst__ground {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--mst-feet) + var(--mst-stage) * 0.905);
+  bottom: 0;
+  z-index: 1;
+  background: url('./images/bg-ground.jpg') center top / cover no-repeat;
+  pointer-events: none;
+}
+
+/* 接地投影：脚底正下方贴在台面草地上的椭圆，比 drop-shadow（离地投影）更能说明脚踩在上面 */
+.mst__shadow {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(var(--mst-feet) - 14px);
+  height: 14px;
+  z-index: 2;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 50%, rgba(46, 76, 28, .40), rgba(46, 76, 28, .18) 56%, rgba(46, 76, 28, 0) 78%);
   pointer-events: none;
 }
 
@@ -52,6 +122,7 @@
   position: absolute;
   top: 0;
   left: 50%;
+  z-index: 3;
   width: 0;
   height: 0;
   pointer-events: none;
@@ -129,13 +200,15 @@
   position: absolute;
   left: 0;
   top: 0;
-  z-index: 2;
+  z-index: 5;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   border: 2px solid transparent;
   border-radius: 50%;
+  /* 泡泡贴图按 border-box 铺：百分比尺寸 / 定位都以整颗球为基准，边缘正好压在碰撞圆上 */
+  background-origin: border-box;
   font-family: inherit;
   font-weight: 700;
   line-height: 1.2;
@@ -147,17 +220,19 @@
   will-change: transform;
 }
 
+/* 球面用的是 images/bubble.png 里的泡泡贴图（组件内联 background-image / position）。
+   下面的渐变只是图还没加载完时的兜底：泡泡是满圆，加上 border-radius 裁切，平时一点也露不出来 */
 .mst__ball--word {
   background: radial-gradient(circle at 32% 26%, #FFFFFF 0%, #FDEDF0 58%, #F8DCE1 100%);
-  border-color: #F4D2D9;
-  color: #A0475A;
+  border-color: transparent;
+  color: #111;
   box-shadow: 0 12px 22px -16px rgba(160, 80, 100, .85);
 }
 
 .mst__ball--meaning {
   background: radial-gradient(circle at 32% 26%, #FFFFFF 0%, #EAF5F2 58%, #D8ECE6 100%);
-  border-color: #CFE6DE;
-  color: #3E6B5C;
+  border-color: transparent;
+  color: #111;
   font-weight: 600;
   box-shadow: 0 12px 22px -16px rgba(70, 120, 100, .8);
 }
@@ -169,10 +244,12 @@
   transform-origin: center;
 }
 
+/* 配错：泡泡贴图留着（不能被 background 简写冲掉），靠红色描边 + 红色外发光警示 */
 .mst__ball.is-wrong {
   border-color: #E05858;
-  background: #FFF1F1;
-  color: #B23A3A;
+  background-color: #FFF1F1;
+  color: #C02626;
+  box-shadow: 0 0 10px 2px rgba(224, 88, 88, .6);
   animation: mst-shake .36s ease-in-out;
 }
 
@@ -191,7 +268,10 @@
   max-width: 100%;
   overflow: hidden;
   overflow-wrap: anywhere;
+  /* 泡泡底色多种多样，字一律用纯黑加粗，不垫底、不加阴影 */
   padding: 0 4px;
+  color: #111;
+  font-weight: 800;
 }
 
 /* 单词球一行放完：强制不换行，字号按球内宽度反推，保证整个单词露全 */
@@ -206,7 +286,7 @@
 .mst__fx {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  z-index: 6;
   width: 100%;
   height: 100%;
   pointer-events: none;
@@ -217,7 +297,7 @@
 
 .mst__hitfx {
   position: absolute;
-  z-index: 4;
+  z-index: 7;
   width: 132px;
   height: 72px;
   /* 命中点在图中心：组件把左上角放到命中坐标，再往左上偏半个图 */
@@ -238,7 +318,7 @@
 /* JS 直接建的 DOM（floatDamage），不进 React 状态，播完自己删 */
 .mst__dmg {
   position: absolute;
-  z-index: 5;
+  z-index: 8;
   color: #E05858;
   font-size: 24px;
   font-weight: 800;
@@ -259,11 +339,11 @@
 .mst__overlay {
   position: absolute;
   inset: 0;
-  z-index: 6;
+  z-index: 9;
   display: grid;
   place-items: center;
   padding: 16px;
-  background: rgba(253, 249, 247, .84);
+  background: rgba(255, 255, 255, .78);
   animation: mst-fade .2s ease-out;
 }
 
@@ -321,7 +401,7 @@
 .mst__win {
   position: absolute;
   inset: 0;
-  z-index: 7;
+  z-index: 10;
   display: grid;
   justify-items: center;
   align-content: center;
@@ -377,6 +457,13 @@
 }
 
 .mst__field.is-won .mst__hp { opacity: 0; transition: opacity .3s ease-out; }
+
+/* 胜利画面：背景压淡一点，奖杯和文字才清楚 */
+.mst__field.is-won .mst__sky,
+.mst__field.is-won .mst__stage,
+.mst__field.is-won .mst__ground { filter: saturate(.55) brightness(1.06); transition: filter .4s ease-out; }
+
+.mst__field.is-won .mst__shadow { opacity: .2; transition: opacity .4s ease-out; }
 
 /* 胜利画面上不残留任何攻击特效：飞弹画布、命中爆点、伤害飘字一律隐藏 */
 .mst__field.is-won .mst__fx,

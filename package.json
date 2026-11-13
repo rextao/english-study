@@ -8,7 +8,7 @@
   },
   "scripts": {
 
-    "dev": "node scripts/check-node-version.mjs && (npx wrangler dev & vite)",
+    "dev": "node scripts/check-node-version.mjs && node scripts/dev-cert.mjs && (npx wrangler dev & vite)",
     "db:diff": "node scripts/db-diff-remote.mjs",
     "db:local:sync": "node scripts/sync-local-d1-from-remote.mjs",
     "build:my-words": "node scripts/build-my-words.mjs",

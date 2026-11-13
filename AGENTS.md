@@ -146,7 +146,7 @@ vocab/ket.json                    剑桥 A2 Key，id=a2-key-2020，1661 条词�
 vocab/parse_a2_key.py             pdftotext 文本 → 词库 JSON；正则与该 PDF 版式绑定，不通用
 506886-a2-key-2020-vocabulary-list.pdf  词库原始 PDF
 
-vite.config.ts                    vite：5173 / 监听所有网卡 / /api 代理到 8788；启动时把 .dev.vars 里的 VITE_* 注入前端
+vite.config.ts                    vite：5173 / 监听所有网卡 / 有 .certs 证书就开 https（麦克风等安全上下文 API 需要）/ /api 代理到 8788；启动时把 .dev.vars 里的 VITE_* 注入前端
 wrangler.toml                     部署配置：name=english-study、[assets] binding=ASSETS、D1 绑定 DB、DICT_TZ_OFFSET_HOURS=8
 ```
 

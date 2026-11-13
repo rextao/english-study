@@ -2429,6 +2429,96 @@ check('没写的拼写卡按跳过记录',
   pushedRecord?.cards?.filter(card => card.cardType === 'spelling').map(card => card.result).join(',') === 'skipped',
   pushedRecord)
 
+// ── 学完但没点「保存」：判定留着等家长保存，孩子可以直接学下一次 / 推送下一批 ──
+
+console.log('')
+console.log('学完未保存不影响下一次')
+
+const judgedCtx = makeContext()
+use(judgedCtx)
+r = await call('POST', '/api/lists', { name: 'Recite judged test' })
+const judgedListId = r.body?.id
+r = await call('POST', '/api/lists/' + judgedListId + '/import', {
+  items: [
+    { text: 'apple', translation: '苹果' },
+    { text: 'banana', translation: '香蕉' },
+    { text: 'cherry', translation: '樱桃' },
+  ],
+})
+check('学完未保存的词条准备完成', r.body?.added === 3, r.body)
+r = await call('PUT', '/api/recite/task', {
+  weekStart: singleWeekStart,
+  perSessionCount: 2,
+  sessionCount: 2,
+  selections: [
+    { listId: judgedListId, word: 'apple' },
+    { listId: judgedListId, word: 'banana' },
+    { listId: judgedListId, word: 'cherry' },
+  ],
+  spellingWords: [],
+})
+check('学完未保存的任务保存完成', r.status === 200 && r.body?.task?.sessionCount === 2, r.body)
+r = await call('POST', '/api/recite/sessions/start')
+const judgedSessionId = r.body?.session?.sessionId
+const judgedCards = r.body?.cards || []
+for (const card of judgedCards) {
+  r = await call('POST', '/api/recite/sessions/' + judgedSessionId + '/drafts', {
+    cardId: card.id, result: 'known', attempts: 0,
+  })
+}
+check('这一次只写了草稿、还没保存',
+  judgedCards.length === 2 && r.body?.drafts?.length === 2, r.body)
+r = await call('GET', '/api/recite/task')
+check('学完待保存的会话不再算「进行中」',
+  r.body?.task?.activeSessionIndex === null
+  && r.body?.task?.sessions?.find(item => item.index === 1)?.judged === true, r.body?.task)
+r = await call('GET', '/api/recite/history')
+check('没点保存时还没进已保存记录',
+  !(r.body?.records || []).some(record => record.sessionId === judgedSessionId), r.body)
+r = await call('GET', '/api/recite/sessions/active')
+check('学完待保存的判定还在，家长可以继续保存',
+  r.body?.session?.sessionId === judgedSessionId && r.body?.drafts?.length === 2, r.body)
+r = await call('POST', '/api/recite/sessions/start')
+const nextSessionId = r.body?.session?.sessionId
+const nextCards = r.body?.cards || []
+check('孩子可以直接开始下一次学习',
+  r.body?.session?.sessionIndex === 2 && nextSessionId !== judgedSessionId, r.body)
+check('下一次是计划里的第二组词', nextCards.some(card => card.word === 'cherry'), nextCards)
+r = await call('POST', '/api/recite/push', {
+  weekStart: singleWeekStart,
+  selections: [{ listId: judgedListId, word: 'apple' }],
+})
+check('正在学下一次时仍然挡着推送', r.status === 409, r.body)
+for (const card of nextCards) {
+  r = await call('POST', '/api/recite/sessions/' + nextSessionId + '/drafts', {
+    cardId: card.id, result: 'known', attempts: 0,
+  })
+}
+check('下一次也学完了（只写草稿）', r.body?.drafts?.length === nextCards.length, r.body)
+r = await call('POST', '/api/recite/push', {
+  weekStart: singleWeekStart,
+  selections: [{ listId: judgedListId, word: 'apple' }],
+})
+check('两次都学完没保存也能推送下一批',
+  r.status === 200 && r.body?.sessionIndex === 3, r.body)
+r = await call('GET', '/api/recite/sessions/active')
+check('推送后最早那次学完待保存的会话还在等保存',
+  r.body?.session?.sessionId === judgedSessionId, r.body)
+r = await call('POST', '/api/recite/sessions/' + judgedSessionId + '/commit', {
+  answers: judgedCards.map(card => ({
+    cardId: card.id, result: 'known', attempts: 0,
+    requestId: 'judged-test|' + card.id,
+    times: { spelling: 0, reading: 1, meaning: 1 },
+  })),
+})
+check('家长之后仍能保存这一次学习', r.body?.completed === true, r.body)
+r = await call('GET', '/api/recite/history')
+check('保存后进入已保存记录',
+  (r.body?.records || []).some(record => record.sessionId === judgedSessionId), r.body)
+r = await call('GET', '/api/recite/sessions/active')
+check('保存完一次后，下一次的判定接着等保存',
+  r.body?.session?.sessionId === nextSessionId, r.body)
+
 // ── 背词课堂录音：上传、列表、回放与 15 天保留 ────────────────────────────
 
 console.log('')

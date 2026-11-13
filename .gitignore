@@ -8,6 +8,9 @@ dist/
 # 本地唯一的密钥 / 变量文件（wrangler dev 自动读，vite 与 study CLI 也从这里取），不要提交
 .dev.vars
 
+# 本地开发用的 https 证书（scripts/dev-cert.mjs 生成），每台机器自己签，不进 git
+.certs/
+
 # wrangler dev 的本地状态目录：本地 D1（miniflare）就落在这里，不要提交
 .wrangler/
 

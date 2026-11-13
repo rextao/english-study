@@ -13,6 +13,7 @@ import monster5Url from './images/monster5.png'
 import monster6Url from './images/monster6.png'
 import monster7Url from './images/monster7-cutout.png'
 import hitUrl from './images/hit-fx.png'
+import bubbleUrl from './images/bubble.png'
 import './monster.css'
 /** 平时每配对一次扣 100 血 */
 const HIT_DAMAGE = 100
@@ -29,8 +30,8 @@ const SPAWN_EVERY = 0.65
 const STUCK_WAIT = 3
 /** 开局先往底部铺 5 个单词（每个词两张球：英文 + 中文），一进来就有东西可以配对 */
 const START_WORDS = 5
-/** 开局铺底时球与球之间留的缝隙（像素） */
-const START_GAP = 4
+/** 开局铺底时球与球之间不留缝：泡泡本身已经比碰撞圆大一点，再留缝就散了 */
+const START_GAP = 0
 /** 开局铺底最多抬高多少像素再落下：有个「落到底部」的过程，但不用等太久 */
 const START_DROP = 160
 /** 怪兽状态：精灵图从左到右四格，满血 / 受击 / 残血 / 战败 */
@@ -349,6 +350,58 @@ function fitFontSize(text: string, kind: BallKind, r: number) {
   const byWidth = (innerWidth / perLine) * 0.94
   const byHeight = (1.6 * r) / (lines * 1.18)
   return clamp(Math.min(byWidth, byHeight), 12, r * 0.56)
+}
+
+/**
+ * 小球贴图：images/bubble.png 是 1536×1536 的精灵图，4 列 3 行共 12 只泡泡。
+ * 图上的泡泡并不压在等分的格子里（横向间距 ~375、纵向 ~421，直径 ~342），
+ * 所以按测好的圆心逐个定位，而不是按 4×3 平均切；这样泡泡的边缘正好落在碰撞圆上。
+ * 每只泡泡的直径都在 336–349 之间，统一按 BUBBLE_DIAMETER 缩放，误差不到 2%。
+ */
+const BUBBLE_SHEET_SIZE = 1536
+const BUBBLE_DIAMETER = 342
+/**
+ * 泡泡再放大一点画：贴图边缘有一圈很淡的玻璃描边，按碰撞圆 1:1 画时两颗球落在
+ * 一起看着还有缝。放大 8% 让相邻泡泡边缘真的叠上一点，球堆才显得贴紧。
+ */
+const BUBBLE_ZOOM = 1.08
+const BUBBLE_CENTERS: { cx: number; cy: number }[] = [
+  { cx: 208, cy: 338 },
+  { cx: 582, cy: 336 },
+  { cx: 956, cy: 337 },
+  { cx: 1332, cy: 334 },
+  { cx: 206, cy: 761 },
+  { cx: 582, cy: 760 },
+  { cx: 957, cy: 759 },
+  { cx: 1334, cy: 754 },
+  { cx: 208, cy: 1183 },
+  { cx: 584, cy: 1184 },
+  { cx: 958, cy: 1182 },
+  { cx: 1334, cy: 1183 },
+]
+
+/** 同一对球（英文 / 中文）错开半张图取泡泡，颜色一眼就能分开 */
+function bubbleCellFor(group: number, kind: BallKind) {
+  return (group + (kind === 'meaning' ? 6 : 0)) % BUBBLE_CENTERS.length
+}
+
+/**
+ * 把某一只泡泡放大到正好铺满球（球盒 = 碰撞圆），再把它挪到盒中心。
+ * 背景按百分比定位：p = 目标偏移 / (盒宽 - 图宽)，换算成 CSS 的 background-position 百分比。
+ */
+function bubbleBackdrop(cell: number): CSSProperties {
+  const { cx, cy } = BUBBLE_CENTERS[cell] ?? BUBBLE_CENTERS[0]
+  // 泡泡画多大：碰撞圆直径 × BUBBLE_ZOOM
+  const artDiameter = BUBBLE_DIAMETER / BUBBLE_ZOOM
+  const sheetScale = BUBBLE_SHEET_SIZE / artDiameter
+  const percent = (center: number) =>
+    (((0.5 - center / artDiameter) / (1 - sheetScale)) * 100).toFixed(2) + '%'
+  return {
+    backgroundImage: 'url(' + bubbleUrl + ')',
+    backgroundSize: sheetScale * 100 + '% ' + sheetScale * 100 + '%',
+    backgroundPosition: percent(cx) + ' ' + percent(cy),
+    backgroundRepeat: 'no-repeat',
+  }
 }
 
 /**
@@ -867,9 +920,13 @@ export function MonsterGame({ words }: GameProps) {
   const hpPercent = world.hpMax > 0 ? Math.max(0, Math.round((world.hp / world.hpMax) * 100)) : 0
   // 按帧量好的本体范围切图：竖直带整段缩放到当前怪兽带高度，横向只取这一帧的像素，不会带到下一格
   const frame = monsterSheet.frames[mood] ?? monsterSheet.frames[0]
-  const { faceH } = monsterFaceFor(size.h)
+  const { band, faceH } = monsterFaceFor(size.h)
   const artScale = faceH / (monsterSheet.artBottomY - monsterSheet.artTopY)
   const faceW = Math.round((frame.toX - frame.fromX) * artScale)
+  // 背景三层的锚点：站立线 = 怪兽脚底（band，台沿就在这条线上），
+  // 台面条带按场地宽度等比缩（源图台面段 1760×42）
+  const stageH = Math.round(clamp(size.w * (42 / 1760), 14, 36))
+  const fieldVars = { '--mst-feet': band + 'px', '--mst-stage': stageH + 'px' } as CSSProperties
   // 受击抖动绕身体中下部转，高度随怪兽带一起变
   const faceOrigin = '50% ' + Math.round(ART_TOP + faceH * 0.64) + 'px'
 
@@ -879,12 +936,21 @@ export function MonsterGame({ words }: GameProps) {
       height: ball.r * 2,
       transform: 'translate3d(' + (ball.x - ball.r) + 'px, ' + (ball.y - ball.r) + 'px, 0)',
       fontSize: Math.round(ball.fontSize),
+      ...bubbleBackdrop(bubbleCellFor(ball.group, ball.kind)),
     }
   }
 
   return (
     <div className="mst">
-      <div className={'mst__field' + (status === 'won' ? ' is-won' : '')} ref={fieldRef}>
+      <div
+        className={'mst__field' + (status === 'won' ? ' is-won' : '')}
+        ref={fieldRef}
+        style={fieldVars}
+      >
+        {/* 背景三层：远景（底边贴站立线）→ 地面草地（从站立线铺到底）→ 台面条带（顶边压住脚） */}
+        <div className="mst__sky" aria-hidden="true" />
+        <div className="mst__ground" aria-hidden="true" />
+        <div className="mst__shadow" aria-hidden="true" style={{ width: Math.round(faceW * 0.72) }} />
         <div
           className={'mst__monster' + (hit ? ' is-hit' : '')}
           style={{ transformOrigin: faceOrigin }}
@@ -909,6 +975,8 @@ export function MonsterGame({ words }: GameProps) {
             }}
           />
         </div>
+
+        <div className="mst__stage" aria-hidden="true" />
 
         <canvas ref={fxCanvasRef} className="mst__fx" aria-hidden="true" />
 

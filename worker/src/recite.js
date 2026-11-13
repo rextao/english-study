@@ -284,11 +284,20 @@ export function createReciteStore(db) {
     const task = current.task
     const words = current.words || []
     const progress = await db.first(
-      `SELECT
-        (SELECT COUNT(*) FROM recite_sessions WHERE task_id = ? AND status = 'completed') AS completed,
-        (SELECT MIN(session_index) FROM recite_sessions WHERE task_id = ? AND status = 'active') AS active`,
-      task.id, task.id,
+      `SELECT (SELECT COUNT(*) FROM recite_sessions WHERE task_id = ? AND status = 'completed') AS completed`,
+      task.id,
     )
+    // 学完但家长还没点保存的那一次不算「进行中」：孩子可以直接开始下一次
+    const activeRows = await db.all(
+      "SELECT id, session_index FROM recite_sessions WHERE task_id = ? AND status = 'active' ORDER BY session_index",
+      task.id,
+    )
+    let activeIndex = null
+    for (const row of activeRows) {
+      if (await sessionJudged(row.id)) continue
+      activeIndex = Number(row.session_index)
+      break
+    }
     return {
       id: task.id,
       weekStart: Number(task.week_start),
@@ -299,7 +308,7 @@ export function createReciteStore(db) {
       configVersion: Number(task.config_version),
       status: task.status,
       completedSessions: Number(progress?.completed || 0),
-      activeSessionIndex: progress?.active == null ? null : Number(progress.active),
+      activeSessionIndex: activeIndex,
       words: words.map(taskWordResponse),
       wordOrder: await taskWordOrder(task, words),
       // 每一次学习的实际状态（推送的那一次在计划词表之外，单词要从卡片里取）
@@ -335,6 +344,8 @@ export function createReciteStore(db) {
         item.words = words
         item.spellingWords = spellingWords
       }
+      // 学完待保存：判定都在草稿里，只差家长点保存
+      if (row.status === 'active') item.judged = await sessionJudged(row.id)
       list.push(item)
     }
     return list
@@ -342,6 +353,22 @@ export function createReciteStore(db) {
 
   async function currentTask(env, now = Date.now()) {
     return await getTask(startOfWeek(now, env))
+  }
+
+  /**
+   * 这次学习是不是「学完待保存」：每张还没落库的卡片都判过了（有草稿），只差家长点保存。
+   * 这样的会话不再占用「进行中」——孩子可以继续学下一次，家长仍能回来保存这次的判定。
+   */
+  async function sessionJudged(sessionId) {
+    const counts = await db.first(
+      `SELECT
+        (SELECT COUNT(*) FROM recite_cards WHERE session_id = ? AND status = 'pending') AS pending,
+        (SELECT COUNT(*) FROM recite_cards c
+          JOIN recite_card_drafts d ON d.card_id = c.id AND d.session_id = c.session_id
+          WHERE c.session_id = ? AND c.status = 'pending') AS drafted`,
+      sessionId, sessionId,
+    )
+    return Number(counts?.pending || 0) === Number(counts?.drafted || 0)
   }
 
   /**
@@ -477,10 +504,8 @@ export function createReciteStore(db) {
     const index = Number(session)
     if (!Number.isInteger(index) || index < 1 || index > sessions) throw new Error('第几次学习无效')
     const progress = await db.first(
-      `SELECT
-        (SELECT COUNT(*) FROM recite_sessions WHERE task_id = ? AND status = 'completed') AS completed,
-        (SELECT MIN(session_index) FROM recite_sessions WHERE task_id = ? AND status = 'active') AS active`,
-      task.id, task.id,
+      `SELECT (SELECT COUNT(*) FROM recite_sessions WHERE task_id = ? AND status = 'completed') AS completed`,
+      task.id,
     )
     const locked = message => {
       const error = new Error(message)
@@ -488,13 +513,15 @@ export function createReciteStore(db) {
       return error
     }
     if (index <= Number(progress?.completed || 0)) throw locked('这一次已经学过了，不能再改单词')
+    const activeSession = await db.first(
+      "SELECT id FROM recite_sessions WHERE task_id = ? AND session_index = ? AND status = 'active'",
+      task.id, index,
+    )
+    // 学完待保存的那一次不能换词：换词会连同草稿一起作废，先把这次的判定保存掉
+    if (activeSession && await sessionJudged(activeSession.id)) {
+      throw locked('这一次已经学完，等家长保存后再改单词')
+    }
     // 正在学习中的那一次也能改词：这次会话（含草稿与卡片）会整体作废，单词需要重新学
-    const activeSession = progress?.active != null && Number(progress.active) === index
-      ? await db.first(
-          "SELECT id FROM recite_sessions WHERE task_id = ? AND session_index = ? AND status = 'active'",
-          task.id, index,
-        )
-      : null
     const start = (index - 1) * per
     const others = [...existing.words.slice(0, start), ...existing.words.slice(start + per)]
     const otherKeys = new Set(others.map(item => item.word))
@@ -554,11 +581,15 @@ export function createReciteStore(db) {
   async function startSession(app, env, now = Date.now()) {
     const current = await currentTask(env, now)
     if (!current) return { task: null, session: null, empty: true }
-    const active = await db.first(
-      "SELECT * FROM recite_sessions WHERE task_id = ? AND status = 'active' ORDER BY session_index LIMIT 1",
+    const actives = await db.all(
+      "SELECT * FROM recite_sessions WHERE task_id = ? AND status = 'active' ORDER BY session_index",
       current.task.id,
     )
-    if (active) return await hydrateSession(current.task, active)
+    for (const active of actives) {
+      // 学完但还没点保存的那一次留待家长保存，不拦着孩子学下一次
+      if (await sessionJudged(active.id)) continue
+      return await hydrateSession(current.task, active)
+    }
     // 下一个要学的是 1..本周次数 里第一条还没建过会话的次数：
     // 推送出来的会话序号不一定是按顺序完成的，用「已完成条数 + 1」会撞号。
     const usedRows = await db.all(
@@ -621,11 +652,13 @@ export function createReciteStore(db) {
     const existing = await getTask(week)
     if (!existing) throw new Error('这一周还没有背词任务')
     const task = existing.task
-    const active = await db.first(
-      "SELECT id FROM recite_sessions WHERE task_id = ? AND status = 'active' ORDER BY session_index LIMIT 1",
+    const actives = await db.all(
+      "SELECT id FROM recite_sessions WHERE task_id = ? AND status = 'active' ORDER BY session_index",
       task.id,
     )
-    if (active) {
+    for (const row of actives) {
+      // 学完待保存的那一次不拦推送：判定留在草稿里等家长保存，孩子先学新的这一批
+      if (await sessionJudged(row.id)) continue
       const error = new Error('有进行中的一次学习，学完再推送')
       error.code = 'SESSION_ACTIVE'
       throw error
@@ -702,7 +735,7 @@ export function createReciteStore(db) {
   }
 
   /**
-   * 推送的那一次当天没学完：第二天自动收尾——没打标的卡片一律记「不会」，会话置为已完成。
+   * 推送的那一次当天没学完：第二天自动收尾——已经判过的卡片保留判定，没打标的记「不会」。
    * 由各个读接口在做事情前顺手扫一遍，不需要定时任务。
    */
   async function sweepPushedSessions(app, env, now = Date.now()) {
@@ -721,19 +754,21 @@ export function createReciteStore(db) {
     return finalized
   }
 
-  /** 收尾一次没学完的推送：剩余卡片记「不会」、清掉草稿、会话置完成 */
+  /** 收尾一次没学完的推送：保留草稿里的判定、没打标的记「不会」，清掉草稿后会话置完成 */
   async function finalizePushedSession(app, session, now) {
     const cards = await db.all(
       'SELECT * FROM recite_cards WHERE session_id = ? ORDER BY position', session.id,
     )
+    const drafts = new Map((await listDrafts(session.id)).map(row => [row.card_id, row]))
     for (const card of cards) {
       if (card.status !== 'pending') continue
       const requestId = 'recite-push-auto|' + session.id + '|' + card.id
-      // 知意卡没学 = 不会（要写学习记录）；拼写卡没写 = 跳过（和背词页一样只记卡片结果）
-      const result = card.card_type === 'spelling' ? 'skipped' : 'unknown'
-      if (result === 'unknown') {
+      const draft = drafts.get(card.id)
+      // 孩子已经判过就按他的判定收尾；完全没打的知意卡记「不会」、拼写卡记「跳过」
+      const result = draft ? draft.result : (card.card_type === 'spelling' ? 'skipped' : 'unknown')
+      if (result !== 'skipped') {
         try {
-          await applyCardReview(app, card, 'unknown', requestId)
+          await applyCardReview(app, card, result, requestId)
         } catch {
           // 词条已经从学习列表里删掉：只把卡片收尾，不再补学习记录
         }
@@ -741,7 +776,7 @@ export function createReciteStore(db) {
       await db.run(
         `UPDATE recite_cards SET status = 'answered', result = ?, attempts = ?, request_id = ?, answered_at = ?
          WHERE id = ? AND status = 'pending'`,
-        result, Number(card.attempts || 0), requestId, now, card.id,
+        result, Number(draft?.attempts ?? card.attempts ?? 0), requestId, now, card.id,
       )
     }
     await db.run('DELETE FROM recite_card_drafts WHERE session_id = ?', session.id)

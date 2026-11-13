@@ -40,6 +40,8 @@ export interface ReciteTaskSession {
   status: 'active' | 'completed'
   /** 主动推送的那一次：单词表在 words 里，不占本周计划词表的位置 */
   pushed: boolean
+  /** 学完待保存：每张卡都判过了，只差家长点保存，不占用「进行中」 */
+  judged?: boolean
   /** 推送会话的卡片顺序（只有 pushed 才有） */
   words?: string[]
   /** 推送会话里出了拼写卡的词（只有 pushed 才有） */
