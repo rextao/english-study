@@ -333,7 +333,8 @@ export async function handleApi(method, pathname, searchParams, body, app) {
 
   // /api/tts/prefill — GET 查预合成进度，POST 把缺发音的词排进后台预合成队列
   if (pathname === '/api/tts/prefill') {
-    if (method === 'GET') return { status: 200, body: await currentTtsPrefillState(app) }
+    // GET 顺带续跑：上一次 waitUntil 被平台回收在半路时，轮询进来就把队列接上
+    if (method === 'GET') return { status: 200, body: await currentTtsPrefillState(app, { resume: true }) }
     if (method === 'POST') {
       if (!ttsConfigured(env)) {
         return { status: 503, body: { error: 'tts not configured: GOOGLE_TTS_API_KEY missing' } }
@@ -879,6 +880,17 @@ export async function handleApi(method, pathname, searchParams, body, app) {
       return { status: 200, body: { ok: true, ...result } }
     } catch (error) {
       return { status: 400, body: { ok: false, error: error?.message || '选词预览失败' } }
+    }
+  }
+
+  // DELETE /api/recite/task — 删除还没开始的整周任务，删掉后这一周可以重新配置
+  if (method === 'DELETE' && pathname === '/api/recite/task') {
+    try {
+      const result = await app.recite.deleteTask({ env, weekStart: body?.weekStart })
+      return { status: 200, body: { ok: true, ...result } }
+    } catch (error) {
+      const started = error?.code === 'TASK_STARTED'
+      return { status: started ? 409 : 400, body: { ok: false, error: error?.message || '任务删除失败' } }
     }
   }
 

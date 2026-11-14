@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Button, Drawer, Tag } from '../ui'
+import { Button, Drawer, Modal, Tag } from '../ui'
 import { PageHeader } from '../components/PageHeader'
 import { ReciteTaskPanel } from '../components/ReciteTaskPanel'
 import { RecitePushPanel } from '../components/RecitePushPanel'
@@ -10,6 +10,7 @@ import { TallyCounter } from '../components/TallyCounter'
 import type { TallyKind } from '../components/TallyCounter'
 import {
   commitReciteSession,
+  deleteReciteTask,
   fetchReciteActiveSession,
   fetchReciteHistory,
   fetchReciteRecordings,
@@ -189,11 +190,13 @@ function WordChips({ items, marks, showSpelling, order }: {
  * 一周的明细行：第 1 列日期（rowSpan 跨整周），后面每次学习一行。
  * 已完成的次数在单词后直接带判定；进行中的那一次在行右侧保存；没开始的次数点行改这一周的词。
  */
-function WeekRows({ task, isThisWeek, onEdit, onPush, pushDisabled, pushReason, sessionMarks, activeMarks, activeIndex, activeWeek, activeSave, activeJudged, recordings, onPlaybackError }: {
+function WeekRows({ task, isThisWeek, onEdit, onDelete, onPush, pushDisabled, pushReason, sessionMarks, activeMarks, activeIndex, activeWeek, activeSave, activeJudged, recordings, onPlaybackError }: {
   task: ReciteTask
   isThisWeek: boolean
   /** 点行传 session（1-based）只改这一行；点「修改配置」不传，改整周 */
   onEdit: (weekStart: number, session?: number) => void
+  /** 打开删除确认弹窗（表格外层有横向滚动，不能用贴行的气泡，会被裁掉） */
+  onDelete: (weekStart: number) => void
   /** 本周日期格子下面的「推送」：没有进行中的学习时才能用 */
   onPush?: () => void
   pushDisabled?: boolean
@@ -247,12 +250,23 @@ function WeekRows({ task, isThisWeek, onEdit, onPush, pushDisabled, pushReason, 
                   {isThisWeek && <Tag color="blue">本周</Tag>}
                 </span>
                 {!started && (
-                  <Button
-                    size="small"
-                    onClick={event => { event.stopPropagation(); onEdit(task.weekStart) }}
-                  >
-                    修改配置
-                  </Button>
+                  <>
+                    <Button
+                      size="small"
+                      onClick={event => { event.stopPropagation(); onEdit(task.weekStart) }}
+                    >
+                      修改配置
+                    </Button>
+                    {/* 整行可点击（点行改词），删除按钮的点击不能再冒泡到行上，否则会同时打开配置窗 */}
+                    <Button
+                      size="small"
+                      type="text"
+                      danger
+                      onClick={event => { event.stopPropagation(); onDelete(task.weekStart) }}
+                    >
+                      删除
+                    </Button>
+                  </>
                 )}
                 {isThisWeek && onPush && (
                   <Button
@@ -361,6 +375,11 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
   const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  /** 删除确认弹窗：存目标周（周一 0 点），null 表示关闭 */
+  const [deleteWeek, setDeleteWeek] = useState<number | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  /** 删除失败的原因，显示在确认弹窗里（表格被弹窗盖住，页面上看不见） */
+  const [deleteError, setDeleteError] = useState('')
   const [reload, setReload] = useState(0)
   /** 选词弹窗：存目标周（周一 0 点），null 表示关闭 */
   const [modalWeek, setModalWeek] = useState<number | null>(null)
@@ -544,6 +563,22 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
     }
   }
 
+  /** 删除一周还没开始的任务：删完重拉列表，这一周回到「配置这一周任务」 */
+  async function removeTask() {
+    if (deleteWeek === null || deleting) return
+    setDeleting(true)
+    setDeleteError('')
+    try {
+      await deleteReciteTask(deleteWeek)
+      setDeleteWeek(null)
+      setReload(value => value + 1)
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : '删除任务失败，请重试')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const activeSave = active?.session
     ? { saving, missing: activeMissing, onSave: openSaveDrawer }
     : undefined
@@ -627,6 +662,7 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
                       task={task}
                       isThisWeek={isThisWeek}
                       onEdit={(next, session) => { setModalWeek(next); setModalSession(session ?? null) }}
+                      onDelete={weekStart => { setDeleteError(''); setDeleteWeek(weekStart) }}
                       onPush={() => setPushWeek(task.weekStart)}
                       pushDisabled={pushBlocked}
                       pushReason="有进行中的一次学习，学完再推送"
@@ -720,6 +756,25 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
         </ul>
         {pendingCards.length === 0 && <p className="empty empty--inline">这次学习没有待保存的卡片。</p>}
       </Drawer>
+
+      <Modal
+        open={deleteWeek !== null}
+        title="删除这一周的背词任务？"
+        onClose={() => { if (!deleting) setDeleteWeek(null) }}
+        footer={
+          <>
+            <Button disabled={deleting} onClick={() => setDeleteWeek(null)}>取消</Button>
+            <Button type="primary" danger loading={deleting} onClick={() => { void removeTask() }}>
+              删除
+            </Button>
+          </>
+        }
+      >
+        <p className="hint">
+          只删除还没开始的任务配置，删掉后这一周可以重新选词配置；已经开始过的周不能删除。
+        </p>
+        {deleteError && <p className="callout callout--error">{deleteError}</p>}
+      </Modal>
 
       <RecitePushPanel
         open={pushWeek !== null}

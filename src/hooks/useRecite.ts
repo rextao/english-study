@@ -250,6 +250,20 @@ export async function saveReciteTask(input: ReciteTaskInput & { spellingWords: s
 }
 
 /**
+ * 删除一周还没开始的背词任务：删掉后这一周回到「还没配置」，可以重新选词。
+ * 已经开始过的周服务端拒绝（409），已学的次数和课堂录音都不会被删。
+ */
+export async function deleteReciteTask(weekStart: number): Promise<void> {
+  const response = await apiFetch('/api/recite/task', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ weekStart }),
+  })
+  await readJson<{ ok: boolean }>(response)
+  invalidateApiCache(['recite-task', 'recite-session', 'study-plan'])
+}
+
+/**
  * 主动推送一批单词：没有进行中的会话才能推。
  * 服务端把本周次数 +1 并直接建好这一次「学习中」的会话。
  */

@@ -489,6 +489,30 @@ export function createReciteStore(db) {
   }
 
   /**
+   * 删除一整周还没开始的任务：只要建过会话（含主动推送、学完待保存）就不让删，
+   * 避免把已学记录和课堂录音的归属一起删掉。删掉后这一周回到「还没配置」，可以重新选词。
+   */
+  async function deleteTask({ env, now = Date.now(), weekStart }) {
+    const week = resolveWeekStart(weekStart, env, now)
+    const existing = await getTask(week)
+    if (!existing) throw new Error('这一周还没有背词任务')
+    const session = await db.first(
+      'SELECT 1 FROM recite_sessions WHERE task_id = ? LIMIT 1', existing.task.id,
+    )
+    if (session) {
+      const error = new Error('这一周的任务已经开始，不能删除')
+      error.code = 'TASK_STARTED'
+      throw error
+    }
+    // 显式删词表，不依赖外键级联在测试 shim 上的行为
+    await db.batch([
+      ['DELETE FROM recite_task_words WHERE task_id = ?', existing.task.id],
+      ['DELETE FROM recite_tasks WHERE id = ?', existing.task.id],
+    ])
+    return { weekStart: week, deleted: true }
+  }
+
+  /**
    * 只改某一次学习的单词：整周任务已经开始时，没开始或正在学习中的次数仍然可以换词。
    * 只替换这一行（按任务的每次词数切分），其他次数原样保留；这一行新选的词
    * 如果原本在别的次数里，以这一行为准，从那里去掉（同一周里一个词只出现一次）。
@@ -1052,7 +1076,7 @@ export function createReciteStore(db) {
   }
 
   return {
-    currentTask, preview, saveTask, saveSessionWords, startSession, answerCard, commitSession,
+    currentTask, preview, saveTask, deleteTask, saveSessionWords, startSession, answerCard, commitSession,
     getDrafts, saveDraft, activeSession, history, getTask, taskPayload, listTasks,
     pushSession, sweepPushedSessions,
   }

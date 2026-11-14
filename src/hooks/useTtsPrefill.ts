@@ -23,6 +23,11 @@ export type PrefillResult =
 
 const MSG_OFFLINE = '云端服务没有响应，请检查网络或稍后再试'
 const MSG_STALE = '云端服务版本较旧，还没有发音补充接口，请重新部署 Worker 后再试'
+const MSG_STALLED = '补充进度长时间没有变化，后台任务可能被中断了，请再点一次「全部补充音频」继续'
+/** 进度多久没变化就认定卡住：服务端一轮执行约 22 秒收手续跑，40 秒足够跨过一轮 */
+const STALL_MS = 40_000
+/** 进度轮询间隔：服务端一条要 1–2 秒，2 秒一次已经够跟得上，不必打得更密 */
+const POLL_MS = 2000
 
 type JsonBody = Record<string, unknown>
 type ServerError = { kind: 'error'; message: string }
@@ -104,7 +109,11 @@ export function useTtsPrefill(onFinish?: () => void) {
       setState(IDLE)
       setError(message)
     }
-    const timer = setInterval(async () => {
+    let lastSignature = ''
+    let lastChangeAt = Date.now()
+    const tick = async () => {
+      // 后台标签页不轮询：补充在服务端跑，用户看不见时没必要每秒打接口
+      if (typeof document !== 'undefined' && document.hidden) return
       const body = await callServer('/api/tts/prefill')
       if (!alive) return
       if (body === 'offline') { stop(MSG_OFFLINE); return }
@@ -112,6 +121,15 @@ export function useTtsPrefill(onFinish?: () => void) {
       if (isServerError(body)) { stop(body.message); return }
       const next = toState(body)
       if (!next) { stop(MSG_STALE); return }
+      // 兜底：后台队列真卡了就别让「补充中」一直转下去
+      const signature = next.done + '/' + next.failed + '/' + next.pending
+      if (signature !== lastSignature) {
+        lastSignature = signature
+        lastChangeAt = Date.now()
+      } else if (!next.finished && Date.now() - lastChangeAt > STALL_MS) {
+        stop(MSG_STALLED)
+        return
+      }
       setState(next)
       if (next.finished) {
         setWatching(false)
@@ -120,10 +138,15 @@ export function useTtsPrefill(onFinish?: () => void) {
         invalidateApiCache(['missing-tts'])
         finishRef.current?.()
       }
-    }, 1200)
+    }
+    const timer = setInterval(() => { void tick() }, POLL_MS)
+    // 回到前台立刻补一次，不用等下一个间隔
+    const onVisible = () => { if (!document.hidden) void tick() }
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible)
     return () => {
       alive = false
       clearInterval(timer)
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible)
     }
   }, [watching])
 

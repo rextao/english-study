@@ -1946,6 +1946,51 @@ check('tts_cache 写入 3 条音频',
   && ttsCached.some(row => row.text === 'banana')
   && ttsCached.some(row => row.text === 'i have a cherry'), ttsCached)
 
+// 回归：上一轮执行被平台回收在半路，队列留在 kv 里却没人跑，前端会永远卡在「补充中」。
+// 轮询 GET 要把队列接上重新跑完，用户不用刷新页面再来一次。
+await db().run(
+  'INSERT INTO kv (key, value_json, updated_at) VALUES (?, ?, ?)'
+  + ' ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at',
+  KV_KEYS.ttsPrefill,
+  JSON.stringify({
+    queue: [{ text: 'damson' }],
+    total: 1, done: 0, failed: 0, errors: [],
+    leaseUntil: Date.now() - 1000, leaseOwner: 'dead-run',
+  }),
+  Date.now(),
+)
+prefillCalls.length = 0
+r = await call('GET', '/api/tts/prefill')
+check('租约过期的残留队列算未完成', r.status === 200 && r.body?.finished === false && r.body?.pending === 1, r.body)
+await Promise.all(waitUntilPromises.splice(0, waitUntilPromises.length))
+check('轮询自动接上残留队列并重新合成', prefillCalls.filter(url => url.startsWith('http://tts.mock/synthesize')).length === 1, prefillCalls)
+const resumedState = await readKv(db(), KV_KEYS.ttsPrefill, {})
+check('续跑完清空队列并放开租约',
+  Array.isArray(resumedState.queue) && resumedState.queue.length === 0
+  && resumedState.done === 1 && Number(resumedState.leaseUntil) === 0, resumedState)
+
+// 回归：执行在合成途中被回收，那一条留在 inflight 里——要放回队列重跑，不能丢掉
+await db().run(
+  'INSERT INTO kv (key, value_json, updated_at) VALUES (?, ?, ?)'
+  + ' ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at',
+  KV_KEYS.ttsPrefill,
+  JSON.stringify({
+    queue: [], total: 1, done: 0, failed: 0, errors: [],
+    leaseUntil: Date.now() - 1000, leaseOwner: 'dead-run', inflight: { text: 'elderberry' },
+  }),
+  Date.now(),
+)
+prefillCalls.length = 0
+r = await call('GET', '/api/tts/prefill')
+check('在途任务也算未完成', r.status === 200 && r.body?.finished === false && r.body?.pending === 1, r.body)
+await Promise.all(waitUntilPromises.splice(0, waitUntilPromises.length))
+const recoveredState = await readKv(db(), KV_KEYS.ttsPrefill, {})
+check('轮询把在途任务放回队列并跑完',
+  recoveredState?.inflight === null && recoveredState?.done === 1
+  && Array.isArray(recoveredState?.queue) && recoveredState.queue.length === 0, recoveredState)
+check('在途任务真的又合成了一次',
+  prefillCalls.filter(url => url.startsWith('http://tts.mock/synthesize')).length === 1, prefillCalls)
+
 r = await call('POST', '/api/tts/prefill', {})
 check('已齐时再次补充不再入队', r.status === 200 && r.body?.queued === 0, r.body)
 
@@ -2050,10 +2095,28 @@ const singleWeekTask = (await call('GET', '/api/recite/task?weekStart=' + r.body
 check('背词任务列表与单周读回一致',
   singleWeekTask?.id === r.body.tasks[0].id && singleWeekTask?.words?.length === 2, singleWeekTask)
 
+// 删除还没开始的一周：删掉后这一周回到「还没配置」，可以重新选词
+const removableWeek = singleWeekStart + 7 * 86400000
+await call('PUT', '/api/recite/task', {
+  weekStart: removableWeek,
+  perSessionCount: 1,
+  sessionCount: 1,
+  selections: [{ listId: reciteListId, word: 'apple' }],
+  spellingWords: [],
+})
+r = await call('DELETE', '/api/recite/task', { weekStart: removableWeek })
+check('未开始的整周任务可以删除', r.status === 200 && r.body?.deleted === true, r.body)
+r = await call('GET', '/api/recite/tasks')
+check('删除后这一周回到未配置',
+  r.status === 200 && !r.body.tasks.some(task => task.weekStart === removableWeek), r.body)
+
 r = await call('POST', '/api/recite/sessions/start')
 let recitePayload = r.body
 check('背词学习会话直接开始',
   r.status === 200 && recitePayload?.session?.status === 'active' && recitePayload?.card?.id, recitePayload)
+// 已经开始过的周不能删，避免把已学记录和录音的归属一起删掉
+r = await call('DELETE', '/api/recite/task', { weekStart: singleWeekStart })
+check('已经开始的整周任务不能删除', r.status === 409 && /不能删除/.test(r.body?.error || ''), r.body)
 const firstCardId = recitePayload?.card?.id
 const firstRequestId = 'recite-test-' + firstCardId
 const firstResult = recitePayload?.card?.cardType === 'spelling' ? 'correct' : 'known'
