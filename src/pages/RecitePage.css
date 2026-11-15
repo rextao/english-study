@@ -214,6 +214,34 @@
   pointer-events: none;
 }
 
+/* 卡片右上角的发音倍速：绝对定位、不占排版，点一下循环正常速 → 0.5 倍速 → 0.3 倍速 */
+.recite-card__speed {
+  position: absolute;
+  top: clamp(10px, 1.8vh, 18px);
+  right: clamp(10px, 1.8vw, 18px);
+  z-index: 2;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #F7DDE1;
+  border-radius: var(--radius-full);
+  background: var(--r-primary-wash);
+  color: var(--r-primary-deep);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  cursor: pointer;
+  transition: background .18s ease, transform .12s ease, box-shadow .18s ease;
+  box-shadow: 0 8px 18px -16px rgba(232, 139, 154, .8);
+}
+
+.recite-card__speed:hover { background: var(--r-primary-tint); }
+.recite-card__speed:active { transform: scale(.96); }
+
+@media (max-width: 560px) {
+  .recite-card__speed { min-height: 32px; padding: 0 11px; font-size: 12.5px; }
+}
+
 .recite-card__hint {
   font-size: 13px;
   letter-spacing: .14em;
@@ -1049,6 +1077,102 @@
 @media (prefers-reduced-motion: reduce) {
   .recite__celebrate-card,
   .recite__trophy { animation: none; }
+}
+
+/* ---------------- 「说一下是什么意思」确认弹窗 ---------------- */
+
+/* 挂在 .recite 根节点里（卡片带 transform 动画，挂在卡片里会被当成 fixed 定位的参照）：
+   半透明遮罩 + 居中卡片，不卸掉卡片的渲染，点「取消」就回到同一张卡上 */
+.recite-ask {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(253, 249, 247, .78);
+  backdrop-filter: blur(6px);
+  animation: recite-fade .18s ease-out;
+}
+
+@keyframes recite-fade {
+  from { opacity: 0; }
+}
+
+.recite-ask__card {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: min(520px, 100%);
+  padding: clamp(24px, 4vw, 40px);
+  border-radius: 30px;
+  border: 1px solid var(--r-line);
+  background: #fff;
+  box-shadow: 0 30px 60px -40px rgba(150, 95, 105, .45);
+  text-align: center;
+  animation: recite-rise .22s ease both;
+}
+
+.recite-ask__word {
+  font-size: clamp(26px, 4vw, 40px);
+  font-weight: 800;
+  letter-spacing: .03em;
+  color: var(--r-ink);
+}
+
+.recite-ask__title {
+  margin: 0;
+  font-size: clamp(20px, 2.6vw, 28px);
+  font-weight: 800;
+  color: var(--r-primary-deep);
+}
+
+.recite-ask__hint {
+  margin: 0;
+  color: var(--r-ink-2);
+  font-size: 14px;
+}
+
+.recite-ask__actions {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.recite-ask__cancel,
+.recite-ask__confirm {
+  flex: 1;
+  min-height: clamp(52px, 7vh, 64px);
+  border-radius: 20px;
+  font-family: inherit;
+  font-size: clamp(18px, 2.2vw, 22px);
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform .12s ease, filter .16s ease;
+}
+
+.recite-ask__cancel {
+  border: 1.5px solid var(--r-primary-line);
+  background: #fff;
+  color: var(--r-ink);
+}
+
+.recite-ask__confirm {
+  border: none;
+  background: var(--r-primary-deep);
+  color: #fff;
+  box-shadow: 0 16px 28px -20px rgba(188, 85, 102, .8);
+}
+
+.recite-ask__cancel:hover { background: var(--r-primary-wash); }
+.recite-ask__confirm:hover { filter: brightness(1.05); }
+.recite-ask__cancel:active,
+.recite-ask__confirm:active { transform: scale(.98); }
+
+@media (prefers-reduced-motion: reduce) {
+  .recite-ask,
+  .recite-ask__card { animation: none; }
 }
 
 /* ---------------- 完成按钮庆祝特效（每次刷新随机一种） ---------------- */

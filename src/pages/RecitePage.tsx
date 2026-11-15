@@ -38,6 +38,10 @@ interface DraftAnswer {
 const KEYBOARD_ROWS = ['qw', 'abcdefghijklmnopqrstuvwxyz']
 const FIRST_ROW_KEYS = 'qw'
 
+/** 发音倍速：卡片右上角的按钮点一下换一个，只改本地播放速度，不重新合成音频 */
+const SPEED_RATES = [1, 0.5, 0.3]
+const SPEED_LABELS = ['正常速', '0.5 倍速', '0.3 倍速']
+
 function normalize(value: string) {
   return value.trim().replace(/\s+/g, ' ').toLowerCase()
 }
@@ -191,6 +195,10 @@ export function RecitePage({
   // 喇叭：任何情况都显示，点了才去请求 /api/tts，失败把原因直接写在页面上
   const [speaking, setSpeaking] = useState(false)
   const [speechError, setSpeechError] = useState('')
+  // 发音倍速（卡片右上角）：0 = 正常速，1 = 0.5 倍速，2 = 0.3 倍速
+  const [speedIndex, setSpeedIndex] = useState(0)
+  // 点「会」之后先问「说一下是什么意思」，点「确定」才进下一张
+  const [askMeaning, setAskMeaning] = useState(false)
   // 连点喇叭时只认最后一次：旧的那次被掐掉后不会再改回「播放中」
   const playToken = useRef(0)
   // 点「下一张」先把卡片滑出去（180ms）再换下一张，换卡不是硬切
@@ -325,6 +333,7 @@ export function RecitePage({
     setAttempts(0)
     setFeedback(null)
     setLocalError('')
+    setAskMeaning(false)
     setStage(pending.length > 0 && nextCard ? 'cards' : 'celebrate')
   }, [payload?.session?.sessionId, payload?.session?.cursor])
 
@@ -343,6 +352,7 @@ export function RecitePage({
     )
     setSpeechError('')
     setSpeaking(false)
+    setAskMeaning(false)
     stopSpeech()
   }, [index])
 
@@ -398,7 +408,23 @@ export function RecitePage({
   function markMeaning(result: MeaningResult) {
     if (!card || card.cardType !== 'meaning') return
     persistDraft({ cardId: card.id, result, attempts: 0 })
+    if (result === 'known') {
+      // 说得出意思才算真会：先问一句，确认了才进下一张
+      setAskMeaning(true)
+      return
+    }
     setFlipped(true)
+  }
+
+  /** 「说一下是什么意思」点「确定」：这一张算过，直接接下一张（最后一张则进完成页） */
+  function confirmMeaning() {
+    setAskMeaning(false)
+    leaveToNext()
+  }
+
+  /** 点「取消」：回到卡片，可以改点「不会」看答案 */
+  function cancelMeaning() {
+    setAskMeaning(false)
   }
 
   /** 播离场动画，180ms 后切到下一张（最后一张则进完成页） */
@@ -455,7 +481,7 @@ export function RecitePage({
     playToken.current = token
     setSpeechError('')
     setSpeaking(true)
-    void speak(answer)
+    void speak(answer, { rate: SPEED_RATES[speedIndex] })
       .catch(error => {
         if (playToken.current === token) setSpeechError(speechErrorMessage(error))
       })
@@ -732,6 +758,18 @@ export function RecitePage({
           }
           onClick={isReview && !isSpelling ? flipCard : undefined}
         >
+          {/* 右上角倍速：点一下在正常速 / 0.5 倍速 / 0.3 倍速之间循环 */}
+          <button
+            type="button"
+            className="recite-card__speed"
+            onClick={event => {
+              // 回看时点卡片会翻面，别让倍速按钮把卡片翻过去
+              event.stopPropagation()
+              setSpeedIndex(value => (value + 1) % SPEED_RATES.length)
+            }}
+            aria-label={'发音速度：' + SPEED_LABELS[speedIndex] + '，点击切换'}
+            title={'发音速度：' + SPEED_LABELS[speedIndex] + '，点一下切换'}
+          >{SPEED_LABELS[speedIndex]}</button>
           {isSpelling ? (
             <>
               <p className="recite-card__hint">看中文，拼出英文</p>
@@ -882,6 +920,20 @@ export function RecitePage({
         {speechError && <div className="recite__error" role="alert">{speechError}</div>}
         {recording.error && <div className="recite__error" role="alert">{recording.error}</div>}
       </main>
+      {/* 点「会」之后的确认：说得出意思再点确定，才进下一张 */}
+      {askMeaning && card && card.cardType === 'meaning' && (
+        <div className="recite-ask" role="dialog" aria-modal="true" aria-labelledby="recite-ask-title">
+          <div className="recite-ask__card">
+            <p className="recite-ask__word">{card.word}</p>
+            <h2 className="recite-ask__title" id="recite-ask-title">说一下是什么意思</h2>
+            <p className="recite-ask__hint">说出来之后再点确定</p>
+            <div className="recite-ask__actions">
+              <button type="button" className="recite-ask__cancel" onClick={cancelMeaning}>取消</button>
+              <button type="button" className="recite-ask__confirm" onClick={confirmMeaning}>确定</button>
+            </div>
+          </div>
+        </div>
+      )}
       {debugPanel}
     </div>
   )

@@ -100,8 +100,12 @@ export function stopSpeech() {
   currentAudio = null
 }
 
-/** 朗读一个词；Promise 在播放结束（或失败）后 resolve / reject */
-export async function speak(text: string): Promise<void> {
+/**
+ * 朗读一个词；Promise 在播放结束（或失败）后 resolve / reject。
+ * rate 是播放倍速（背词页右上角的正常速 / 0.5 倍速 / 0.3 倍速），
+ * 只改本地播放速度，不重新合成音频，缓存照旧复用。
+ */
+export async function speak(text: string, options: { rate?: number } = {}): Promise<void> {
   const word = text.trim()
   if (!word) return
   stopSpeech()
@@ -111,6 +115,11 @@ export async function speak(text: string): Promise<void> {
   if (generation !== speechGeneration) return
   await new Promise<void>((resolve, reject) => {
     const audio = new Audio(url)
+    const rate = options.rate && options.rate > 0 ? options.rate : 1
+    audio.playbackRate = rate
+    // 慢速不要连音调一起压低，听起来还是同一个人念的（老浏览器没有这个属性就跳过）
+    const tunable = audio as HTMLAudioElement & { preservesPitch?: boolean }
+    tunable.preservesPitch = true
     currentAudio = audio
     const clear = () => { if (currentAudio === audio) currentAudio = null }
     audio.onended = () => { clear(); resolve() }

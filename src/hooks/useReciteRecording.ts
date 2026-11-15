@@ -136,19 +136,26 @@ export function useReciteRecording({ enabled, active, sessionId }: ReciteRecordi
   const prime = useCallback(() => {
     if (!enabled || !supported || primed.current || primePending.current) return
     const seq = primeSeq.current
-    const pending = navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-      // 期间被释放过 / 已经有流了：别攥着麦克风不放
-      if (seq !== primeSeq.current || primed.current) {
-        stream.getTracks().forEach(track => track.stop())
-        return
-      }
-      primed.current = stream
-      // 会话迟迟没回来就别一直攥着麦克风，正式开录时再要一次就好
-      if (primeTimer.current) window.clearTimeout(primeTimer.current)
-      primeTimer.current = window.setTimeout(releasePrimed, 20_000)
-    }).catch(() => {
-      // 这里不报错：正式开录时会再试一次，失败原因由那次写进 error
-    })
+    let pending: Promise<void>
+    try {
+      pending = navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        // 期间被释放过 / 已经有流了：别攥着麦克风不放
+        if (seq !== primeSeq.current || primed.current) {
+          stream.getTracks().forEach(track => track.stop())
+          return
+        }
+        primed.current = stream
+        // 会话迟迟没回来就别一直攥着麦克风，正式开录时再要一次就好
+        if (primeTimer.current) window.clearTimeout(primeTimer.current)
+        primeTimer.current = window.setTimeout(releasePrimed, 20_000)
+      }).catch(() => {
+        // 这里不报错：正式开录时会再试一次，失败原因由那次写进 error
+      })
+    } catch {
+      // 浏览器同步拒绝（页面不是 HTTPS / 被策略禁用）：录音只是附加功能，
+      // 绝不能把「开始学习」和「会 / 不会」一起拖住
+      return
+    }
     primePending.current = pending
     void pending.then(() => {
       if (primePending.current === pending) primePending.current = null
@@ -169,13 +176,22 @@ export function useReciteRecording({ enabled, active, sessionId }: ReciteRecordi
 
   /**
    * 刷新 / 直接进背词流时没有经过「开始学习」那一下点击，自动开录的 getUserMedia
-   * 不在手势里（Safari 会拒）。所以开录失败后挂一个一次性监听：接下来随便点哪里
-   * （点卡片、点「会 / 不会」都算），就借这次手势再要一次麦克风。
+   * 不在手势里（Safari 会拒）。所以开录失败后挂一个一次性监听：接下来在页面空白处
+   * 点一下，就借这次手势再要一次麦克风。
+   *
+   * 但绝不能拦着答题：点在卡片 / 「会」「不会」/ 键盘这些学习控件上时不要麦克风，
+   * 否则浏览器在这一次点击里弹出权限框，会把这一下吞掉，看着就像「录不了音就学不了」。
+   * 录音永远只是附加功能，开不了也照常背单词。
    */
   useEffect(() => {
     if (!supported || !enabled || !active || !startFailed) return
-    const handler = () => retry()
-    window.addEventListener('pointerdown', handler, { once: true, capture: true })
+    const handler = (event: PointerEvent) => {
+      const target = event.target
+      if (target instanceof Element && target.closest('.recite-card, .recite__bar, .recite-keyboard, .recite-ask')) return
+      window.removeEventListener('pointerdown', handler, { capture: true })
+      retry()
+    }
+    window.addEventListener('pointerdown', handler, { capture: true })
     return () => window.removeEventListener('pointerdown', handler, { capture: true })
   }, [supported, enabled, active, startFailed, retry])
 
@@ -433,13 +449,18 @@ export function useReciteRecording({ enabled, active, sessionId }: ReciteRecordi
    */
   useEffect(() => {
     if (!silencePaused || !supported || !enabled || !active) return
-    const restart = () => {
+    // 同样避开学习控件：点「会 / 不会」不弹麦克风权限框，答题优先
+    const restart = (event?: Event) => {
+      const target = event?.target
+      if (target instanceof Element && target.closest('.recite-card, .recite__bar, .recite-keyboard, .recite-ask')) return
+      window.removeEventListener('pointerdown', restart, { capture: true })
+      window.removeEventListener('keydown', restart, { capture: true })
       setSilencePaused(false)
       prime()
       setResumeTick(value => value + 1)
     }
-    window.addEventListener('pointerdown', restart, { once: true, capture: true })
-    window.addEventListener('keydown', restart, { once: true, capture: true })
+    window.addEventListener('pointerdown', restart, { capture: true })
+    window.addEventListener('keydown', restart, { capture: true })
     return () => {
       window.removeEventListener('pointerdown', restart, { capture: true })
       window.removeEventListener('keydown', restart, { capture: true })
