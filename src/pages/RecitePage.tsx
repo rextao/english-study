@@ -20,6 +20,8 @@ interface RecitePageProps {
   homeLoading: boolean
   homeError: string | null
   onStart: () => void
+  /** 完成页「继续学习」：直接开本周的下一次任务 */
+  onContinue: () => void
 }
 
 type MeaningResult = 'known' | 'unknown'
@@ -173,6 +175,7 @@ export function RecitePage({
   homeLoading,
   homeError,
   onStart,
+  onContinue,
 }: RecitePageProps) {
   const cards = payload?.cards ?? []
   const session = payload?.session ?? null
@@ -233,6 +236,17 @@ export function RecitePage({
   // 右下角齿轮：输入口令 123 后打开调试面板（录音状态 + 本地缓存情况）
   const [debugOpen, setDebugOpen] = useState(false)
   const week = homeTask ?? payload?.task ?? null
+  // 完成页「继续学习」：本周计划里还有没建过会话的次数就能接着学；
+  // 学完但家长还没保存的那一次已经有会话了，不占「还能学」的名额
+  const taskInfo = payload?.task ?? null
+  const usedSessionIndexes = new Set((taskInfo?.sessions ?? []).map(item => item.index))
+  let remainingSessions = 0
+  if (taskInfo) {
+    for (let i = 1; i <= taskInfo.sessionCount; i += 1) {
+      if (!usedSessionIndexes.has(i)) remainingSessions += 1
+    }
+  }
+  const hasNextSession = remainingSessions > 0 && !payload?.complete
 
   /** 录音开关的偏好：开关本身和调试面板里的按钮都走这里 */
   const applyRecordPref = (next: boolean) => {
@@ -255,6 +269,18 @@ export function RecitePage({
     fxTimers.current.clear()
     fxActive.current = 0
     setFxRounds([])
+  }
+
+  /**
+   * 点「继续学习」直接开本周的下一次：服务端会跳过「学完待保存」的那一次（判定留在草稿里，
+   * 等家长保存），再建下一次的会话。不点这个按钮就仍然停在完成页，只放庆祝特效。
+   */
+  function handleContinueLesson() {
+    if (!hasNextSession) return
+    // 先回到卡片态：新会话回来时不会在完成页闪一下；点按钮本身是手势，正好用来要麦克风
+    setStage('cards')
+    recording.prime()
+    onContinue()
   }
 
   /**
@@ -585,6 +611,21 @@ export function RecitePage({
     )
   }
 
+  // 下一次要学的单词已经不在学习列表里了：给个明确的说法，不要留在空白的卡片上
+  if (payload.empty) {
+    return (
+      <div className="recite recite--state">
+        <div className="recite__panel recite__panel--lite">
+          <span className="recite__emoji">🌤️</span>
+          <b>下一组单词还没准备好</b>
+          <p>这些单词已经不在学习列表里了，请家长在英语学习页调整本周任务。</p>
+        </div>
+        {debugButton}
+        {debugPanel}
+      </div>
+    )
+  }
+
   if (payload.complete || stage === 'celebrate') {
     return (
       <div className="recite recite--celebrate">
@@ -592,7 +633,18 @@ export function RecitePage({
           <div className="recite__trophy" aria-hidden="true">🏆</div>
           <h1 className="recite__celebrate-title">太棒啦，全部完成！</h1>
           {localError && <p className="recite__error">{localError}</p>}
-          <button type="button" className="recite__confirm" onClick={handleFinish}>完成</button>
+          {/* 本周还有没学过的次数：可以接着学下一次；不点就停在完成页，和以前一样 */}
+          {hasNextSession && (
+            <>
+              <p className="recite__celebrate-sub">本周还有 {remainingSessions} 次学习</p>
+              <button type="button" className="recite__confirm" onClick={handleContinueLesson}>继续学习</button>
+            </>
+          )}
+          <button
+            type="button"
+            className={'recite__confirm' + (hasNextSession ? ' recite__confirm--ghost' : '')}
+            onClick={handleFinish}
+          >完成</button>
         </div>
         {fxRounds.map(round => (
           <div className="fx-overlay" key={round.id} aria-hidden="true">

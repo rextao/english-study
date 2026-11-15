@@ -908,6 +908,15 @@
 
 .recite__confirm:disabled { opacity: .7; cursor: default; }
 
+/* 完成页有「继续学习」时，「完成」降成次要按钮：只负责再放一次庆祝特效 */
+.recite__confirm--ghost {
+  margin-top: 0;
+  border: 1.5px solid var(--r-primary-line);
+  background: #fff;
+  color: var(--r-primary-deep);
+  box-shadow: none;
+}
+
 /* ---------------- 矮横屏 / 窄屏 ---------------- */
 
 @media (max-height: 560px) {

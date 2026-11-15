@@ -158,6 +158,8 @@ export default function App() {
         homeLoading={reciteTaskLoading}
         homeError={reciteTaskError}
         onStart={() => setReciteStarted(true)}
+        // 完成页「继续学习」：重走一次 start，服务端会把学完待保存的那一次跳过、直接开本周下一次
+        onContinue={() => setReciteReload(value => value + 1)}
       />
     )
   }
