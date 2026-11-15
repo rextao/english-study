@@ -338,13 +338,61 @@ function ballRadiusFor(text: string, kind: BallKind, width: number, height: numb
   return clamp(base + extra, 38, 64)
 }
 
-/** 反推字号：单词球固定单行，太长的词按球内宽度缩一点也绝不折行；中文球最多三行 */
+/** 量单词宽度用的字体：与 games.css 里 .games 的字体栈保持一致（canvas 只认完整字体串） */
+const MEASURE_FAMILY = "ui-rounded, -apple-system, 'SF Pro Rounded', 'Hiragino Sans GB', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', system-ui, sans-serif"
+/** 每个单词只量一次：单词球的字号完全由「这个词多宽 + 球多大」决定 */
+const wordWidthCache = new Map<string, number>()
+let measureCtx: CanvasRenderingContext2D | null | undefined
+
+/** 单词在 100px 字号、800 字重下的宽度（换算成 em）；量不出来时退回 0.62em/字 的估算 */
+function wordWidthEm(text: string) {
+  const cached = wordWidthCache.get(text)
+  if (cached != null) return cached
+  if (measureCtx === undefined) {
+    measureCtx = typeof document === 'undefined'
+      ? null
+      : document.createElement('canvas').getContext('2d')
+  }
+  let ratio = 0
+  if (measureCtx) {
+    measureCtx.font = '800 100px ' + MEASURE_FAMILY
+    // 字体串没被认下来时 canvas 会退回 10px：量出来的值会小十倍，字号就会大到炸出球外
+    if (/100px/.test(measureCtx.font)) ratio = measureCtx.measureText(text).width / 100
+  }
+  if (!(ratio > 0)) ratio = [...text].length * 0.62
+  wordWidthCache.set(text, ratio)
+  return ratio
+}
+
+/**
+ * 反推字号：单词球固定单行，且要尽量占满整颗球。
+ * 球面是圆的：一行字越高，上下切到的弦越短，所以按「字高 1.15 倍、上下各一半」算出
+ * 这一行实际能用的宽度，二分出刚好放得下的最大字号，绝不折行也不被裁掉。
+ * 中文球仍然按字数排成最多三行。
+ */
 function fitFontSize(text: string, kind: BallKind, r: number) {
+  if (kind === 'word') {
+    const em = wordWidthEm(text)
+    // 左右各留 5px（球里的内边距 + 一点余量），贴着圆边也不会被裁
+    const fits = (size: number) => {
+      const half = size * 0.575
+      if (half >= r) return false
+      const usable = 2 * Math.sqrt(r * r - half * half) - 10
+      return em * size <= usable
+    }
+    let lo = 9
+    let hi = r * 1.05
+    if (!fits(lo)) return lo
+    for (let i = 0; i < 16; i += 1) {
+      const mid = (lo + hi) / 2
+      if (fits(mid)) lo = mid
+      else hi = mid
+    }
+    // 向下取整：样式里还会四舍五入，留一点余量保证始终不越界
+    return Math.floor(lo)
+  }
   const chars = [...text].length
   const innerWidth = 1.62 * r - 12
-  if (kind === 'word') {
-    return clamp(Math.min(13, (innerWidth / (chars * 0.62)) * 0.94), 11, 13)
-  }
   const lines = chars <= 6 ? 1 : chars <= 14 ? 2 : 3
   const perLine = Math.ceil(chars / lines)
   const byWidth = (innerWidth / perLine) * 0.94
