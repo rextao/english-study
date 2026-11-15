@@ -11,5 +11,6 @@ export const MONSTER: GameManifest = {
   id: 'monster',
   title: '单词打怪兽',
   subtitle: '把英文球和中文球拖到一起，用魔法飞弹打小怪兽',
+  emoji: '👾',
   Component: MonsterGame,
 }

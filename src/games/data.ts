@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { fetchReciteActiveSession, fetchReciteTask } from '../hooks/useRecite'
 import type { ReciteCard, ReciteTaskWord } from '../hooks/useRecite'
 import { stripTranslationPos } from '../utils/translations'
+import { queryApi } from '../utils/apiCache'
+import type { StudyList, StudyWordItem } from '../types/vocab'
 import type { GameWord } from './types'
 
 /**
@@ -218,5 +220,69 @@ export function useGameWords(enabled: boolean): GameWordsState {
       alive = false
     }
   }, [enabled])
+  return state
+}
+
+/** 无尽模式一回合的单词数 */
+export const ENDLESS_ROUND_SIZE = 20
+
+/**
+ * 无尽模式的取词：从全部学习列表里随机抽 limit 个带中文释义的单词。
+ * 池子由所有列表的单词拼起来再去重，每次调用都重新洗牌，
+ * 所以同一个单词在一回合里只出现一次，玩完一局再来一批就可能是另一批词。
+ * 列表单词走共享读缓存，反复开新回合不会反复打接口。
+ */
+export async function loadRandomStudyWords(limit = ENDLESS_ROUND_SIZE): Promise<GameWord[]> {
+  const lists = await queryApi<StudyList[]>('/api/lists', {}, {
+    staleTime: 30_000, tags: ['lists'],
+  })
+  if (!Array.isArray(lists) || lists.length === 0) {
+    throw new Error('还没有学习列表，先去查词页加几个单词吧。')
+  }
+  const batches = await Promise.all(lists.map(list =>
+    queryApi<StudyWordItem[]>('/api/lists/' + encodeURIComponent(list.id) + '/words', {}, {
+      staleTime: 5 * 60_000, tags: ['list-words:' + list.id, 'lists'],
+    }).catch(() => [] as StudyWordItem[]),
+  ))
+  const pool: GameWord[] = []
+  for (const words of batches) {
+    for (const item of words) {
+      if (item.type !== 'word') continue
+      const word = item.word.trim()
+      // 游戏里只给孩子看中文，去掉 n. / v. 这类词性前缀
+      const translation = stripTranslationPos(item.translation ?? '').trim()
+      if (!word || !translation) continue
+      pool.push({ word, translation })
+    }
+  }
+  const unique = uniqueGameWords(pool)
+  if (unique.length === 0) throw new Error('学习列表里还没有带中文释义的单词。')
+  return shuffleWords(unique).slice(0, limit)
+}
+
+/**
+ * 无尽模式的取词 hook：round 每 +1 就重新随机一批 20 个单词。
+ * 一局没玩完就换了一批（比如点「再玩一次」）也算新的一回合。
+ */
+export function useEndlessGameWords(enabled: boolean, round: number): GameWordsState {
+  const [state, setState] = useState<GameWordsState>({ words: [], loading: enabled, error: '' })
+  useEffect(() => {
+    if (!enabled) return
+    let alive = true
+    setState({ words: [], loading: true, error: '' })
+    loadRandomStudyWords()
+      .then(words => {
+        if (!alive) return
+        setState({ words, loading: false, error: '' })
+      })
+      .catch(error => {
+        if (!alive) return
+        const message = error instanceof Error ? error.message : '单词读取失败'
+        setState({ words: [], loading: false, error: message })
+      })
+    return () => {
+      alive = false
+    }
+  }, [enabled, round])
   return state
 }

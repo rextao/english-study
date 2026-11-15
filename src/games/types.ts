@@ -6,12 +6,17 @@ export interface GameWord {
   translation: string
 }
 
+/** 玩法模式：常规模式用本周背词任务的单词，无尽模式每回合随机 20 个学习列表里的单词 */
+export type GameMode = 'normal' | 'endless'
+
 /**
  * 所有游戏共用的入参：外壳从 src/games/data.ts 取好当期单词再下发。
  * words 已去重（每个词只出现一次），游戏自己拿它分关 / 发牌，用完即这一局结束。
+ * onNextRound 只有无尽模式会给：玩完一局不再重洗同一批词，而是让外壳换一批新单词。
  */
 export interface GameProps {
   words: GameWord[]
+  onNextRound?: () => void
 }
 
 /**
@@ -25,5 +30,9 @@ export interface GameManifest {
   title: string
   /** 一句话玩法说明 */
   subtitle: string
+  /** 汇总页卡片上的图标（emoji），不填给个默认手柄 */
+  emoji?: string
+  /** 还没开发完的游戏给 false：汇总页上置灰、不可点进 */
+  ready?: boolean
   Component: ComponentType<GameProps>
 }

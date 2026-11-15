@@ -9,5 +9,8 @@ export const XIAOXIAOLE: GameManifest = {
   id: 'xiaoxiaole',
   title: '单词消消乐',
   subtitle: '把英文和它的中文连起来',
+  emoji: '🧩',
+  // 还没开发完：汇总页上不可点进
+  ready: false,
   Component: XiaoxiaoleGame,
 }

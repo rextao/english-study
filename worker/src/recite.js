@@ -514,8 +514,8 @@ export function createReciteStore(db) {
 
   /**
    * 只改某一次学习的单词：整周任务已经开始时，没开始或正在学习中的次数仍然可以换词。
-   * 只替换这一行（按任务的每次词数切分），其他次数原样保留；这一行新选的词
-   * 如果原本在别的次数里，以这一行为准，从那里去掉（同一周里一个词只出现一次）。
+   * 只替换这一行（按任务的每次词数切分），其他次数原样保留；同一周里一个词可以在
+   * 多次学习里重复选（自动填充仍优先避开其他次数已用的词，显式选中的照样保留）。
    * 改的是学习中那一次时，把这次会话连同草稿和卡片一起删掉，需要重新学。
    */
   async function saveSessionWords({ env, now = Date.now(), weekStart, session, selections, spellingWords }) {
@@ -554,15 +554,6 @@ export function createReciteStore(db) {
       excludeWords: [...otherKeys],
     })
     const row = [...previewData.words, ...previewData.autoFilled]
-    const duplicated = row.filter(item => otherKeys.has(item.word))
-    if (duplicated.length > 0) {
-      const error = new Error(
-        '第 ' + index + ' 次的 ' + duplicated.slice(0, 3).map(item => item.word).join('、')
-        + ' 本周其他次数也在用，先从那里去掉再选',
-      )
-      error.code = 'DUPLICATE_WORDS'
-      throw error
-    }
     const merged = [
       ...others.slice(0, start).map(rowSnapshotFromRow),
       ...row,

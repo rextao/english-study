@@ -135,7 +135,8 @@ CREATE TABLE IF NOT EXISTS recite_task_words (
   source_group TEXT,
   source_last_at INTEGER,
   spelling_enabled INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY (task_id, word)
+  -- 同一周的单词可以在多次学习里重复选，所以按位置唯一，不按单词唯一
+  PRIMARY KEY (task_id, position)
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_recite_task_words_position ON recite_task_words(task_id, position);
 

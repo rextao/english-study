@@ -1,5 +1,6 @@
 /* 游戏外壳：和背词页一样是给小朋友的全屏页，不渲染导航。
-   只有地址栏直接访问 #/games/<id> 才进得来，页面里暂时没有任何入口。 */
+   入口是导航里的「游戏」，先进汇总页 #/games/home，再从卡片选玩法和模式
+   （常规 #/games/<id> / 无尽 #/games/<id>/endless）。 */
 
 .games {
   /* 与背词页同一套粉彩变量，游戏子文件夹里的样式直接用 --g-* */
@@ -58,4 +59,172 @@
 .games__notice code {
   font-size: 12px;
   color: var(--g-primary-deep);
+}
+
+.games__notice a {
+  color: var(--g-primary-deep);
+  text-decoration: none;
+  border-bottom: 1px dashed currentColor;
+}
+
+/* ---------- 游戏汇总页 #/games/home ---------- */
+
+.games--home {
+  overflow-y: auto;
+  padding: 20px clamp(14px, 4vw, 32px) 40px;
+}
+
+.gh__header {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 8px 0 18px;
+}
+
+.gh__back {
+  display: inline-block;
+  margin-bottom: 14px;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  background: #FFFFFF;
+  border: 1px solid var(--g-line);
+  color: var(--g-ink-2);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.gh__title {
+  margin: 0;
+  font-size: clamp(22px, 3vw, 28px);
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+
+.gh__sub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--g-ink-3);
+}
+
+.gh__grid {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.gh__card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 20px;
+  background: #FFFFFF;
+  border: 1px solid var(--g-line);
+  box-shadow: 0 14px 30px -26px rgba(150, 95, 105, .5);
+}
+
+.gh__card.is-locked {
+  background: #FBF7F6;
+  box-shadow: none;
+}
+
+.gh__card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.gh__emoji {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--g-primary-tint);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.gh__card-titles {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.gh__card-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.gh__card-sub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--g-ink-3);
+}
+
+.gh__tag {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background: #F1EAE8;
+  color: var(--g-ink-3);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.gh__modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.gh__mode {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 11px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--g-line);
+  background: var(--g-primary-wash);
+  color: var(--g-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+}
+
+.gh__mode strong {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.gh__mode span {
+  font-size: 11px;
+  color: var(--g-ink-3);
+}
+
+.gh__mode:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px -16px rgba(188, 85, 102, .8);
+}
+
+.gh__mode--endless {
+  background: #FFFFFF;
+}
+
+.gh__mode:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.gh__locked-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--g-ink-3);
 }

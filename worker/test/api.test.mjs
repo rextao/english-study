@@ -2218,7 +2218,9 @@ r = await call('PUT', '/api/recite/task', {
   ],
   spellingWords: [],
 })
-check('单行改词不允许和别的次数重复', r.status === 400 && /apple/.test(r.body?.error || ''), r.body)
+check('单行改词允许和别的次数重复',
+  r.status === 200
+  && (r.body?.task?.words || []).map(item => item.word).join() === 'apple,banana,apple,egg', r.body)
 
 r = await call('PUT', '/api/recite/task', {
   weekStart: rowWeekStart,

@@ -333,9 +333,8 @@ function SessionCells({ task, index, per, marks, session, order, saveSlot, recor
     word, listId: '', position: 0, type: 'word',
     sourceType: 'selected', spellingEnabled: pushedSpelling.has(word),
   }))
-  const read = pushedWords.length > 0
-    ? pushedItems.filter(item => !item.spellingEnabled)
-    : slice.filter(item => !item.spellingEnabled)
+  // 读的列列出这一次的全部单词：要背的词也照样先读一遍（背的列只列勾了拼写的）
+  const read = pushedWords.length > 0 ? pushedItems : slice
   const spell = pushedWords.length > 0
     ? pushedItems.filter(item => item.spellingEnabled)
     : slice.filter(item => item.spellingEnabled)

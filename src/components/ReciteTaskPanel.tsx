@@ -222,6 +222,13 @@ export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, o
     })
   }
 
+  /** 选词视图的「全部取消」：清空这一周所有已勾选的单词，所有列表都回到未选 */
+  function clearSelection() {
+    setDraftKeys(new Set())
+    setSelected([])
+    setTaskPreview(null)
+  }
+
   function commitDraft() {
     const current = activeWords
       .filter(item => draftKeys.has(selectionKey({ listId: activeListId, word: item.word })))
@@ -285,12 +292,6 @@ export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, o
       const current = existing
       const rowMode = Boolean(rowSession && current)
       const selections = rowMode ? rowSelections() : selected
-      const used = selections.filter(item => otherRowCounts.has(keyOf(item.word)))
-      if (used.length > 0) {
-        setError('第 ' + rowSession + ' 次的 ' + used.slice(0, 3).map(item => item.word).join('、')
-          + ' 本周其他次数也在用，先从那里去掉再选。')
-        return
-      }
       const task = await saveReciteTask({
         weekStart,
         perSessionCount: rowMode && current ? current.perSessionCount : perSessionCount,
@@ -332,6 +333,14 @@ export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, o
           {pickerOpen ? (
             <>
               <span className="recite-task__selected">当前列表已选 {draftKeys.size} 个</span>
+              <Button
+                type="text"
+                disabled={busy !== '' || (draftKeys.size === 0 && selected.length === 0)}
+                title="取消所有已勾选的单词"
+                onClick={clearSelection}
+              >
+                全部取消
+              </Button>
               <Button type="text" disabled={busy !== ''} onClick={() => setPickerOpen(false)}>取消</Button>
               <Button type="primary" onClick={commitDraft}>确定</Button>
             </>

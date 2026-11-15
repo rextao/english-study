@@ -11,7 +11,8 @@ const DEFAULT_TAB: TabKey = 'search'
 function tabHash(tab: TabKey) {
   if (tab === 'recite-parent') return '#/recite/parent'
   if (tab === 'recite-tasks') return '#/recite/tasks'
-  if (tab === 'games') return '#/games'
+  // 游戏页先进汇总页，具体玩哪个游戏由 GamesPage 从 hash 里再读一次
+  if (tab === 'games') return '#/games/home'
   return '#/' + tab
 }
 

@@ -11,6 +11,7 @@ const TABS: { key: TabKey; label: string; extra?: boolean }[] = [
   { key: 'achievements', label: '学习成果', extra: true },
   { key: 'passages', label: '短文', extra: true },
   { key: 'goal', label: '目标', extra: true },
+  { key: 'games', label: '游戏', extra: true },
 ]
 
 /** 手机端折叠菜单的「更多」图标：三道短横线，和齿轮同尺寸的圆形按钮 */
@@ -47,12 +48,13 @@ export function Nav({ active, onChange, dueToday }: NavProps) {
     : active === 'recite-parent' || active === 'recite-tasks' ? 'study' : active
 
   // 手机端折叠菜单里装着学习列表 / 学习成果 / 短文 / 目标 / 设置，落在这些页面上时「更多」按钮要高亮
-  const moreActive = active === 'lists' || active === 'achievements' || active === 'goal' || active === 'settings' || active === 'records' || active === 'passages'
+  const moreActive = active === 'lists' || active === 'achievements' || active === 'goal' || active === 'settings' || active === 'records' || active === 'passages' || active === 'games'
   const moreItems: MenuItemType[] = [
       { key: 'lists', label: '学习列表' },
       { key: 'achievements', label: '学习成果' },
        { key: 'passages', label: '短文' },
       { key: 'goal', label: '目标' },
+      { key: 'games', label: '游戏' },
      { key: 'settings', label: '设置', icon: gearIcon },
   ]
 
