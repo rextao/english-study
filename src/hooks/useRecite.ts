@@ -70,6 +70,8 @@ export interface ReciteCard {
   word: string
   listId: string
   cardType: 'meaning' | 'spelling'
+  /** 词条类型：句子卡默认 0.5 倍速，单词卡默认正常速（老接口可能没有） */
+  type?: 'word' | 'sentence'
   displayText?: string
   translation?: string
   answer?: string

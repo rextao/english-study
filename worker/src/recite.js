@@ -121,6 +121,9 @@ function cardResponse(row, includeAnswer = false) {
     result: row.result || undefined,
     attempts: Number(row.attempts || 0),
   }
+  // 是单词还是句子：前端靠它决定卡片默认语速（句子 0.5 倍速、单词正常速），
+  // 不能靠 display_text 猜——单词卡的 display_text 也是单词本身
+  if (row.word_type === 'word' || row.word_type === 'sentence') card.type = row.word_type
   if (includeAnswer && row.card_type === 'spelling') card.answer = row.answer || row.word
   return card
 }
@@ -805,7 +808,13 @@ export function createReciteStore(db) {
   }
 
   async function hydrateSession(task, session) {
-    const cards = await db.all('SELECT * FROM recite_cards WHERE session_id = ? ORDER BY position', session.id)
+    // 顺带把词条类型（word / sentence）带出来：卡片表只存了 word + list_id
+    const cards = await db.all(
+      `SELECT c.*,
+        (SELECT w.type FROM list_words w WHERE w.list_id = c.list_id AND w.word = c.word LIMIT 1) AS word_type
+       FROM recite_cards c WHERE c.session_id = ? ORDER BY c.position`,
+      session.id,
+    )
     const drafts = await listDrafts(session.id)
     const current = cards.find(card => card.status === 'pending') || null
     return {

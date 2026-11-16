@@ -44,9 +44,14 @@ const SPEED_LABELS = ['正常速', '0.5 倍速']
 /** 句子默认 0.5 倍速（正常速对小朋友太快），单词默认正常速；卡片上手动切过就按切的那档 */
 const SENTENCE_SPEED_INDEX = 1
 
-/** 句子卡：只有句子才会带 displayText（拼写卡的 displayText 是中文提示，不算句子） */
+/**
+ * 句子卡：以服务端给的词条类型（type）为准——单词卡的 displayText 也是单词本身，不能拿它猜。
+ * 老接口没有 type 时退回比对 displayText 与 word：句子卡是首字母大写过的原句，两者不同。
+ */
 function isSentenceCard(card: ReciteCard | null) {
-  return Boolean(card && card.cardType === 'meaning' && card.displayText)
+  if (!card) return false
+  if (card.type) return card.type === 'sentence'
+  return Boolean(card.displayText && card.displayText.trim() !== card.word.trim())
 }
 
 /**
