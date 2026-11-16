@@ -947,8 +947,7 @@ export function RecitePage({
         <div className="recite-ask" role="dialog" aria-modal="true" aria-labelledby="recite-ask-title">
           <div className="recite-ask__card">
             <p className="recite-ask__word">{card.word}</p>
-            <h2 className="recite-ask__title" id="recite-ask-title">说一下是什么意思</h2>
-            <p className="recite-ask__hint">说出来之后再点确定</p>
+            <h2 className="recite-ask__title" id="recite-ask-title">读一遍后，说一下什么意思，再点确定</h2>
             <div className="recite-ask__actions">
               <button type="button" className="recite-ask__cancel" onClick={cancelMeaning}>取消</button>
               <button type="button" className="recite-ask__confirm" onClick={confirmMeaning}>确定</button>
