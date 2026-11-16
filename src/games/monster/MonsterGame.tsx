@@ -310,17 +310,59 @@ function monsterMood(hp: number, hpMax: number, hitAt: number, now: number, pair
 }
 
 /**
- * 这副「球」怎么发：每个单词拆成英文球 + 中文球，同一对挨着发，
- * 保证两个球会同时在场上，不会出现搭档还没出来就先落地的情况。
+ * 同一对球的英文 / 中文在牌堆里至少隔开这么多个位置。
+ * 挨着发会让掉落顺序一眼就有规律（英文后面跟着它的中文），孩子不用记词也能配对，
+ * 所以整副牌先打乱，再保证同组的另一张不落在最近几个位置里。
+ */
+const PAIR_SPREAD = 5
+
+/**
+ * 一副牌先整副打乱，再把「同组的两张球挨得太近」的位置换到后面去。
+ * 单纯打乱还是会经常出现 hot 后面紧跟 hot 的中文，孩子不用记词、看顺序就能配对；
+ * 拉开距离之后掉落顺序就没有规律可循了。只换位置、不增删牌，两张都还能发到。
+ */
+function spreadDeck(tokens: Token[]): Token[] {
+  const minGapOf = (deck: Token[]) => {
+    const first = new Map<number, number>()
+    let minGap = Infinity
+    deck.forEach((token, index) => {
+      const start = first.get(token.group)
+      if (start === undefined) {
+        first.set(token.group, index)
+        return
+      }
+      minGap = Math.min(minGap, index - start)
+    })
+    return minGap
+  }
+
+  // 直接整副随机排，排到「每一对都拉开」为止；牌堆最多几十张，单次检成本极低。
+  // 词很少时可能真的排不出 PAIR_SPREAD（比如 3 个词只有 6 张球），
+  // 那就保留试过的盘里面隔得最开的那一次，再怎么样也不会是相邻两张。
+  let best = shuffleWords(tokens)
+  let bestGap = minGapOf(best)
+  for (let attempt = 0; attempt < 800 && bestGap < PAIR_SPREAD; attempt += 1) {
+    const deck = shuffleWords(tokens)
+    const gap = minGapOf(deck)
+    if (gap >= PAIR_SPREAD) return deck
+    if (gap > bestGap) {
+      best = deck
+      bestGap = gap
+    }
+  }
+  return best
+}
+
+/**
+ * 这副「球」怎么发：每个单词拆成英文球 + 中文球，先铺平再拉开同组距离（见 spreadDeck）。
+ * 两个球都会发出来（牌堆是整副牌，发完才结束），场上只剩单张而牌堆快见底时，
+ * spawnStrandedPartner 会把它的搭档提前发出来。
  */
 function buildDeck(words: GameWord[]): Token[] {
-  return shuffleWords(words.map((word, index) => ({ word, index }))).flatMap(({ word, index }) => {
-    const pair: Token[] = [
-      { group: index, kind: 'word', text: word.word },
-      { group: index, kind: 'meaning', text: word.translation },
-    ]
-    return Math.random() < 0.5 ? pair : [pair[1], pair[0]]
-  })
+  return spreadDeck(words.flatMap((word, index) => [
+    { group: index, kind: 'word' as BallKind, text: word.word },
+    { group: index, kind: 'meaning' as BallKind, text: word.translation },
+  ]))
 }
 
 /**
@@ -558,21 +600,44 @@ export function MonsterGame({ words, onNextRound }: GameProps) {
 
   /**
    * 找一个能放下新球的落点：优先用 preferredX（补发搭档时用），
-   * 否则在小怪兽下方随机试几次。找不到 = 现在的球堆连下球的位置都没有了。
+   * 否则在整块场地宽度里随机试几次，挑「这一列已经堆得最少」的那个。
+   * 只在中间一小段随机扔的话，球会越堆越像金字塔、两边空着；撒满整幅场地再按拥挤度挑，
+   * 球堆才能尽量铺满。找不到 = 现在的球堆连下球的位置都没有了。
    */
   function findSpawnX(r: number, preferredX?: number) {
     const { w, h } = sizeRef.current
     if (!w || !h) return null
     const y = monsterBandFor(h) + r + 6
+    const min = r
+    const max = Math.max(r, w - r)
     if (preferredX != null) {
-      const x = clamp(preferredX, r, Math.max(r, w - r))
+      const x = clamp(preferredX, min, max)
       if (spawnSpotFree(x, y, r)) return x
     }
-    for (let attempt = 0; attempt < 12; attempt += 1) {
-      const x = clamp(w / 2 + (Math.random() - 0.5) * Math.min(w * 0.44, 210), r, Math.max(r, w - r))
-      if (spawnSpotFree(x, y, r)) return x
+    const balls = worldRef.current.balls
+    // 一个位置有多挤：和每颗已有球在横向上的重叠量加总。不看上下——球最后都会落到底部，
+    // 这一列挤不挤取决于横向和它重叠的球有多少
+    const crowdAt = (x: number) => {
+      let crowd = 0
+      for (const ball of balls) {
+        if (ball.dragging) continue
+        const overlap = ball.r + r - Math.abs(ball.x - x)
+        if (overlap > 0) crowd += overlap
+      }
+      return crowd
     }
-    return null
+    let bestX: number | null = null
+    let bestCrowd = Infinity
+    for (let attempt = 0; attempt < 16; attempt += 1) {
+      const x = min + Math.random() * (max - min)
+      if (!spawnSpotFree(x, y, r)) continue
+      const crowd = crowdAt(x)
+      if (crowd < bestCrowd) {
+        bestCrowd = crowd
+        bestX = x
+      }
+    }
+    return bestX
   }
 
   /**
