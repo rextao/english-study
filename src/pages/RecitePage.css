@@ -341,20 +341,31 @@
   color: var(--r-primary-deep);
 }
 
-/* 单词本身就是播放按钮：点一下就读。按钮默认边框 / 背景要清掉，字号仍按 --len 自适应 */
-.recite-card__prompt--word {
-  padding: .04em .16em;
+/* 句子里的每个单词都是按钮：点哪个只读哪个。字号 / 字重跟句子一致，靠下划线提示可点 */
+.recite-card__word-btn {
+  padding: 0;
   border: 0;
-  border-radius: 20px;
   background: transparent;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
   cursor: pointer;
-  transition: background .18s ease, color .18s ease;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: .14em;
+  transition: color .18s ease, text-decoration-color .18s ease;
 }
 
-.recite-card__prompt--word:hover { background: var(--r-primary-tint); }
-.recite-card__prompt--word:active { transform: scale(.99); }
-.recite-card__prompt--word.is-playing { color: var(--r-primary-deep); }
-.recite-card__prompt--word:focus-visible { outline: 3px solid var(--r-primary); outline-offset: 6px; }
+.recite-card__word-btn:hover {
+  color: var(--r-primary-deep);
+  text-decoration-color: currentColor;
+}
+
+.recite-card__word-btn:focus-visible {
+  outline: 3px solid var(--r-primary);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
 
 /* ---------------- 翻面后的中文答案 ---------------- */
 
@@ -365,20 +376,11 @@
 }
 
 .recite-card__back-word {
-  padding: 2px 12px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
   font-size: clamp(18px, 2vw, 24px);
   font-weight: 600;
   letter-spacing: .02em;
   color: var(--r-ink-2);
-  cursor: pointer;
-  transition: background .18s ease;
 }
-
-.recite-card__back-word:hover { background: var(--r-primary-tint); }
-.recite-card__back-word:focus-visible { outline: 3px solid var(--r-primary); outline-offset: 4px; }
 
 .recite-card__back-translation {
   max-width: 780px;

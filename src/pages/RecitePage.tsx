@@ -49,6 +49,39 @@ function isSentenceCard(card: ReciteCard | null) {
   return Boolean(card && card.cardType === 'meaning' && card.displayText)
 }
 
+/**
+ * 句子拆成一个个可点的单词：点哪个只读哪个，标点和空格原样留在按钮外面。
+ * 独立单词卡不走这里，它们只靠下面的喇叭按钮整词播放。
+ */
+function SentenceWords({ text, onSpeak }: { text: string; onSpeak: (word: string) => void }) {
+  return (
+    <>
+      {text.split(/(\s+)/).map((part, i) => {
+        const match = /^([^A-Za-z']*)([A-Za-z][A-Za-z'’-]*)(.*)$/.exec(part)
+        if (!match) return <span key={i}>{part}</span>
+        const [, leading, word, trailing] = match
+        return (
+          <span key={i}>
+            {leading}
+            <button
+              type="button"
+              className="recite-card__word-btn"
+              onClick={event => {
+                // 回看时点卡片会翻面，点单词只播放发音
+                event.stopPropagation()
+                onSpeak(word)
+              }}
+              aria-label={'朗读单词 ' + word}
+              title={'朗读「' + word + '」'}
+            >{word}</button>
+            {trailing}
+          </span>
+        )
+      })}
+    </>
+  )
+}
+
 function normalize(value: string) {
   return value.trim().replace(/\s+/g, ' ').toLowerCase()
 }
@@ -371,6 +404,8 @@ export function RecitePage({
 
   const card = cards[index] ?? null
   const isSpelling = card?.cardType === 'spelling'
+  /** 句子卡：卡上的每个单词可以单独点来听，单词卡没有这个功能（只用喇叭听整词） */
+  const isSentence = isSentenceCard(card)
   const display = card?.displayText || card?.word || ''
   const answer = card?.word || ''
   const total = session?.cardCount || cards.length || 0
@@ -488,19 +523,27 @@ export function RecitePage({
   /** 拼写卡在「拼对 / 跳过看答案」之前不出声，否则等于把答案念出来（拼错一次也还算没判定） */
   const spellingLocked = isSpelling && feedback !== 'correct' && feedback !== 'skipped'
 
-  function playWord() {
-    if (!card || spellingLocked) return
+  /** 播一段文本（整句 / 句子里的某个单词）：连点只认最后一次，失败原因写在页面上 */
+  function playText(text: string) {
+    const value = text.trim()
+    if (!value) return
     const token = playToken.current + 1
     playToken.current = token
     setSpeechError('')
     setSpeaking(true)
-    void speak(answer, { rate: SPEED_RATES[speedIndex] })
+    void speak(value, { rate: SPEED_RATES[speedIndex] })
       .catch(error => {
         if (playToken.current === token) setSpeechError(speechErrorMessage(error))
       })
       .finally(() => {
         if (playToken.current === token) setSpeaking(false)
       })
+  }
+
+  /** 喇叭按钮：句子卡读整句、单词卡读整个单词 */
+  function playWord() {
+    if (!card || spellingLocked) return
+    playText(answer)
   }
 
   // 左下角的录音标识：绿 = 录音中，灰 = 没开，红 = 不可用 / 开录失败，黄 = 正在开启
@@ -699,7 +742,7 @@ export function RecitePage({
   // 单词长度写进 CSS 变量，字号按它自适应：单词越长字号越小，整词总能放进卡片
   const promptStyle = { '--len': String(Math.max(1, display.length)) } as CSSProperties
 
-  // 喇叭：圆形纯图标按钮，挂在单词下面（单词本身也能点，效果一样）；拼写卡判定前锁定不出声，原因靠 title 说明
+  // 喇叭：圆形纯图标按钮，挂在单词 / 句子下面，整词或整句播放；拼写卡判定前锁定不出声，原因靠 title 说明
   const speakButton = (
     <button
       type="button"
@@ -807,35 +850,21 @@ export function RecitePage({
             <div className={'recite-card__face' + (flipAnim ? ' recite-card__face--flip' : '')}>
               {flipped ? (
                 <div className="recite-card__back">
-                  {/* 翻面后的单词也能点：点一下就朗读这个单词 */}
-                  <button
-                    type="button"
-                    className="recite-card__back-word"
-                    onClick={event => {
-                      // 回看时点卡片会翻面，别让单词把卡片翻过去
-                      event.stopPropagation()
-                      playWord()
-                    }}
-                    aria-label={'朗读 ' + card.word}
-                    title={'朗读「' + card.word + '」'}
-                  >{card.word}</button>
+                  {/* 翻面后：句子卡每个单词仍可单独点，单词卡就是整词文本 */}
+                  <span className="recite-card__back-word">
+                    {isSentence
+                      ? <SentenceWords text={card.displayText || card.word} onSpeak={playText} />
+                      : card.word}
+                  </span>
                   <strong className="recite-card__back-translation">{card.translation || '暂无中文含义'}</strong>
                   {speakButton}
                 </div>
               ) : (
                 <>
-                  {/* 单词本身就是播放按钮：小朋友直接点单词就能听发音 */}
-                  <button
-                    type="button"
-                    className={'recite-card__prompt recite-card__prompt--word' + (speaking ? ' is-playing' : '')}
-                    style={promptStyle}
-                    onClick={event => {
-                      event.stopPropagation()
-                      playWord()
-                    }}
-                    aria-label={'朗读 ' + display}
-                    title={'点一下朗读「' + display + '」'}
-                  >{display}</button>
+                  {/* 句子卡：每个单词单独可点；单词卡只是文本，靠下面的喇叭听整词 */}
+                  <div className="recite-card__prompt" style={promptStyle}>
+                    {isSentence ? <SentenceWords text={display} onSpeak={playText} /> : display}
+                  </div>
                   {speakButton}
                 </>
               )}
