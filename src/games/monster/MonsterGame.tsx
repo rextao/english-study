@@ -599,45 +599,25 @@ export function MonsterGame({ words, onNextRound }: GameProps) {
   }
 
   /**
-   * 找一个能放下新球的落点：优先用 preferredX（补发搭档时用），
-   * 否则在整块场地宽度里随机试几次，挑「这一列已经堆得最少」的那个。
-   * 只在中间一小段随机扔的话，球会越堆越像金字塔、两边空着；撒满整幅场地再按拥挤度挑，
-   * 球堆才能尽量铺满。找不到 = 现在的球堆连下球的位置都没有了。
+   * 出球口固定在小怪兽正下方的一小块中间区域（不是整幅场地到处撒）：
+   * 球从中间冒出来，但往下飞的方向各不相同（见 spawnBall 里的发射角度），
+   * 扇形散开而不是垂直落到同一个点，就不会在正中间堆成金字塔。
+   * 中间被上一颗还没飞走的球占着时稍微扩大一点再试，实在放不下就等下一帧。
    */
-  function findSpawnX(r: number, preferredX?: number) {
+  function findSpawnX(r: number) {
     const { w, h } = sizeRef.current
     if (!w || !h) return null
     const y = monsterBandFor(h) + r + 6
     const min = r
     const max = Math.max(r, w - r)
-    if (preferredX != null) {
-      const x = clamp(preferredX, min, max)
-      if (spawnSpotFree(x, y, r)) return x
-    }
-    const balls = worldRef.current.balls
-    // 一个位置有多挤：和每颗已有球在横向上的重叠量加总。不看上下——球最后都会落到底部，
-    // 这一列挤不挤取决于横向和它重叠的球有多少
-    const crowdAt = (x: number) => {
-      let crowd = 0
-      for (const ball of balls) {
-        if (ball.dragging) continue
-        const overlap = ball.r + r - Math.abs(ball.x - x)
-        if (overlap > 0) crowd += overlap
-      }
-      return crowd
-    }
-    let bestX: number | null = null
-    let bestCrowd = Infinity
-    for (let attempt = 0; attempt < 16; attempt += 1) {
-      const x = min + Math.random() * (max - min)
-      if (!spawnSpotFree(x, y, r)) continue
-      const crowd = crowdAt(x)
-      if (crowd < bestCrowd) {
-        bestCrowd = crowd
-        bestX = x
+    const half = Math.min(w * 0.07, 44)
+    for (const spread of [half, half * 1.8]) {
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        const x = clamp(w / 2 + (Math.random() - 0.5) * 2 * spread, min, max)
+        if (spawnSpotFree(x, y, r)) return x
       }
     }
-    return bestX
+    return null
   }
 
   /**
@@ -654,8 +634,16 @@ export function MonsterGame({ words, onNextRound }: GameProps) {
     const r = ballRadiusFor(token.text, token.kind, w, h)
     const x = force
       ? clamp(preferredX ?? w / 2, r, Math.max(r, w - r))
-      : findSpawnX(r, preferredX)
+      : findSpawnX(r)
     if (x == null) return false
+    // 发射方向：从中间朝场地某一处的随机落点斜着飞。冲量按「大概多久落地」换算成横向速度，
+    // 所以每次都往不同方向、不同距离散开；补发搭档（force）例外，就贴着那颗孤球落下。
+    const maxX = Math.max(r, w - r)
+    // 空中有空气阻力（physics.ts 的 AIR_DRAG = 0.8/s），横向漂移只累积到「初速 × 落地时间」的
+    // 一半多一点（场地越矮越少）；按 0.55 反推初速，球才能真的散到目标附近而不是都落在中间。
+    const travel = Math.max(0.4, ((h - (band + r)) / fallSpeed(h)) * 0.55)
+    const aimX = force ? x : clamp(r + Math.random() * Math.max(0, maxX - r), r, maxX)
+    const launchVx = clamp((aimX - x) / travel, -fallSpeed(h) * 1.6, fallSpeed(h) * 1.6)
     world.deckIndex += 1
     seqRef.current += 1
     world.balls.push({
@@ -666,7 +654,7 @@ export function MonsterGame({ words, onNextRound }: GameProps) {
       x,
       // 整颗球从小怪兽下边冒出来，不压到它
       y: band + r + 6,
-      vx: (Math.random() - 0.5) * 60,
+      vx: force ? (Math.random() - 0.5) * 60 : launchVx,
       vy: fallSpeed(h) * (0.92 + Math.random() * 0.2),
       r,
       resting: false,
