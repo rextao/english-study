@@ -704,7 +704,11 @@ export function RecitePage({
     <button
       type="button"
       className={'recite-card__speak' + (speaking ? ' is-playing' : '')}
-      onClick={playWord}
+      onClick={event => {
+        // 回看已学过的卡片时点卡片会翻面，点喇叭只播放发音，别把卡片翻过去
+        event.stopPropagation()
+        playWord()
+      }}
       disabled={spellingLocked}
       aria-label={spellingLocked ? '拼完或跳过后再听发音' : '播放单词发音'}
       title={spellingLocked ? '拼完或跳过后再听' : '播放单词发音'}
