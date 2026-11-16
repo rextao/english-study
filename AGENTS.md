@@ -138,8 +138,10 @@ worker/schema.sql                 全量建表 SQL（wrangler d1 execute 一次�
 worker/test/d1-shim.mjs           node:sqlite 模拟 D1 接口（prepare→bind→all/first/run + batch 事务）
 worker/test/api.test.mjs          350+ 项断言：直接驱动 handleApi + 走真正 workerIndex.fetch 的鉴权用例
 
+games.html                        游戏 PWA 的独立入口页（vite 多页构建的第二入口，产物 dist/games.html）：清单挂 /manifest-games.json、标题「单词游戏」；从它装到桌面 / 主屏幕是一个独立应用，启动地址就是 #/games/home，不会覆盖背单词那个图标（GamesHome 在这个入口下不显示「← 返回」）
 public/manifest.json              PWA 清单：name「背单词」、display standalone、theme_color #2563eb、start_url ./#/recite；图标 /icons/icon-192.png（any）与 /icons/icon-512.png（any maskable），图标文件由用户手动放进 public/icons/，不在代码里生成
-public/sw.js                      手写 service worker：缓存应用外壳（导航网络优先 + 断网回落缓存的 index.html，静态资源缓存优先），/api 全部直连不缓存（数据实时 + 鉴权头）；版本号在文件顶部
+public/manifest-games.json        游戏 PWA 清单：id /games.html、name「单词游戏」、theme_color #E88B9A、start_url ./games.html#/games/home，图标同背单词那份
+public/sw.js                      手写 service worker（两个入口共用一个）：缓存应用外壳（导航网络优先 + 断网回落本入口缓存的 HTML 壳，静态资源缓存优先），/api 全部直连不缓存（数据实时 + 鉴权头）；导航壳按页面路径分开存（'/' 与 '/games.html' 互不覆盖）；版本号在文件顶部
 
 scripts/study-cli.mjs             本地 CLI（npm run study）：列学习列表 / 列分组（复用 studyWordGroups.ts）/ 按词或分组导出打印 HTML / 默认写打印记录；线上地址 / 令牌从 .dev.vars 的 STUDY_API_BASE / STUDY_API_TOKEN 读取（命令行不可覆盖）；复用 src/utils/flashcards.ts 的 fetchCards 与排版（Node 24 直接 import .ts，该文件别用 enum / 参数属性等不可擦除语法）；新命令加在 COMMANDS 表
 

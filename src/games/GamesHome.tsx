@@ -12,11 +12,14 @@ function openGame(id: string, mode: GameMode) {
  * 无尽模式每次从学习列表随机抽 20 个单词当一回合，玩完可以再来一批。
  * 还没开发完的游戏卡片置灰，按钮不可点。
  */
+/** 游戏 PWA 的独立入口（/games.html）里没有上一页可回，不显示「返回」 */
+const isGamesEntry = /\/games\.html$/.test(window.location.pathname)
+
 export function GamesHome() {
   return (
     <div className="games games--home">
       <header className="gh__header">
-        <a className="gh__back" href="#/search">← 返回</a>
+        {!isGamesEntry && <a className="gh__back" href="#/search">← 返回</a>}
         <h1 className="gh__title">单词小游戏</h1>
         <p className="gh__sub">选一个玩法，用背过的单词玩一局</p>
       </header>

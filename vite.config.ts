@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -42,6 +43,16 @@ injectViteEnvFromDevVars()
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      // 两个入口共用一份前端代码：index.html 是背单词应用，games.html 是独立的
+      // 游戏 PWA 入口（各自挂不同的 manifest，能分别装到桌面 / 主屏幕）
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        games: fileURLToPath(new URL('./games.html', import.meta.url)),
+      },
+    },
+  },
   server: {
     // 监听所有网卡，这样手机在同一局域网内用 https://<本机IP>:5173 也能访问开发环境；
     // 用 https 是因为局域网 IP 上的 http 不是安全上下文，麦克风（背词页课堂录音）会被
