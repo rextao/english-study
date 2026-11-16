@@ -93,8 +93,9 @@ src/ui/                           手写组件库：Button Select Dropdown Input
 src/games/data.ts                 游戏统一数据层：useGameWords 取当期单词（与背词页同源：进行中的会话卡片 → 本周任务词表，句子卡与无释义的不要，按小写去重、去掉词性前缀）；shuffleWords / createWordDeck / dealWordRounds 提供「每个词只取一次」的牌堆，取完即这一局单词全部用完；所有游戏只从这里拿词，组件自己不请求接口
 src/games/types.ts                游戏公共类型：GameWord（单词 + 中文释义）/ GameProps（外壳下发的 words，已去重）/ GameManifest（id + title + subtitle + Component）
 src/games/registry.ts             游戏清单 GAMES + findGame(id)：加新游戏只往这里加一条，其余文件不动；没开发完的给 ready: false（汇总页置灰）
-src/games/GamesHome.tsx           游戏汇总页（#/games/home）：从 registry 列出全部游戏卡片（标题 / 说明 / emoji，ready:false 的置灰不可点），每张卡两个模式按钮——常规模式 → #/games/<id>，无尽模式 → #/games/<id>/endless；入口是导航里的「游戏」
-src/games/GamesPage.tsx           游戏外壳（tab=games，全屏、不渲染导航）：hash 里没 slug 或 slug=home 时渲染 GamesHome；否则取 slug + mode（第二段 endless = 无尽模式）→ findGame，单词由 src/games/data.ts 统一提供当 GameWord[] 下发——常规模式用 useGameWords（与背词页同一份词表），无尽模式用 useEndlessGameWords 每回合从全部学习列表随机抽 20 个词，并把 onNextRound 交给游戏（MonsterGame 的「再玩一次」改成换一批新词）；未找到 / 加载中 / 无任务 / 词太少都有中文提示和回游戏列表的链接
+src/games/GamesHome.tsx           游戏汇总页（#/games/home）：从 registry 列出可玩的游戏卡片（标题 / 说明 / emoji；ready:false 的还在开发，直接不展示），点整张卡片进该游戏的模式选择页 #/games/<id>；页面没有返回按钮；入口是导航里的「游戏」
+src/games/GameModePage.tsx        模式选择页（#/games/<id>）：先选游戏再选模式，两个大按钮——常规模式 → #/games/<id>/normal，无尽模式 → #/games/<id>/endless，顶部「← 换个游戏」回汇总页
+src/games/GamesPage.tsx           游戏外壳（tab=games，全屏、不渲染导航）：hash 里没 slug 或 slug=home 时渲染 GamesHome；有 slug 没模式段时渲染 GameModePage；#/games/<id>/normal|endless 才真正进游戏（ready:false 的游戏当作没找到）→ findGame，单词由 src/games/data.ts 统一提供当 GameWord[] 下发——常规模式用 useGameWords（与背词页同一份词表），无尽模式用 useEndlessGameWords 每回合从全部学习列表随机抽 20 个词，并把 onNextRound 交给游戏（MonsterGame 的「再玩一次」改成换一批新词）；未找到 / 加载中 / 无任务 / 词太少都有中文提示和回游戏列表的链接
 src/games/games.css              游戏外壳布局与 --g-* 粉彩变量（与背词页同一套配色，游戏子文件夹直接用）
 src/games/xiaoxiaole/index.ts    消消乐清单项（id=xiaoxiaole，标题「单词消消乐」）
 src/games/xiaoxiaole/XiaoxiaoleGame.tsx  单词消消乐：一关 6 对（12 张牌，4 列 3 行），英文牌与中文牌打乱混排，先点一张再点另一张，同组（同一对）就按两张牌中心画一条 SVG 线（stroke-dashoffset 描边动画）再一起缩掉；不同组则两张红外抖动 + 失误 +1；消掉的牌留在格子里透明（牌桌不重排）；每一关的词由 data.ts 的 dealWordRounds 从牌堆里发（7 个词切成 4+3，不留只有一对的尾巴；一个词整局只出现一次，打完最后一关 = 单词全部用完），每关底部「下一关」，全消完给用时 / 失误 /「再玩一次」（重洗牌回第一关）；游戏只管关卡与判定，不碰接口
@@ -138,7 +139,7 @@ worker/schema.sql                 全量建表 SQL（wrangler d1 execute 一次�
 worker/test/d1-shim.mjs           node:sqlite 模拟 D1 接口（prepare→bind→all/first/run + batch 事务）
 worker/test/api.test.mjs          350+ 项断言：直接驱动 handleApi + 走真正 workerIndex.fetch 的鉴权用例
 
-games.html                        游戏 PWA 的独立入口页（vite 多页构建的第二入口，产物 dist/games.html）：清单挂 /manifest-games.json、标题「单词游戏」；从它装到桌面 / 主屏幕是一个独立应用，启动地址就是 #/games/home，不会覆盖背单词那个图标（GamesHome 在这个入口下不显示「← 返回」）
+games.html                        游戏 PWA 的独立入口页（vite 多页构建的第二入口，产物 dist/games.html）：清单挂 /manifest-games.json、标题「单词游戏」；从它装到桌面 / 主屏幕是一个独立应用，启动地址就是 #/games/home，不会覆盖背单词那个图标（游戏汇总页本来就没有返回按钮）
 public/manifest.json              PWA 清单：name「背单词」、display standalone、theme_color #2563eb、start_url ./#/recite；图标 /icons/icon-192.png（any）与 /icons/icon-512.png（any maskable），图标文件由用户手动放进 public/icons/，不在代码里生成
 public/manifest-games.json        游戏 PWA 清单：id /games.html、name「单词游戏」、theme_color #E88B9A、start_url ./games.html#/games/home，图标同背单词那份
 public/sw.js                      手写 service worker（两个入口共用一个）：缓存应用外壳（导航网络优先 + 断网回落本入口缓存的 HTML 壳，静态资源缓存优先），/api 全部直连不缓存（数据实时 + 鉴权头）；导航壳按页面路径分开存（'/' 与 '/games.html' 互不覆盖）；版本号在文件顶部

@@ -1,26 +1,30 @@
 import { useEffect, useState } from 'react'
 import { useEndlessGameWords, useGameWords } from './data'
 import { GamesHome } from './GamesHome'
+import { GameModePage } from './GameModePage'
 import { findGame } from './registry'
 import type { GameMode } from './types'
 import './games.css'
 
 interface GameRoute {
   slug: string
-  mode: GameMode
+  /** null = 还没选模式，停在该游戏的模式选择页 */
+  mode: GameMode | null
 }
 
 /**
  * 从地址栏读路由：
- *   #/games/home           → slug=home（游戏汇总页）
- *   #/games/monster        → slug=monster，常规模式
- *   #/games/monster/endless → slug=monster，无尽模式
+ *   #/games/home            → slug=home（游戏汇总页）
+ *   #/games/monster         → slug=monster，mode=null（模式选择页）
+ *   #/games/monster/normal  → 常规模式
+ *   #/games/monster/endless → 无尽模式
  */
 function readRoute(): GameRoute {
   const raw = window.location.hash.replace(/^#\/?/, '')
   const parts = raw.split('/').filter(Boolean)
-  if (parts[0] !== 'games') return { slug: '', mode: 'normal' }
-  return { slug: parts[1] ?? '', mode: parts[2] === 'endless' ? 'endless' : 'normal' }
+  if (parts[0] !== 'games') return { slug: '', mode: null }
+  const mode = parts[2] === 'endless' ? 'endless' : parts[2] === 'normal' ? 'normal' : null
+  return { slug: parts[1] ?? '', mode }
 }
 
 function useGameRoute(): GameRoute {
@@ -41,7 +45,9 @@ function useGameRoute(): GameRoute {
 export function GamesPage() {
   const { slug, mode } = useGameRoute()
   const atHome = !slug || slug === 'home'
-  const game = atHome ? null : findGame(slug)
+  const found = atHome ? null : findGame(slug)
+  // 还没开发完的游戏（ready: false）不展示也不可进，当作没找到
+  const game = found && found.ready !== false ? found : null
   const [round, setRound] = useState(0)
 
   // 换游戏 / 换模式都从第一回合重新开始
@@ -54,6 +60,7 @@ export function GamesPage() {
   const { words, loading, error } = mode === 'endless' ? endless : normal
 
   if (atHome) return <GamesHome />
+  if (game && mode === null) return <GameModePage game={game} />
 
   const tooFew = !loading && !error && words.length < 3
 
