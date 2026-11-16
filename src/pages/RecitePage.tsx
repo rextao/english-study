@@ -38,7 +38,7 @@ interface DraftAnswer {
 const KEYBOARD_ROWS = ['qw', 'abcdefghijklmnopqrstuvwxyz']
 const FIRST_ROW_KEYS = 'qw'
 
-/** 发音倍速：卡片右上角的按钮点一下换一个，只改本地播放速度，不重新合成音频 */
+/** 发音倍速：卡片右上角的按钮点一下换一个；带 rate 请 Worker 要对应语速的音频（Google 原生念慢，音色不变） */
 const SPEED_RATES = [1, 0.5, 0.3]
 const SPEED_LABELS = ['正常速', '0.5 倍速', '0.3 倍速']
 

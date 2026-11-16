@@ -1,9 +1,11 @@
 /**
  * speech.ts — 背单词页的发音。
  *
- * GET /api/tts?text=word 由 Worker 调 Google Cloud Text-to-Speech 合成 MP3，
+ * GET /api/tts?text=word&rate=1 由 Worker 调 Google Cloud Text-to-Speech 合成 MP3，
  * 回的是 base64；这里解成 Blob URL 交给 <audio> 播放：
  *  - 同一个词只合成 / 下载一次，URL 复用到刷新页面为止；
+ *  - 慢速不是把播放速度拉慢（那样音色会变），而是带上 rate 让 Google 用 speakingRate
+ *    原生慢慢念，回的是慢速音频本体，<audio> 始终按 1 倍速播；
  *  - 点新词会掐掉上一个，避免两个声音叠在一起；
  *  - 喇叭按钮始终显示，密钥没配 / 断网 / 播放失败都由 speechErrorMessage 翻成一句中文写在页面上。
  */
@@ -29,8 +31,10 @@ let currentAudio: HTMLAudioElement | null = null
 /** 每次 stopSpeech / 新一次 speak 都加一：合成还没回来就被换词 / 离开页面时，回来也不再播 */
 let speechGeneration = 0
 
-function cacheKeyOf(text: string) {
-  return text.trim().replace(/\s+/g, ' ').toLowerCase()
+/** 缓存键 = 归一化文本 + 倍速：同一句话的正常速 / 慢速音频分开存，互不覆盖 */
+function cacheKeyOf(text: string, rate: number) {
+  const base = text.trim().replace(/\s+/g, ' ').toLowerCase()
+  return rate === 1 ? base : base + '@' + rate
 }
 
 function base64ToBlob(base64: string, mime: string): Blob {
@@ -51,8 +55,8 @@ function rememberUrl(key: string, url: string) {
   }
 }
 
-async function loadAudioUrl(text: string): Promise<string> {
-  const key = cacheKeyOf(text)
+async function loadAudioUrl(text: string, rate: number): Promise<string> {
+  const key = cacheKeyOf(text, rate)
   const cached = audioUrls.get(key)
   if (cached) return cached
   const pending = pendingAudio.get(key)
@@ -68,7 +72,7 @@ async function loadAudioUrl(text: string): Promise<string> {
       return cachedUrl
     }
 
-    const response = await apiFetch('/api/tts?text=' + encodeURIComponent(text))
+    const response = await apiFetch('/api/tts?text=' + encodeURIComponent(text) + '&rate=' + rate)
     let payload: { audio?: string; mime?: string; error?: string } | null = null
     try { payload = await response.json() } catch { payload = null }
     if (!response.ok || !payload?.audio) {
@@ -102,24 +106,21 @@ export function stopSpeech() {
 
 /**
  * 朗读一个词；Promise 在播放结束（或失败）后 resolve / reject。
- * rate 是播放倍速（背词页右上角的正常速 / 0.5 倍速 / 0.3 倍速），
- * 只改本地播放速度，不重新合成音频，缓存照旧复用。
+ * rate 是背词页右上角的倍速档位（正常速 1 / 0.5 / 0.3）：按这个档位向 Worker 要
+ * 对应语速的音频（Google 自己念慢，音色不变），<audio> 固定 1 倍速播。
+ * 每个档位各自缓存，同一个词同一档位只合成 / 下载一次。
  */
 export async function speak(text: string, options: { rate?: number } = {}): Promise<void> {
   const word = text.trim()
   if (!word) return
+  const rate = options.rate && options.rate > 0 ? options.rate : 1
   stopSpeech()
   const generation = speechGeneration
-  const url = await loadAudioUrl(word)
+  const url = await loadAudioUrl(word, rate)
   // 合成期间点了别的词 / 换了卡片：这次的结果已经过时，别再出声
   if (generation !== speechGeneration) return
   await new Promise<void>((resolve, reject) => {
     const audio = new Audio(url)
-    const rate = options.rate && options.rate > 0 ? options.rate : 1
-    audio.playbackRate = rate
-    // 慢速不要连音调一起压低，听起来还是同一个人念的（老浏览器没有这个属性就跳过）
-    const tunable = audio as HTMLAudioElement & { preservesPitch?: boolean }
-    tunable.preservesPitch = true
     currentAudio = audio
     const clear = () => { if (currentAudio === audio) currentAudio = null }
     audio.onended = () => { clear(); resolve() }

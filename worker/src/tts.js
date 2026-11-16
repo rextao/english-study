@@ -7,7 +7,8 @@
  * 只有 Worker secret `GOOGLE_TTS_API_KEY` 配了才可用；没配 / 断网时接口回 503 并带原因，
  * 前端喇叭按钮始终显示，点下去失败时把 503 的 error 翻成中文提示写在页面上。
  *
- * 合成结果按「音色 + 文本」缓存在 tts_cache 表：同一个词反复点不再走外网。
+ * 合成结果按「音色 + 语速 + 文本」缓存在 tts_cache 表：同一个词反复点不再走外网。
+ * 慢速是让 Google 用它自己的 speakingRate 慢慢念（音色不变），不是前端 playbackRate 拉慢。
  * 老库没有这张表时按未命中处理，发音照常可用（只是不缓存）。
  */
 
@@ -15,6 +16,11 @@ const DEFAULT_TTS_URL = 'https://texttospeech.googleapis.com/v1/text:synthesize'
 const DEFAULT_VOICE = 'en-US-Neural2-F'
 const DEFAULT_LANGUAGE = 'en-US'
 const DEFAULT_TIMEOUT_MS = 10_000
+/** 正常速的合成语速：沿用原来的 0.9，正常速的缓存键与旧数据保持一致 */
+const NORMAL_SPEAKING_RATE = 0.9
+/** Google speakingRate 的合法区间，超出会被上游拒掉 */
+const MIN_SPEAKING_RATE = 0.25
+const MAX_SPEAKING_RATE = 4
 /** 背单词只念单词 / 短语，长文本没必要合成 */
 export const MAX_TTS_TEXT_LENGTH = 160
 /** 缓存表保留条数上限：超过就丢最久没念的 */
@@ -86,9 +92,28 @@ function languageOf(env) {
   return String(env?.GOOGLE_TTS_LANGUAGE ?? '').trim() || DEFAULT_LANGUAGE
 }
 
-/** 缓存键带上音色：换音色后旧音频不会被错用 */
-export function ttsCacheKey(text, env) {
-  return voiceOf(env) + '|' + text
+/**
+ * 前端倍速档位（1 / 0.5 / 0.3）→ Google speakingRate。
+ * 正常速仍然合成为 0.9，慢速按相同比例放慢，这样听感一致、音色不变。
+ */
+export function speakingRateFor(rate) {
+  const factor = Number(rate)
+  const scaled = NORMAL_SPEAKING_RATE * (Number.isFinite(factor) && factor > 0 ? factor : 1)
+  const clamped = Math.min(MAX_SPEAKING_RATE, Math.max(MIN_SPEAKING_RATE, scaled))
+  return Math.round(clamped * 100) / 100
+}
+
+/**
+ * 缓存键带上音色和语速：换音色 / 换倍速后旧音频不会被错用。
+ * 正常速沿用老的 `音色|文本`（设置页的缺音频查询和一整库旧缓存都认这个键），
+ * 慢速另存一份 `音色|@0.45|文本`。
+ */
+export function ttsCacheKey(text, env, rate) {
+  const speakingRate = speakingRateFor(rate)
+  const prefix = voiceOf(env) + '|'
+  return speakingRate === NORMAL_SPEAKING_RATE
+    ? prefix + text
+    : prefix + '@' + speakingRate + '|' + text
 }
 
 export function ttsStatus(app) {
@@ -143,8 +168,9 @@ async function writeCachedAudio(app, key, text, mime, audio) {
  * 合成一个词 / 短语的 MP3。返回 { status, body }，与 routes.js 其他处理器一致。
  * body.audio 是 base64（Google 原样返回的内容），前端解成 Blob 再播放。
  */
-export async function synthesizeSpeech(app, rawText) {
+export async function synthesizeSpeech(app, rawText, rate) {
   const env = app.env
+  const speakingRate = speakingRateFor(rate)
   const text = String(rawText ?? '').trim().replace(/\s+/g, ' ')
   if (!text) return { status: 400, body: { error: 'missing text' } }
   if (text.length > MAX_TTS_TEXT_LENGTH) {
@@ -155,7 +181,7 @@ export async function synthesizeSpeech(app, rawText) {
   }
   if (app.config.noNetwork) return { status: 503, body: { error: 'network disabled' } }
 
-  const key = ttsCacheKey(text, env)
+  const key = ttsCacheKey(text, env, rate)
   const cached = await readCachedAudio(app, key)
   if (cached) return { status: 200, body: { text, mime: cached.mime, audio: cached.audio, cached: true } }
 
@@ -173,6 +199,7 @@ export async function synthesizeSpeech(app, rawText) {
     endpoint: endpointLabel(endpoint),
     voice,
     language,
+    speakingRate,
     timeoutMs: timeout,
   }
   const controller = new AbortController()
@@ -184,7 +211,7 @@ export async function synthesizeSpeech(app, rawText) {
       body: JSON.stringify({
         input: { text },
         voice: { languageCode: languageOf(env), name: voiceOf(env) },
-        audioConfig: { audioEncoding: 'MP3', speakingRate: 0.9, pitch: 0 },
+        audioConfig: { audioEncoding: 'MP3', speakingRate, pitch: 0 },
       }),
       signal: controller.signal,
     })
