@@ -50,8 +50,8 @@ function isSentenceCard(card: ReciteCard | null) {
 }
 
 /**
- * 句子拆成一个个可点的单词：点哪个只读哪个，标点和空格原样留在按钮外面。
- * 独立单词卡不走这里，它们只靠下面的喇叭按钮整词播放。
+ * 句子拆成一个个可点的单词：点哪个只读哪个（固定正常速，不受句子卡 0.5 倍速影响），
+ * 标点和空格原样留在按钮外面。独立单词卡不走这里，它们只靠下面的喇叭按钮整词播放。
  */
 function SentenceWords({ text, onSpeak }: { text: string; onSpeak: (word: string) => void }) {
   return (
@@ -523,15 +523,18 @@ export function RecitePage({
   /** 拼写卡在「拼对 / 跳过看答案」之前不出声，否则等于把答案念出来（拼错一次也还算没判定） */
   const spellingLocked = isSpelling && feedback !== 'correct' && feedback !== 'skipped'
 
-  /** 播一段文本（整句 / 句子里的某个单词）：连点只认最后一次，失败原因写在页面上 */
-  function playText(text: string) {
+  /**
+   * 播一段文本（整句 / 句子里的某个单词）：连点只认最后一次，失败原因写在页面上。
+   * rate 不传就用卡片右上角的档位；点句子里单个单词时强制正常速。
+   */
+  function playText(text: string, rate?: number) {
     const value = text.trim()
     if (!value) return
     const token = playToken.current + 1
     playToken.current = token
     setSpeechError('')
     setSpeaking(true)
-    void speak(value, { rate: SPEED_RATES[speedIndex] })
+    void speak(value, { rate: rate ?? SPEED_RATES[speedIndex] })
       .catch(error => {
         if (playToken.current === token) setSpeechError(speechErrorMessage(error))
       })
@@ -853,7 +856,7 @@ export function RecitePage({
                   {/* 翻面后：句子卡每个单词仍可单独点，单词卡就是整词文本 */}
                   <span className="recite-card__back-word">
                     {isSentence
-                      ? <SentenceWords text={card.displayText || card.word} onSpeak={playText} />
+                      ? <SentenceWords text={card.displayText || card.word} onSpeak={word => playText(word, 1)} />
                       : card.word}
                   </span>
                   <strong className="recite-card__back-translation">{card.translation || '暂无中文含义'}</strong>
@@ -863,7 +866,7 @@ export function RecitePage({
                 <>
                   {/* 句子卡：每个单词单独可点；单词卡只是文本，靠下面的喇叭听整词 */}
                   <div className="recite-card__prompt" style={promptStyle}>
-                    {isSentence ? <SentenceWords text={display} onSpeak={playText} /> : display}
+                    {isSentence ? <SentenceWords text={display} onSpeak={word => playText(word, 1)} /> : display}
                   </div>
                   {speakButton}
                 </>
