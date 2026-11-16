@@ -686,7 +686,7 @@ export function RecitePage({
   // 单词长度写进 CSS 变量，字号按它自适应：单词越长字号越小，整词总能放进卡片
   const promptStyle = { '--len': String(Math.max(1, display.length)) } as CSSProperties
 
-  // 喇叭：圆形纯图标按钮，挂在单词下面；拼写卡判定前锁定不出声，原因靠 title 说明
+  // 喇叭：圆形纯图标按钮，挂在单词下面（单词本身也能点，效果一样）；拼写卡判定前锁定不出声，原因靠 title 说明
   const speakButton = (
     <button
       type="button"
@@ -790,13 +790,35 @@ export function RecitePage({
             <div className={'recite-card__face' + (flipAnim ? ' recite-card__face--flip' : '')}>
               {flipped ? (
                 <div className="recite-card__back">
-                  <span className="recite-card__back-word">{card.word}</span>
+                  {/* 翻面后的单词也能点：点一下就朗读这个单词 */}
+                  <button
+                    type="button"
+                    className="recite-card__back-word"
+                    onClick={event => {
+                      // 回看时点卡片会翻面，别让单词把卡片翻过去
+                      event.stopPropagation()
+                      playWord()
+                    }}
+                    aria-label={'朗读 ' + card.word}
+                    title={'朗读「' + card.word + '」'}
+                  >{card.word}</button>
                   <strong className="recite-card__back-translation">{card.translation || '暂无中文含义'}</strong>
                   {speakButton}
                 </div>
               ) : (
                 <>
-                  <div className="recite-card__prompt" style={promptStyle}>{display}</div>
+                  {/* 单词本身就是播放按钮：小朋友直接点单词就能听发音 */}
+                  <button
+                    type="button"
+                    className={'recite-card__prompt recite-card__prompt--word' + (speaking ? ' is-playing' : '')}
+                    style={promptStyle}
+                    onClick={event => {
+                      event.stopPropagation()
+                      playWord()
+                    }}
+                    aria-label={'朗读 ' + display}
+                    title={'点一下朗读「' + display + '」'}
+                  >{display}</button>
                   {speakButton}
                 </>
               )}
