@@ -214,7 +214,7 @@
   pointer-events: none;
 }
 
-/* 卡片右上角的发音倍速：绝对定位、不占排版，点一下循环正常速 → 0.5 倍速 → 0.3 倍速 */
+/* 卡片右上角的发音倍速：绝对定位、不占排版，点一下在正常速 / 0.5 倍速之间切换 */
 .recite-card__speed {
   position: absolute;
   top: clamp(10px, 1.8vh, 18px);

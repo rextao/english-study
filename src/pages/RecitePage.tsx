@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 import { saveReciteDraft } from '../hooks/useRecite'
 import { readRecordPref, useReciteRecording, writeRecordPref } from '../hooks/useReciteRecording'
 import { useRecitePreload } from '../hooks/useRecitePreload'
-import type { ReciteSessionPayload, ReciteTask } from '../hooks/useRecite'
+import type { ReciteCard, ReciteSessionPayload, ReciteTask } from '../hooks/useRecite'
 import { ReciteDebugPanel } from '../components/ReciteDebugPanel'
 import { speak, speechErrorMessage, stopSpeech } from '../utils/speech'
 import { flushQueuedRecordings } from '../utils/reciteRecordingUpload'
@@ -39,8 +39,15 @@ const KEYBOARD_ROWS = ['qw', 'abcdefghijklmnopqrstuvwxyz']
 const FIRST_ROW_KEYS = 'qw'
 
 /** 发音倍速：卡片右上角的按钮点一下换一个；带 rate 请 Worker 要对应语速的音频（Google 原生念慢，音色不变） */
-const SPEED_RATES = [1, 0.5, 0.3]
-const SPEED_LABELS = ['正常速', '0.5 倍速', '0.3 倍速']
+const SPEED_RATES = [1, 0.5]
+const SPEED_LABELS = ['正常速', '0.5 倍速']
+/** 句子默认 0.5 倍速（正常速对小朋友太快），单词默认正常速；卡片上手动切过就按切的那档 */
+const SENTENCE_SPEED_INDEX = 1
+
+/** 句子卡：只有句子才会带 displayText（拼写卡的 displayText 是中文提示，不算句子） */
+function isSentenceCard(card: ReciteCard | null) {
+  return Boolean(card && card.cardType === 'meaning' && card.displayText)
+}
 
 function normalize(value: string) {
   return value.trim().replace(/\s+/g, ' ').toLowerCase()
@@ -195,7 +202,7 @@ export function RecitePage({
   // 喇叭：任何情况都显示，点了才去请求 /api/tts，失败把原因直接写在页面上
   const [speaking, setSpeaking] = useState(false)
   const [speechError, setSpeechError] = useState('')
-  // 发音倍速（卡片右上角）：0 = 正常速，1 = 0.5 倍速，2 = 0.3 倍速
+  // 发音倍速（卡片右上角）：0 = 正常速，1 = 0.5 倍速；默认值按卡的类型给
   const [speedIndex, setSpeedIndex] = useState(0)
   // 点「会」之后先问「说一下是什么意思」，点「确定」才进下一张
   const [askMeaning, setAskMeaning] = useState(false)
@@ -355,6 +362,12 @@ export function RecitePage({
     setAskMeaning(false)
     stopSpeech()
   }, [index])
+
+  // 每张卡进来先给它默认倍速：句子 0.5 倍速、单词正常速；这张卡上手动切过的档位换卡前保留
+  const cardId = cards[index]?.id ?? ''
+  useEffect(() => {
+    setSpeedIndex(isSentenceCard(cards[index] ?? null) ? SENTENCE_SPEED_INDEX : 0)
+  }, [cardId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const card = cards[index] ?? null
   const isSpelling = card?.cardType === 'spelling'
