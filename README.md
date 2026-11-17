@@ -81,6 +81,8 @@ npm run db:local:sync
 
 该命令会把远端 D1 的表结构和数据导出到临时目录，再导入本地 D1；临时 SQL 文件执行完成后会自动删除，不会进入仓库。它会覆盖本地数据库中的同名表数据，请只在确认本地数据可以丢弃时执行。
 
+D1 单条 SQL 文本上限 100 KB，而导出里的课堂录音分片（`recite_recording_chunks.data_base64`）一条就有 500 KB 左右，整份 dump 直接导入会报 `statement too long: SQLITE_TOOBIG`。脚本会把这类超长 `INSERT` 拆成「先插一块 + `UPDATE … SET 列 = 列 || '块'` 按主键补齐」，再分批调用 `wrangler d1 execute`，导入结果与远端逐表一致。
+
 | 命令 | 作用 |
 | --- | --- |
 | `npm run dev` | 先检查 Node 版本、生成本地 https 证书，再启动 wrangler dev + vite（`/api` 走本地 D1） |
