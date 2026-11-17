@@ -44,10 +44,11 @@ async function ensureListName(app, listId) {
   return listId === DEFAULT_LIST_ID ? '默认列表' : null
 }
 
+// 新分组排到最前面：列表按 batchOrder 的顺序展示，追加到末尾会让新分组沉底。
 function ensureBatchInOrder(list, batchKey) {
   if (!batchKey) return
   const order = Array.isArray(list.batchOrder) ? list.batchOrder : []
-  if (!order.includes(batchKey)) list.batchOrder = [...order, batchKey]
+  if (!order.includes(batchKey)) list.batchOrder = [batchKey, ...order]
 }
 
 /** 打印档只引用少量词：按引用加载对应列表及词条，不扫描学习库。 */
