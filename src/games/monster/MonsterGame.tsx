@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+
+import { useGameSound } from '../sound'
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
 import { shuffleWords } from '../data'
 import type { GameProps, GameWord } from '../types'
@@ -499,6 +501,7 @@ function bubbleBackdrop(cell: number): CSSProperties {
  * 配对判定和血量，不碰任何接口。
  */
 export function MonsterGame({ words, onNextRound }: GameProps) {
+  const { speakWord } = useGameSound()
   // 只在每帧推进后 +1，用来重绘；真正的数据在 worldRef 里
   const [, setFrame] = useState(0)
   const [status, setStatus] = useState<Status>('idle')
@@ -919,6 +922,8 @@ export function MonsterGame({ words, onNextRound }: GameProps) {
     if (status !== 'playing' || dragRef.current) return
     const field = fieldRef.current
     if (!field) return
+    // 拖起英文球就读一遍这个单词（中文球不读；喇叭关掉时 speakWord 什么都不做）
+    if (ball.kind === 'word') speakWord(ball.text)
     event.preventDefault()
     event.currentTarget.setPointerCapture(event.pointerId)
     const rect = field.getBoundingClientRect()

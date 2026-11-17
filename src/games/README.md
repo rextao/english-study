@@ -39,10 +39,20 @@
 - `.games__notice` / `.games__notice-sub`：外壳的空态与提示样式。
 - 汇总页 / 模式页样式：`.gh__*`、`.gm__*`。
 
-## 6. 接入一个新游戏的最小步骤
+## 6. 单词发音开关（`sound.tsx`）
+
+- `GameSoundProvider`：由游戏外壳包住所有游戏页；喇叭默认**打开**，偏好存 `localStorage` 的 `es-games-sound`（`on` / `off`），刷新和换游戏都保留；关掉时会 `stopSpeech()` 掐掉正在播的声音。
+- `GameSoundToggle`：右上角喇叭按钮（开 = 波纹，关 = 打叉），只在 `GamesPage` 里渲染一次，所有游戏共用；样式 `.games__sound` / `.games__sound.is-off` 在 `games.css`。
+- `useGameSound()`：游戏组件里取 `{ enabled, setEnabled, toggle, speakWord }`。
+  - `speakWord(word)`：喇叭开着时走 `utils/speech` 的 `speak()` 播 `/api/tts` 发音；关着时什么都不做，失败也静默，不打断游戏、不弹提示。
+  - 已经接入的点击：消消乐点英文牌、打怪兽拖起英文球（中文牌 / 中文球不读）。
+  - 没有 Provider（比如单独预览某个游戏）时返回静音的空实现，不会报错。
+
+## 7. 接入一个新游戏的最小步骤
 
 1. 建 `src/games/<id>/XxxGame.tsx`，接收 `GameProps`，用 `data.ts` 的牌堆 / 发牌函数发词。
 2. 建 `src/games/<id>/index.ts` 导出 `GameManifest`。
 3. 往 `registry.ts` 的 `GAMES` 加一条（没写完给 `ready: false`）。
+4. 需要发音时，在点击英文单词的地方调 `useGameSound().speakWord(word)`；右上角开关和静音逻辑不用自己实现。
 
-路由、取词、无尽换批、加载 / 错误提示、配色变量都由上面的公共层提供，不需要改动。
+路由、取词、无尽换批、加载 / 错误提示、配色变量、发音开关都由上面的公共层提供，不需要改动。

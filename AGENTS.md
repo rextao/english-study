@@ -94,6 +94,7 @@ src/ui/                           手写组件库：Button Select Dropdown Input
 
 src/games/data.ts                 游戏统一数据层：useGameWords 取当期单词（与背词页同源：进行中的会话卡片 → 本周任务词表，句子卡与无释义的不要，按小写去重、去掉词性前缀）；shuffleWords / createWordDeck / dealWordRounds 提供「每个词只取一次」的牌堆，取完即这一局单词全部用完；所有游戏只从这里拿词，组件自己不请求接口
 src/games/types.ts                游戏公共类型：GameWord（单词 + 中文释义）/ GameProps（外壳下发的 words，已去重）/ GameManifest（id + title + subtitle + Component）
+src/games/sound.tsx               游戏共用发音开关：GameSoundProvider（默认开，偏好 localStorage es-games-sound）+ useGameSound().speakWord(word) + 右上角 GameSoundToggle（外壳只渲染一次；关掉时静音并 stopSpeech）
 src/games/registry.ts             游戏清单 GAMES + findGame(id)：加新游戏只往这里加一条，其余文件不动；没开发完的给 ready: false（汇总页置灰）
 src/games/GamesHome.tsx           游戏汇总页（#/games/home）：从 registry 列出可玩的游戏卡片（标题 / 说明 / emoji；ready:false 的还在开发，直接不展示），点整张卡片进该游戏的模式选择页 #/games/<id>；页面没有返回按钮；入口是导航里的「游戏」
 src/games/GameModePage.tsx        模式选择页（#/games/<id>）：先选游戏再选模式，两个大按钮——常规模式 → #/games/<id>/normal，无尽模式 → #/games/<id>/endless，顶部「← 换个游戏」回汇总页

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { dealWordRounds, shuffleWords } from '../data'
+import { useGameSound } from '../sound'
 import type { GameProps, GameWord } from '../types'
 import './xiaoxiaole.css'
 
@@ -48,6 +49,7 @@ function fmtTime(ms: number) {
  * 每关从牌堆里发一批词，词用完就结束；游戏自己只管关卡、计时、连线判定，不碰任何接口。
  */
 export function XiaoxiaoleGame({ words }: GameProps) {
+  const { speakWord } = useGameSound()
   // 换一次 seed 就重新洗牌并回到第一关
   const [seed, setSeed] = useState(0)
   // 每一关的词都由数据层的牌堆发出：一个词整局只出现一次，最后一关打完 = 单词全部用完
@@ -107,6 +109,8 @@ export function XiaoxiaoleGame({ words }: GameProps) {
   /** 点一张牌：没选中就当第一张，选中了就判定这一对连不连得上 */
   function pick(tile: Tile) {
     if (cleared.has(tile.id) || linking.length > 0) return
+    // 点英文牌就读一遍这个单词（中文牌不读；喇叭关掉时 speakWord 什么都不做）
+    if (tile.kind === 'word') speakWord(tile.text)
     if (!selected) {
       setSelected(tile.id)
       return

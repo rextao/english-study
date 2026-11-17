@@ -3,6 +3,7 @@ import { useEndlessGameWords, useGameWords } from './data'
 import { GamesHome } from './GamesHome'
 import { GameModePage } from './GameModePage'
 import { findGame } from './registry'
+import { GameSoundProvider, GameSoundToggle } from './sound'
 import type { GameMode } from './types'
 import './games.css'
 
@@ -59,12 +60,13 @@ export function GamesPage() {
   const endless = useEndlessGameWords(Boolean(game) && mode === 'endless', round)
   const { words, loading, error } = mode === 'endless' ? endless : normal
 
-  if (atHome) return <GamesHome />
-  if (game && mode === null) return <GameModePage game={game} />
+  if (atHome) return <GameSoundProvider><GamesHome /></GameSoundProvider>
+  if (game && mode === null) return <GameSoundProvider><GameModePage game={game} /></GameSoundProvider>
 
   const tooFew = !loading && !error && words.length < 3
 
   return (
+    <GameSoundProvider>
     <div className="games">
       {!game && (
         <div className="games__notice">
@@ -105,6 +107,10 @@ export function GamesPage() {
           onNextRound={mode === 'endless' ? () => setRound(value => value + 1) : undefined}
         />
       )}
+
+      {/* 右上角发音开关：所有游戏共用，默认开启 */}
+      <GameSoundToggle />
     </div>
+    </GameSoundProvider>
   )
 }
