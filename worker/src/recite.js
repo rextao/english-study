@@ -492,6 +492,43 @@ export function createReciteStore(db) {
   }
 
   /**
+   * 只配置一周的任务框架（每次单词数 / 每周学习次数），不选单词：
+   * 配置页右上角的「配置周任务」用它先把下一周建出来，单词留给每一行各自点开配置。
+   * 这一周已经有任务时只改框架，已选好的单词原样保留。
+   */
+  async function planTask({ env, now = Date.now(), weekStart, perSessionCount, sessionCount }) {
+    const per = Number(perSessionCount)
+    const sessions = Number(sessionCount)
+    if (!Number.isInteger(per) || per < 1 || per > 200) throw new Error('每次学习单词数必须是 1 到 200')
+    if (!Number.isInteger(sessions) || sessions < 1 || sessions > 31) throw new Error('本周学习次数必须是 1 到 31')
+    const range = taskRange(resolveWeekStart(weekStart, env, now))
+    const existing = await getTask(range.weekStart)
+    if (existing) {
+      const session = await db.first(
+        "SELECT 1 FROM recite_sessions WHERE task_id = ? AND status IN ('active', 'completed') LIMIT 1",
+        existing.task.id,
+      )
+      if (session) {
+        const error = new Error('这一周的任务已经开始，不能修改每次词数和次数')
+        error.code = 'TASK_STARTED'
+        throw error
+      }
+      await db.run(
+        'UPDATE recite_tasks SET per_session_count = ?, session_count = ?, capacity = ?, config_version = ?, updated_at = ? WHERE id = ?',
+        per, sessions, per * sessions, Number(existing.task.config_version || 0) + 1, now, existing.task.id,
+      )
+    } else {
+      await db.run(
+        `INSERT INTO recite_tasks
+          (id, week_start, week_end, per_session_count, session_count, capacity, config_version, status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, 1, 'active', ?, ?)`,
+        createTaskId(), range.weekStart, range.weekEnd, per, sessions, per * sessions, now, now,
+      )
+    }
+    return { task: await taskPayload(await getTask(range.weekStart)) }
+  }
+
+  /**
    * 删除一整周还没开始的任务：只要建过会话（含主动推送、学完待保存）就不让删，
    * 避免把已学记录和课堂录音的归属一起删掉。删掉后这一周回到「还没配置」，可以重新选词。
    */
@@ -1076,7 +1113,7 @@ export function createReciteStore(db) {
   }
 
   return {
-    currentTask, preview, saveTask, deleteTask, saveSessionWords, startSession, answerCard, commitSession,
+    currentTask, preview, saveTask, planTask, deleteTask, saveSessionWords, startSession, answerCard, commitSession,
     getDrafts, saveDraft, activeSession, history, getTask, taskPayload, listTasks,
     pushSession, sweepPushedSessions,
   }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Button, Drawer, Modal, Tag } from '../ui'
+import { Button, Drawer, Input, Modal, Select, Tag } from '../ui'
 import { PageHeader } from '../components/PageHeader'
 import { ReciteTaskPanel } from '../components/ReciteTaskPanel'
 import { RecitePushPanel } from '../components/RecitePushPanel'
@@ -15,6 +15,7 @@ import {
   fetchReciteHistory,
   fetchReciteRecordings,
   fetchReciteTasks,
+  planReciteTask,
 } from '../hooks/useRecite'
 import type {
   ReciteCardTimes,
@@ -42,6 +43,13 @@ const RECORDING_LIMIT = 60
 const COMMIT_CHUNK = 30
 /** 保存抽屉里单张卡片最多加多少次，与服务端 MAX_CARD_TIMES 一致 */
 const MAX_CARD_TIMES = 10
+/** 「配置周任务」的默认框架：每次 15 词、每周 3 次 */
+const DEFAULT_PER_SESSION = 15
+const DEFAULT_SESSION_COUNT = 3
+/** 每周学习次数下拉的范围 */
+const SESSION_OPTIONS = Array.from({ length: 7 }, (_, index) => ({
+  value: String(index + 1), label: String(index + 1),
+}))
 
 const RESULT_LABEL: Record<string, string> = {
   known: '会',
@@ -397,6 +405,12 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
   const [cardTimes, setCardTimes] = useState<Record<string, ReciteCardTimes>>({})
   /** 主动推送：要推送到哪一周（周一 0 点），null 表示弹窗关闭 */
   const [pushWeek, setPushWeek] = useState<number | null>(null)
+  /** 「配置周任务」弹窗：只配每次词数 / 每周次数，给下一周建框架，不选单词 */
+  const [planOpen, setPlanOpen] = useState(false)
+  const [planPer, setPlanPer] = useState(DEFAULT_PER_SESSION)
+  const [planSessions, setPlanSessions] = useState(DEFAULT_SESSION_COUNT)
+  const [planBusy, setPlanBusy] = useState(false)
+  const [planError, setPlanError] = useState('')
 
   useEffect(() => {
     let alive = true
@@ -440,6 +454,37 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
     () => weeks.filter(week => taskByWeek.has(week)).length,
     [weeks, taskByWeek],
   )
+
+  /** 「配置周任务」建的是下周：跳过已经配置过的周，取第一个还没有任务的周 */
+  const planWeek = useMemo(
+    () => weeks.slice(1).find(week => !taskByWeek.has(week)) ?? thisWeek + 7 * DAY,
+    [weeks, taskByWeek, thisWeek],
+  )
+
+  /** 打开配置周任务弹窗：这一周已有任务（框架）时回填它现在的词数与次数 */
+  function openPlan() {
+    const existing = taskByWeek.get(planWeek)
+    setPlanPer(existing?.perSessionCount ?? DEFAULT_PER_SESSION)
+    setPlanSessions(existing?.sessionCount ?? DEFAULT_SESSION_COUNT)
+    setPlanError('')
+    setPlanOpen(true)
+  }
+
+  /** 保存框架：服务端只写词数与次数，不选单词；单词随后在每一行里配置 */
+  async function savePlan() {
+    if (planBusy) return
+    setPlanBusy(true)
+    setPlanError('')
+    try {
+      await planReciteTask({ weekStart: planWeek, perSessionCount: planPer, sessionCount: planSessions })
+      setPlanOpen(false)
+      setReload(value => value + 1)
+    } catch (error) {
+      setPlanError(error instanceof Error ? error.message : '周任务创建失败，请重试')
+    } finally {
+      setPlanBusy(false)
+    }
+  }
 
   /** 已保存的记录按周 / 第几次归组，已完成的行直接在单词后显示判定 */
   const marksByWeek = useMemo(() => {
@@ -596,7 +641,6 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
     <div className="page page--wide">
       <PageHeader
         title="配置背词任务"
-        subtitle="一周一行；已完成的次数在单词后直接看判定，学完的那一次在行右侧保存。没开始或正在学习的次数点行可以改这一次的单词，学习中改词需要重新学；学完还没点保存也不影响孩子继续学下一次。"
         actions={<Button onClick={onBack}>返回英语学习</Button>}
       />
 
@@ -606,6 +650,9 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
           <span className="recite-tasks__hint">
             {loading ? '正在读取…' : '本周至 12 周后，已配置 ' + configuredCount + ' 周'}
           </span>
+          <Button size="small" className="recite-tasks__plan-btn" onClick={openPlan}>
+            配置周任务
+          </Button>
         </div>
 
         {loadError && <p className="callout callout--error">{loadError}</p>}
@@ -644,12 +691,6 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
                         </th>
                         <td colSpan={3} className="recite-tasks__empty-cell">
                           <span className="recite-tasks__empty-text">这一周还没有背词任务</span>
-                          <Button
-                            size="small"
-                            onClick={() => { setModalWeek(week); setModalSession(null) }}
-                          >
-                            {isThisWeek ? '配置本周任务' : '配置这一周任务'}
-                          </Button>
                         </td>
                       </tr>
                     </tbody>
@@ -773,6 +814,50 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
           只删除还没开始的任务配置，删掉后这一周可以重新选词配置；已经开始过的周不能删除。
         </p>
         {deleteError && <p className="callout callout--error">{deleteError}</p>}
+      </Modal>
+
+      <Modal
+        open={planOpen}
+        title={'配置周任务 · ' + fmtWeek(planWeek)}
+        onClose={() => { if (!planBusy) setPlanOpen(false) }}
+        footer={
+          <>
+            <Button disabled={planBusy} onClick={() => setPlanOpen(false)}>取消</Button>
+            <Button type="primary" loading={planBusy} onClick={() => { void savePlan() }}>
+              保存
+            </Button>
+          </>
+        }
+      >
+        <p className="hint">
+          只配置每次学习单词数与每周学习次数，会为 {fmtWeek(planWeek)} 这一周建好任务但不选单词；
+          保存后点每一行「第 N 次」配置那一次要学的单词。
+        </p>
+        <div className="recite-tasks__plan-form">
+          <div className="recite-tasks__plan-field">
+            <label className="field-label" htmlFor="recite-plan-per">每次学习单词数</label>
+            <Input
+              id="recite-plan-per"
+              type="number"
+              min={1}
+              max={200}
+              value={String(planPer)}
+              onChange={event => setPlanPer(Math.max(1, Number(event.target.value) || 1))}
+            />
+          </div>
+          <div className="recite-tasks__plan-field">
+            <label className="field-label" htmlFor="recite-plan-sessions">每周学习次数</label>
+            <Select
+              id="recite-plan-sessions"
+              block={false}
+              value={String(planSessions)}
+              options={SESSION_OPTIONS}
+              aria-label="每周学习次数"
+              onChange={value => setPlanSessions(Number(value) || 1)}
+            />
+          </div>
+        </div>
+        {planError && <p className="callout callout--error">{planError}</p>}
       </Modal>
 
       <RecitePushPanel

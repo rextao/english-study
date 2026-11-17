@@ -252,6 +252,26 @@ export async function saveReciteTask(input: ReciteTaskInput & { spellingWords: s
 }
 
 /**
+ * 只配置一周的任务框架（每次单词数 / 每周学习次数），不选单词。
+ * 配置页右上角的「配置周任务」用它把下一周建好，单词留给每一行各自点开配置；
+ * 这一周已有任务且没开始时只改框架，已选好的单词保留。
+ */
+export async function planReciteTask(input: {
+  weekStart?: number
+  perSessionCount: number
+  sessionCount: number
+}): Promise<ReciteTask> {
+  const response = await apiFetch('/api/recite/task', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...input, planOnly: true }),
+  })
+  const data = await readJson<{ ok: boolean; task: ReciteTask }>(response)
+  invalidateApiCache(['recite-task', 'recite-session', 'study-plan'])
+  return data.task
+}
+
+/**
  * 删除一周还没开始的背词任务：删掉后这一周回到「还没配置」，可以重新选词。
  * 已经开始过的周服务端拒绝（409），已学的次数和课堂录音都不会被删。
  */

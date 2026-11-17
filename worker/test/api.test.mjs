@@ -2144,6 +2144,42 @@ while (r.body?.nextCard) {
 }
 check('背词最后一张完成会话', r.status === 200 && r.body?.completed === true && r.body?.summary?.status === 'completed', r.body)
 
+// ── 配置周任务：只填每次词数 / 每周次数，建好任务但不选单词 ──
+console.log('')
+console.log('配置周任务')
+
+const planCtx = makeContext()
+use(planCtx)
+r = await call('PUT', '/api/recite/task', { planOnly: true, perSessionCount: 4, sessionCount: 2 })
+check('只配置框架就能建出任务且不选单词',
+  r.status === 200 && r.body?.task?.perSessionCount === 4 && r.body?.task?.sessionCount === 2
+  && Array.isArray(r.body?.task?.words) && r.body.task.words.length === 0, r.body)
+const planWeekStart = r.body?.task?.weekStart
+r = await call('PUT', '/api/recite/task', {
+  planOnly: true,
+  weekStart: planWeekStart + 7 * 86400000,
+  perSessionCount: 5,
+  sessionCount: 3,
+})
+check('下一周也能只配上框架不选单词',
+  r.status === 200 && r.body?.task?.weekStart === planWeekStart + 7 * 86400000
+  && r.body?.task?.perSessionCount === 5 && r.body.task.words.length === 0, r.body)
+r = await call('GET', '/api/recite/tasks')
+check('两周的框架任务都在任务列表里',
+  Array.isArray(r.body?.tasks) && r.body.tasks.length === 2
+  && r.body.tasks.every(task => task.words.length === 0), r.body)
+r = await call('PUT', '/api/recite/task', {
+  planOnly: true,
+  weekStart: planWeekStart,
+  perSessionCount: 6,
+  sessionCount: 2,
+})
+check('再次配置只改框架不动单词',
+  r.status === 200 && r.body?.task?.perSessionCount === 6 && r.body?.task?.sessionCount === 2
+  && r.body.task.words.length === 0, r.body)
+r = await call('PUT', '/api/recite/task', { planOnly: true, perSessionCount: 0, sessionCount: 2 })
+check('配置周任务拒绝非法词数', r.status === 400, r.body)
+
 console.log('')
 console.log('背词单行改词')
 

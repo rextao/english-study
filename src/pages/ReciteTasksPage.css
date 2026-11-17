@@ -9,6 +9,22 @@
 
 .recite-tasks__title { font-size: 16px; margin: 0; }
 .recite-tasks__hint { color: var(--color-text-subtle); font-size: 13px; }
+/* 「配置周任务」放在周任务模块右上角 */
+.recite-tasks__plan-btn { margin-left: auto; }
+
+/* 配置周任务弹窗：只填每次词数与每周次数 */
+.recite-tasks__plan-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 12px 0;
+}
+.recite-tasks__plan-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.recite-tasks__plan-field .ui-input { width: 120px; }
 
 .recite-tasks__scroll { overflow-x: auto; }
 

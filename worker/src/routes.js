@@ -899,7 +899,14 @@ export async function handleApi(method, pathname, searchParams, body, app) {
   // PUT /api/recite/task — 带 session 时只改这一次学习的单词，整周任务已经开始也能改没开始的那一次
   if (method === 'PUT' && pathname === '/api/recite/task') {
     try {
-      const result = body?.session != null
+      const result = body?.planOnly
+        ? await app.recite.planTask({
+            env,
+            weekStart: body?.weekStart,
+            perSessionCount: body?.perSessionCount,
+            sessionCount: body?.sessionCount,
+          })
+        : body?.session != null
         ? await app.recite.saveSessionWords({
             env,
             weekStart: body?.weekStart,
