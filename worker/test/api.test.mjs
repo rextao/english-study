@@ -2805,6 +2805,47 @@ check('清理后音频取不到', r.status === 404, r.body)
 // ── Bearer 鉴权（走真正的 Worker fetch 入口） ─────────────────────────────
 
 console.log('')
+console.log('recite_task_words 老库迁移')
+
+// 早期「按周配置」的表主键是 (task_id, word)：同一个词一周只能出现一次。
+// 改成按次配置后同一个词可以出现在多次学习里，老库必须先重建表，否则插入第二条
+// 会撞主键、接口返回 400。这里造一份老结构，再跑整份 schema.sql 验证迁移。
+const legacyRaw = createShimDb(path.join(dataDir, 'legacy-' + Math.random().toString(36).slice(2) + '.sqlite'))
+legacyRaw.__sqlite.exec(`
+  CREATE TABLE recite_tasks (
+    id TEXT PRIMARY KEY, week_start INTEGER NOT NULL UNIQUE, week_end INTEGER NOT NULL,
+    per_session_count INTEGER NOT NULL, session_count INTEGER NOT NULL, capacity INTEGER NOT NULL,
+    config_version INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'active',
+    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+  ) STRICT;
+  CREATE TABLE recite_task_words (
+    task_id TEXT NOT NULL, word TEXT NOT NULL, list_id TEXT NOT NULL, position INTEGER NOT NULL,
+    type TEXT NOT NULL, display_text TEXT, translation TEXT, source_type TEXT NOT NULL,
+    source_group TEXT, source_last_at INTEGER, spelling_enabled INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (task_id, word)
+  ) STRICT;
+  INSERT INTO recite_tasks VALUES ('legacy-task', 1, 2, 2, 2, 4, 1, 'active', 1, 1);
+  INSERT INTO recite_task_words VALUES ('legacy-task', 'apple', 'default', 0, 'word', NULL, '苹果', 'selected', NULL, NULL, 0);
+  INSERT INTO recite_task_words VALUES ('legacy-task', 'banana', 'default', 1, 'word', NULL, '香蕉', 'selected', NULL, NULL, 0);
+`)
+applySchema(legacyRaw, schemaSql)
+const legacyDb = createDb(legacyRaw)
+check('老库迁移后词条不丢', await countRows(legacyDb, 'recite_task_words') === 2)
+let legacyInsert = ''
+try {
+  await legacyRaw.prepare(
+    'INSERT INTO recite_task_words (task_id, word, list_id, position, type, source_type, spelling_enabled) VALUES (?, ?, ?, ?, ?, ?, 0)',
+  ).bind('legacy-task', 'apple', 'default', 2, 'word', 'selected').run()
+  legacyInsert = 'ok'
+} catch (error) {
+  legacyInsert = error?.message || String(error)
+}
+check('迁移后同一个词可以出现在多次学习里', legacyInsert === 'ok', legacyInsert)
+// 再跑一遍 schema：空转、数据不丢
+applySchema(legacyRaw, schemaSql)
+check('重复执行 schema 不会弄丢或复制词条', await countRows(legacyDb, 'recite_task_words') === 3)
+
+console.log('')
 console.log('Bearer 鉴权')
 
 const authCtx = makeContext()

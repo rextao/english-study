@@ -138,6 +138,32 @@ CREATE TABLE IF NOT EXISTS recite_task_words (
   -- 同一周的单词可以在多次学习里重复选，所以按位置唯一，不按单词唯一
   PRIMARY KEY (task_id, position)
 ) STRICT;
+
+-- 老库迁移：早期「按周配置」的 recite_task_words 主键是 (task_id, word)，
+-- 那时一个词一周只能出现一次；改成按次配置后同一个词可以出现在多次学习里，
+-- 插入第二条就会撞 PRIMARY KEY。CREATE TABLE IF NOT EXISTS 改不了已有表，
+-- 所以这里把表重建一遍并把数据原样搬过去：新库和已经迁移过的库跑一遍等于空转。
+CREATE TABLE IF NOT EXISTS recite_task_words_rebuild (
+  task_id TEXT NOT NULL REFERENCES recite_tasks(id) ON DELETE CASCADE,
+  word TEXT NOT NULL,
+  list_id TEXT NOT NULL,
+  position INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  display_text TEXT,
+  translation TEXT,
+  source_type TEXT NOT NULL,
+  source_group TEXT,
+  source_last_at INTEGER,
+  spelling_enabled INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (task_id, position)
+) STRICT;
+INSERT OR IGNORE INTO recite_task_words_rebuild
+  (task_id, word, list_id, position, type, display_text, translation, source_type, source_group, source_last_at, spelling_enabled)
+  SELECT task_id, word, list_id, position, type, display_text, translation, source_type, source_group, source_last_at, spelling_enabled
+  FROM recite_task_words;
+DROP TABLE recite_task_words;
+ALTER TABLE recite_task_words_rebuild RENAME TO recite_task_words;
+
 CREATE INDEX IF NOT EXISTS idx_recite_task_words_position ON recite_task_words(task_id, position);
 
 CREATE TABLE IF NOT EXISTS recite_sessions (

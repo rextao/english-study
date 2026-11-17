@@ -26,6 +26,7 @@
 - **验证命令**：`npm run build`（= `tsc -b && vite build`）必须 exit 0；动过 `worker/` 再跑 `npm run test:server`（跑在临时目录的 node:sqlite shim 上，不碰真实数据）。文档结构检查使用 `npm run docs:check`。
 - **密钥不进 git**：`API_TOKEN` / 百度翻译密钥 / Google TTS 密钥（`GOOGLE_TTS_API_KEY`）只能通过 `npx wrangler secret put <NAME>` 配成 Worker secret；沙箱连不了外网，部署 / 建表 / 迁数据 / 配密钥由用户在本机执行。
 - **D1 写路径**：学习列表 / 词条与学习进度使用定向 SQL 和行级 INSERT / UPDATE / DELETE；不要在请求路径整库 load 或重写。全库读取仅留在测试断言辅助中。小型配置仍可用 kv JSON；打印记录目前有 60 条上限，若单批次规模明显增长，再评估拆成关系表。
+- **schema.sql 是唯一建表 / 迁移入口**：建表都是 `CREATE TABLE IF NOT EXISTS`，改已有表的结构（例如 `recite_task_words` 主键从 `(task_id, word)` 改成 `(task_id, position)`）必须在 schema.sql 里显式重建表并搬数据，已有库重跑一次 `npx wrangler d1 execute english-study-sync --file=worker/schema.sql` 就会迁移；光改 CREATE TABLE 的定义对老库不生效。
 
 ## 目录地图（一行一职责）
 
