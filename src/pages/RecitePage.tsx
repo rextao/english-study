@@ -708,7 +708,7 @@ export function RecitePage({
         <div className="recite__panel recite__panel--lite">
           <span className="recite__emoji">🌤️</span>
           <b>下一组单词还没准备好</b>
-          <p>这些单词已经不在学习列表里了，请家长在英语学习页调整本周任务。</p>
+          <p>这一组还没选词，或者这些单词已经不在学习列表里了，请家长在背词任务页补上这一周的单词。</p>
         </div>
         {debugButton}
         {debugPanel}

@@ -455,9 +455,12 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
     [weeks, taskByWeek],
   )
 
-  /** 「配置周任务」建的是下周：跳过已经配置过的周，取第一个还没有任务的周 */
+  /**
+   * 「配置周任务」建的是「第一个还没配置的周」：本周没配置就先建本周（否则本周永远学不了），
+   * 本周配好了再往后排到还没配置的周。
+   */
   const planWeek = useMemo(
-    () => weeks.slice(1).find(week => !taskByWeek.has(week)) ?? thisWeek + 7 * DAY,
+    () => weeks.find(week => !taskByWeek.has(week)) ?? thisWeek + 7 * DAY,
     [weeks, taskByWeek, thisWeek],
   )
 
@@ -691,6 +694,13 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
                         </th>
                         <td colSpan={3} className="recite-tasks__empty-cell">
                           <span className="recite-tasks__empty-text">这一周还没有背词任务</span>
+                          {/* 空周也要能就地配置：背词页只读本周任务，本周缺任务就进不去学习 */}
+                          <Button
+                            size="small"
+                            onClick={() => { setModalWeek(week); setModalSession(null) }}
+                          >
+                            配置这一周
+                          </Button>
                         </td>
                       </tr>
                     </tbody>
