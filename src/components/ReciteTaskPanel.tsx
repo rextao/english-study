@@ -230,9 +230,16 @@ export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, o
   }
 
   function commitDraft() {
-    const current = activeWords
-      .filter(item => draftKeys.has(selectionKey({ listId: activeListId, word: item.word })))
-      .map(item => ({ listId: activeListId, word: item.word, sourceGroup: item.batchKey }))
+    // 按勾选顺序收集当前列表的词：选词数组的顺序就是最终进表格的顺序，超容量时先选的先占位
+    const byKey = new Map(activeWords.map(item => [
+      selectionKey({ listId: activeListId, word: item.word }),
+      item,
+    ] as const))
+    const current: Selection[] = []
+    for (const draftKey of draftKeys) {
+      const item = byKey.get(draftKey)
+      if (item) current.push({ listId: activeListId, word: item.word, sourceGroup: item.batchKey })
+    }
     const picked = new Set(current.map(item => keyOf(item.word)))
     // 这次在别的列表里重新选中同一个词时，以当前列表为准
     const other = selected.filter(item => item.listId !== activeListId && !picked.has(keyOf(item.word)))
@@ -446,8 +453,19 @@ export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, o
                         <span>{item.sourceType === 'achievement' ? '自动填充 · 学习成果' : item.listId}</span>
                       </label>
                     })}
+                    {/* 超出容量被截掉的词：划掉展示，让人一眼看到它们不会进最终表格 */}
+                    {taskPreview.ignored.map(item => (
+                      <div
+                        key={'ignored|' + item.listId + '|' + keyOf(item.word)}
+                        className="recite-task__word recite-task__word--ignored"
+                        title="超出容量，不会加入这次学习"
+                      >
+                        <span className="recite-task__word-text">{taskWordLabel(item)}</span>
+                        <span>超出容量 · 不会加入</span>
+                      </div>
+                    ))}
                   </div>
-                  {taskPreview.ignored.length > 0 && <p className="hint">容量忽略 {taskPreview.ignored.length} 个，未从学习列表删除。</p>}
+                  {taskPreview.ignored.length > 0 && <p className="hint">划掉的 {taskPreview.ignored.length} 个超出容量，不会加入任务，也不会从学习列表删除。</p>}
                 </div>
               )}
             </section>
