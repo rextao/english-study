@@ -1257,6 +1257,33 @@ check('清空目标', r.body?.ok === true && r.body.libraryId === '', r.body)
 r = await call('GET', '/api/study/goal')
 check('清空后读回空串', r.body?.libraryId === '', r.body)
 
+// ── 单词游戏配置（无尽模式取词范围） ──────────────────────────────────────
+
+r = await call('GET', '/api/games/config')
+check('游戏配置初始为空（= 全部学习列表）',
+  r.status === 200 && JSON.stringify(r.body.endlessListIds) === '[]', r.body)
+
+r = await call('PUT', '/api/games/config', { endlessListIds: ['  default  ', 'default', 'list-b'] })
+check('保存取词范围：去空白去重',
+  r.body?.ok === true && JSON.stringify(r.body.endlessListIds) === '["default","list-b"]', r.body)
+
+r = await call('GET', '/api/games/config')
+check('取词范围读回', JSON.stringify(r.body.endlessListIds) === '["default","list-b"]', r.body)
+
+r = await call('PUT', '/api/games/config', { endlessListIds: 'default' })
+check('endlessListIds 非数组 -> 400', r.status === 400 && r.body.ok === false, r.body)
+
+r = await call('PUT', '/api/games/config', { endlessListIds: [1] })
+check('endlessListIds 含非字符串 -> 400', r.status === 400 && r.body.ok === false, r.body)
+
+const savedGameConfig = await readKv(db(), KV_KEYS.gameConfig, {})
+check('游戏配置已落盘',
+  JSON.stringify(savedGameConfig.endlessListIds) === '["default","list-b"]', savedGameConfig)
+
+r = await call('PUT', '/api/games/config', { endlessListIds: [] })
+check('清空取词范围 = 全部学习列表',
+  r.body?.ok === true && JSON.stringify(r.body.endlessListIds) === '[]', r.body)
+
 // ── 打印批次记录 + 整批打卡 ────────────────────────────────────────────────
 
 r = await call('POST', '/api/lists', { name: 'Printed' })

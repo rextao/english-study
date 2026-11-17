@@ -3,6 +3,7 @@ import { fetchReciteActiveSession, fetchReciteTask } from '../hooks/useRecite'
 import type { ReciteCard, ReciteTaskWord } from '../hooks/useRecite'
 import { stripTranslationPos } from '../utils/translations'
 import { queryApi } from '../utils/apiCache'
+import type { GameConfig } from '../hooks/useGameConfig'
 import type { StudyList, StudyWordItem } from '../types/vocab'
 import type { GameWord } from './types'
 
@@ -227,19 +228,29 @@ export function useGameWords(enabled: boolean): GameWordsState {
 export const ENDLESS_ROUND_SIZE = 20
 
 /**
- * 无尽模式的取词：从全部学习列表里随机抽 limit 个带中文释义的单词。
- * 池子由所有列表的单词拼起来再去重，每次调用都重新洗牌，
+ * 无尽模式的取词：从设置页配好的单词范围里随机抽 limit 个带中文释义的单词。
+ * 范围 = 若干学习列表；没配置（空数组）就用全部学习列表。
+ * 池子由范围内的列表单词拼起来再去重，每次调用都重新洗牌，
  * 所以同一个单词在一回合里只出现一次，玩完一局再来一批就可能是另一批词。
  * 列表单词走共享读缓存，反复开新回合不会反复打接口。
  */
 export async function loadRandomStudyWords(limit = ENDLESS_ROUND_SIZE): Promise<GameWord[]> {
-  const lists = await queryApi<StudyList[]>('/api/lists', {}, {
-    staleTime: 30_000, tags: ['lists'],
-  })
+  const [lists, config] = await Promise.all([
+    queryApi<StudyList[]>('/api/lists', {}, { staleTime: 30_000, tags: ['lists'] }),
+    // 配置读不到（老服务 / 离线）就退回默认的全量取词，不因此拦住游戏
+    queryApi<GameConfig>('/api/games/config', {}, {
+      staleTime: 5 * 60_000, tags: ['game-config'],
+    }).catch(() => null),
+  ])
   if (!Array.isArray(lists) || lists.length === 0) {
     throw new Error('还没有学习列表，先去查词页加几个单词吧。')
   }
-  const batches = await Promise.all(lists.map(list =>
+  const scope = new Set(config?.endlessListIds ?? [])
+  const scoped = scope.size > 0 ? lists.filter(list => scope.has(list.id)) : lists
+  if (scoped.length === 0) {
+    throw new Error('单词游戏配置的学习列表已经没有了，去设置页改一下单词范围吧。')
+  }
+  const batches = await Promise.all(scoped.map(list =>
     queryApi<StudyWordItem[]>('/api/lists/' + encodeURIComponent(list.id) + '/words', {}, {
       staleTime: 5 * 60_000, tags: ['list-words:' + list.id, 'lists'],
     }).catch(() => [] as StudyWordItem[]),

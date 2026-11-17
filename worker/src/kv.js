@@ -20,6 +20,7 @@ const UPSERT_CACHE = 'INSERT INTO dict_cache (word, entry_json, status) VALUES (
 export const KV_KEYS = {
   labels: 'vocab-labels',
   goal: 'study-goal',
+  gameConfig: 'game-config',
   prints: 'print-batches',
   prefetch: 'prefetch-state',
   ttsPrefill: 'tts-prefill-state',

@@ -29,6 +29,9 @@ import {
   DEFAULT_LIST_ID, MAX_LABEL_LENGTH, MAX_LIBRARY_ID_LENGTH,
   MAX_PRINT_BATCHES, DEFAULT_PRINT_LIMIT, MAX_PRINT_TITLE, PRINT_KINDS,
 } from './lists.js'
+import {
+  loadGameConfig, saveGameConfig, MAX_GAME_LIST_IDS, MAX_GAME_LIST_ID_LENGTH,
+} from './games.js'
 import { progressRow } from './study-lists.js'
 import { enqueuePrefetch, enqueuePhoneticPrefetch, enqueueFullPhoneticPrefetch, currentPrefetchState } from './prefetch.js'
 import { synthesizeSpeech, ttsStatus, ttsConfigured, MAX_TTS_TEXT_LENGTH } from './tts.js'
@@ -1216,6 +1219,25 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     await saveGoal(app, { libraryId })
     console.log('[goal ~]   ', libraryId || '(none)')
     return { status: 200, body: { ok: true, libraryId } }
+  }
+
+  // GET /api/games/config  — 单词游戏的家长配置（无尽模式取词范围）
+  if (method === 'GET' && pathname === '/api/games/config') {
+    return { status: 200, body: await loadGameConfig(app) }
+  }
+
+  // PUT /api/games/config  — endlessListIds 传空数组表示「全部学习列表」
+  if (method === 'PUT' && pathname === '/api/games/config') {
+    const raw = body?.endlessListIds
+    if (!Array.isArray(raw) || raw.some(id => typeof id !== 'string')) {
+      return { status: 400, body: { ok: false, error: 'endlessListIds 必须是字符串数组' } }
+    }
+    if (raw.length > MAX_GAME_LIST_IDS || raw.some(id => id.trim().length > MAX_GAME_LIST_ID_LENGTH)) {
+      return { status: 400, body: { ok: false, error: 'endlessListIds 过长' } }
+    }
+    const config = { endlessListIds: raw }
+    await saveGameConfig(app, config)
+    return { status: 200, body: { ok: true, ...(await loadGameConfig(app)) } }
   }
 
   // ── 打印批次（导出卡片的留档） ─────────────────────────────────────────
