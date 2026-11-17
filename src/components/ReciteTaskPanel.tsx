@@ -120,6 +120,37 @@ export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, o
   const scopeSessions = rowSession ? 1 : sessionCount
   const capacity = Math.max(1, scopePer) * Math.max(1, scopeSessions)
 
+  /**
+   * 选词网格里超出容量的勾选：按勾选顺序把选词排一遗（其他列表已选的排前面，与 commitDraft 一致），
+   * 第 capacity 个之后的词在网格里直接划掉，实时告诉用户这些词不会进最终表格。
+   */
+  const overflowKeys = useMemo(() => {
+    const overflow = new Set<string>()
+    if (!pickerOpen) return overflow
+    const ordered: string[] = []
+    for (const item of selected) {
+      if (item.listId === activeListId) continue
+      ordered.push(wordKey(item.word))
+    }
+    const byKey = new Map(activeWords.map(item => [
+      selectionKey({ listId: activeListId, word: item.word }),
+      item,
+    ] as const))
+    for (const draftKey of draftKeys) {
+      const item = byKey.get(draftKey)
+      if (item) ordered.push(wordKey(item.word))
+    }
+    const seen = new Set<string>()
+    let count = 0
+    for (const word of ordered) {
+      if (seen.has(word)) continue
+      seen.add(word)
+      count += 1
+      if (count > capacity) overflow.add(selectionKeyOf(activeListId, word))
+    }
+    return overflow
+  }, [pickerOpen, selected, activeListId, activeWords, draftKeys, capacity])
+
   // 选中的列表被删掉后回退到第一个列表
   useEffect(() => {
     if (!study.lists.some(list => list.id === activeListId)) setActiveListId(study.lists[0]?.id || '')
@@ -375,6 +406,7 @@ export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, o
           batchNames={batchNames[activeListId] || {}}
           selectedKeys={draftKeys}
           usedCounts={otherRowCounts}
+          overflowKeys={overflowKeys}
           onToggle={toggleDraft}
           onToggleGroup={toggleDraftGroup}
           emptyText="这个学习列表还没有单词。"
@@ -453,19 +485,8 @@ export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, o
                         <span>{item.sourceType === 'achievement' ? '自动填充 · 学习成果' : item.listId}</span>
                       </label>
                     })}
-                    {/* 超出容量被截掉的词：划掉展示，让人一眼看到它们不会进最终表格 */}
-                    {taskPreview.ignored.map(item => (
-                      <div
-                        key={'ignored|' + item.listId + '|' + keyOf(item.word)}
-                        className="recite-task__word recite-task__word--ignored"
-                        title="超出容量，不会加入这次学习"
-                      >
-                        <span className="recite-task__word-text">{taskWordLabel(item)}</span>
-                        <span>超出容量 · 不会加入</span>
-                      </div>
-                    ))}
                   </div>
-                  {taskPreview.ignored.length > 0 && <p className="hint">划掉的 {taskPreview.ignored.length} 个超出容量，不会加入任务，也不会从学习列表删除。</p>}
+                  {taskPreview.ignored.length > 0 && <p className="hint">容量忽略 {taskPreview.ignored.length} 个，未从学习列表删除。</p>}
                 </div>
               )}
             </section>

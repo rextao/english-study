@@ -30,6 +30,8 @@ interface ReciteWordGridProps {
   onToggleGroup: (items: StudyWordItem[]) => void
   /** 词 → 本周还有几次也选了它，显示成（N），不禁选 */
   usedCounts?: Map<string, number>
+  /** 超出容量、不会进最终任务的选择键：这些词的文字上直接划上横线 */
+  overflowKeys?: Set<string>
   emptyText?: string
 }
 
@@ -38,7 +40,7 @@ interface ReciteWordGridProps {
  * 任务配置弹窗和主动推送弹窗共用，两边勾选手感完全一致。
  */
 export function ReciteWordGrid({
-  listId, words, batchNames, selectedKeys, onToggle, onToggleGroup, usedCounts, emptyText,
+  listId, words, batchNames, selectedKeys, onToggle, onToggleGroup, usedCounts, overflowKeys, emptyText,
 }: ReciteWordGridProps) {
   const [search, setSearch] = useState('')
 
@@ -73,9 +75,16 @@ export function ReciteWordGrid({
               <div className="recite-task__grid">
                 {group.items.map(item => {
                   const used = usedCounts?.get(wordKey(item.word)) ?? 0
+                  const itemKey = keyOfItem(item)
+                  const overflow = overflowKeys?.has(itemKey) ?? false
                   return (
-                    <Checkbox key={keyOfItem(item)} checked={selectedKeys.has(keyOfItem(item))} onChange={() => onToggle(item)}>
-                      {wordLabelOf(item)}
+                    <Checkbox key={itemKey} checked={selectedKeys.has(itemKey)} onChange={() => onToggle(item)}>
+                      <span
+                        className={'recite-task__grid-word' + (overflow ? ' recite-task__grid-word--overflow' : '')}
+                        title={overflow ? '已超出这次学习的词数上限，不会加入任务' : undefined}
+                      >
+                        {wordLabelOf(item)}
+                      </span>
                       {used > 0 && <span className="recite-task__used">（{used}）</span>}
                     </Checkbox>
                   )

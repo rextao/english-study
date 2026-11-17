@@ -18,9 +18,8 @@
 .recite-task__word-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; max-height: 300px; overflow: auto; }
 .recite-task__word { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 10px; border: 1px solid var(--color-border); border-radius: 10px; }
 .recite-task__word > span { color: var(--color-text-subtle); font-size: 11px; text-align: right; }
-/* 超出容量被截掉的单词：划掉并压暗，表示它不会进最终表格 */
-.recite-task__word--ignored { border-style: dashed; background: var(--color-surface-sunken); }
-.recite-task__word--ignored .recite-task__word-text {
+/* 选词网格里超出容量的勾选：词上划掉并压暗，表示它不会进最终表格 */
+.recite-task__grid-word--overflow {
   color: var(--color-text-subtle);
   text-decoration: line-through;
   text-decoration-thickness: 1.5px;
