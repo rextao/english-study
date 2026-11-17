@@ -68,7 +68,7 @@ src/components/ReciteTaskPanel.tsx  背词任务配置弹窗（受控 Modal）�
 src/components/ReciteTaskConfirm.tsx  家长确认弹窗（**已无调用方、死代码，待删**）：行内保存改造前的旧实现，功能已由 ReciteTasksPage 的行内判定 + 行右侧「保存」按钮取代
 src/components/AudioRepair.tsx    设置页「补充音频」分区（embedded 进 SettingsPage）：列出学习列表里还没有 tts_cache 缓存的词 / 句子，一键排进后台预合成队列，轮询进度、失败可重试；Google TTS 未配置（缺 GOOGLE_TTS_API_KEY secret）时给配置指引并禁用按钮
 src/components/ReciteRecordingManager.tsx  设置页「课堂录音」分区：列出最近 15 天的录音（时间 / 第几次 / 时长 / 大小），可试听、全选或多选后统一删除（DELETE /api/recite/recordings，音频分片一起删）；播放按钮 ReciteRecordingButton.tsx 同时用在 recite/tasks 每行的「次数」下面
-src/components/GameSettings.tsx   设置页「单词游戏」分区（embedded 进 SettingsPage）：无尽模式取词范围 = 勾选若干学习列表，一个不勾=全部；底部「保存」才写服务端
+src/components/GameSettings.tsx   设置页「单词游戏」分区（embedded 进 SettingsPage）：无尽模式取词范围 = 勾选若干学习列表（不勾=全部）+ 可选用 GameWordPicker 弹窗从这些列表挑具体单词（复用 WordSelectionGroups / groupStudyWords，只管单词不管句子）；底部「保存」才写服务端
 src/components/ReciteDebugPanel.tsx 背词页右下角齿轮弹出的调试面板（输入口令 123 才进）：录音状态（支持 / 当前状态 / 失败原因，能开关录音与重试）+ 本地缓存情况（本周拉取进度、本地音频条数与占用、失败词单独重试 / 重新拉取本周 / 清空本地缓存）
 
 src/hooks/useTabRoute.ts          hash 路由（#/search #/lists #/settings #/achievements #/records #/study #/recite），刷新与前进后退都停在原页；二级页 #/recite/parent、#/recite/tasks 走独立 hash；#/games/<id> 归到 tab=games 且首次进入时不会被规范成 #/games/home（保住游戏名），tab 对应的默认地址是 #/games/home；LEGACY_TABS 把 #/import → #/search、#/libraries → #/settings，老书签不会失效
@@ -83,7 +83,7 @@ src/hooks/useStudyList.ts         学习列表全套 CRUD + 导入 + senseIds + 
 src/hooks/useStudyPlan.ts         复习计划 GET /api/study/plan + startWords + reviewWords + tallyUndo；三个写操作成功后按 listId 作废 apiCache 的词条缓存（否则学习页打卡后停在旧数据）；导出 StudyPlanApi / ReviewAction / ReviewOptions
 src/hooks/usePrintBatches.ts      打印批次：留档 + 整批打卡 + 删记录（/api/print-batches 四个接口）；导出 PrintBatchesApi；只在 StudyPage 里用，不进 App.tsx
 src/hooks/useStudyGoal.ts         目标词库读写 GET|PUT /api/study/goal
-src/hooks/useGameConfig.ts        单词游戏配置读写 GET|PUT /api/games/config（无尽模式取词范围 endlessListIds，空数组=全部学习列表）
+src/hooks/useGameConfig.ts        单词游戏配置读写 GET|PUT /api/games/config（无尽模式取词范围 endlessListIds + endlessWords，都为空就是全部学习列表的全部单词）
 src/hooks/useVocabLibraries.ts    构建期打包 vocab/*.json + 标签读写 + localStorage 镜像与迁移
 src/hooks/useLearningRecords.ts   学习记录页的数据层：achievements / history 分页 / 删事件 / 清词 / purge
 src/hooks/useReciteRecording.ts   背词页课堂录音（MediaRecorder）：每 10 秒切块，Web Audio AnalyserNode 每 250ms 量一次音量（RMS ≥ 0.02 算有声音），连续 60 秒无声音就停下这一段并在下次点击 / 按键时重开；任何一次停（学完 / 切后台 / 关页面 / 离开页面 / 静音 / 录满 30 分钟或 16MB）都先把整段字节写进 IndexedDB 队列，再分片上传，传完才删本地副本；每段带会话 id、片段序号（localStorage es-recite-seg:<sessionId> 自增）、录制时间，永远绑在当前这次学习上；回前台 / 从 bfcache 回来重新开一段
@@ -273,7 +273,7 @@ PrintBatch       { id, printedAt, kind: 'start'|'review', scope?, title, wordCou
 | `DELETE /api/study/history/words/:word` | 清空某词全部历史 | useLearningRecords |
 | `POST /api/study/history/purge` `{words}` 或 `{all:true}` | 物理删除事件 + 回退列表累计计数（保留排期锚点） | useLearningRecords |
 | `GET\|PUT /api/study/goal` `{libraryId}` | 目标词库，空串=不设目标 | useStudyGoal |
-| `GET\|PUT /api/games/config` `{endlessListIds}` | 无尽模式取词范围（学习列表 id 数组），空数组=全部学习列表；存 kv `game-config` | useGameConfig |
+| `GET\|PUT /api/games/config` `{endlessListIds, endlessWords}` | 无尽模式取词范围：列表 id 数组（空=全部学习列表）+ 具体单词数组（空=范围内全部单词）；存 kv `game-config` | useGameConfig |
 | `GET /api/print-batches?limit=` | 打印记录（新在前，默认 20 条，最多留 60 条） | usePrintBatches |
 | `POST /api/print-batches` `{groups:[{listId,words}], title?, kind?, scope?, printedAt?}` | 记一次卡片导出，顺带给每个词打一条 `print` 标 | usePrintBatches.record |
 | `POST /api/print-batches/:id/review` | 按批次整批打卡；scope 缺省沿用打印时的粒度 | usePrintBatches.reviewBatch |

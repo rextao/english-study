@@ -248,8 +248,12 @@ export async function loadRandomStudyWords(limit = ENDLESS_ROUND_SIZE): Promise<
   const scope = new Set(config?.endlessListIds ?? [])
   const scoped = scope.size > 0 ? lists.filter(list => scope.has(list.id)) : lists
   if (scoped.length === 0) {
-    throw new Error('单词游戏配置的学习列表已经没有了，去设置页改一下单词范围吧。')
+    throw new Error('单词游戏配置的学习列表已经没有了，去设置页改一下取词范围吧。')
   }
+  // 再按具体单词收一层：配置了词表就只在这些词里抽，空数组 = 范围内的全部单词
+  const wordScope = new Set(
+    (config?.endlessWords ?? []).map(word => word.trim().toLowerCase()).filter(Boolean),
+  )
   const batches = await Promise.all(scoped.map(list =>
     queryApi<StudyWordItem[]>('/api/lists/' + encodeURIComponent(list.id) + '/words', {}, {
       staleTime: 5 * 60_000, tags: ['list-words:' + list.id, 'lists'],
@@ -260,6 +264,7 @@ export async function loadRandomStudyWords(limit = ENDLESS_ROUND_SIZE): Promise<
     for (const item of words) {
       if (item.type !== 'word') continue
       const word = item.word.trim()
+      if (wordScope.size > 0 && !wordScope.has(word.toLowerCase())) continue
       // 游戏里只给孩子看中文，去掉 n. / v. 这类词性前缀
       const translation = stripTranslationPos(item.translation ?? '').trim()
       if (!word || !translation) continue
@@ -267,7 +272,7 @@ export async function loadRandomStudyWords(limit = ENDLESS_ROUND_SIZE): Promise<
     }
   }
   const unique = uniqueGameWords(pool)
-  if (unique.length === 0) throw new Error('学习列表里还没有带中文释义的单词。')
+  if (unique.length === 0) throw new Error('游戏范围里还没有带中文释义的单词，去设置页改一下取词范围吧。')
   return shuffleWords(unique).slice(0, limit)
 }
 

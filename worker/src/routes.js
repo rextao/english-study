@@ -31,6 +31,7 @@ import {
 } from './lists.js'
 import {
   loadGameConfig, saveGameConfig, MAX_GAME_LIST_IDS, MAX_GAME_LIST_ID_LENGTH,
+  MAX_GAME_WORDS, MAX_GAME_WORD_LENGTH,
 } from './games.js'
 import { progressRow } from './study-lists.js'
 import { enqueuePrefetch, enqueuePhoneticPrefetch, enqueueFullPhoneticPrefetch, currentPrefetchState } from './prefetch.js'
@@ -1226,7 +1227,7 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     return { status: 200, body: await loadGameConfig(app) }
   }
 
-  // PUT /api/games/config  — endlessListIds 传空数组表示「全部学习列表」
+  // PUT /api/games/config  — listIds 空 = 全部学习列表；words 空 = 范围内全部单词
   if (method === 'PUT' && pathname === '/api/games/config') {
     const raw = body?.endlessListIds
     if (!Array.isArray(raw) || raw.some(id => typeof id !== 'string')) {
@@ -1235,8 +1236,14 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     if (raw.length > MAX_GAME_LIST_IDS || raw.some(id => id.trim().length > MAX_GAME_LIST_ID_LENGTH)) {
       return { status: 400, body: { ok: false, error: 'endlessListIds 过长' } }
     }
-    const config = { endlessListIds: raw }
-    await saveGameConfig(app, config)
+    const rawWords = body?.endlessWords ?? []
+    if (!Array.isArray(rawWords) || rawWords.some(word => typeof word !== 'string')) {
+      return { status: 400, body: { ok: false, error: 'endlessWords 必须是字符串数组' } }
+    }
+    if (rawWords.length > MAX_GAME_WORDS || rawWords.some(word => word.trim().length > MAX_GAME_WORD_LENGTH)) {
+      return { status: 400, body: { ok: false, error: 'endlessWords 过长' } }
+    }
+    await saveGameConfig(app, { endlessListIds: raw, endlessWords: rawWords })
     return { status: 200, body: { ok: true, ...(await loadGameConfig(app)) } }
   }
 

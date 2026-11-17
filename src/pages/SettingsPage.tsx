@@ -148,7 +148,7 @@ export function SettingsPage(props: SettingsPageProps) {
       )}
       {section === 'games' && (
         <section className="settings-section">
-          <GameSettings lists={study.lists} />
+          <GameSettings lists={study.lists} fetchListWords={study.fetchListWords} fetchBatches={study.fetchBatches} />
         </section>
       )}
       {section === 'phonetics' && (

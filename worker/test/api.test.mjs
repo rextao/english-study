@@ -1284,6 +1284,30 @@ r = await call('PUT', '/api/games/config', { endlessListIds: [] })
 check('清空取词范围 = 全部学习列表',
   r.body?.ok === true && JSON.stringify(r.body.endlessListIds) === '[]', r.body)
 
+r = await call('PUT', '/api/games/config',
+  { endlessListIds: ['default'], endlessWords: [' Apple ', 'apple', 'banana'] })
+check('保存具体单词：去空白去重（不区分大小写）',
+  r.body?.ok === true && JSON.stringify(r.body.endlessWords) === '["Apple","banana"]', r.body)
+
+r = await call('GET', '/api/games/config')
+check('具体单词读回',
+  JSON.stringify(r.body.endlessWords) === '["Apple","banana"]' && JSON.stringify(r.body.endlessListIds) === '["default"]',
+  r.body)
+
+r = await call('PUT', '/api/games/config', { endlessListIds: [], endlessWords: 'apple' })
+check('endlessWords 非数组 -> 400', r.status === 400 && r.body.ok === false, r.body)
+
+r = await call('PUT', '/api/games/config', { endlessListIds: [], endlessWords: [1] })
+check('endlessWords 含非字符串 -> 400', r.status === 400 && r.body.ok === false, r.body)
+
+const savedGameWords = await readKv(db(), KV_KEYS.gameConfig, {})
+check('具体单词已落盘',
+  JSON.stringify(savedGameWords.endlessWords) === '["Apple","banana"]', savedGameWords)
+
+r = await call('PUT', '/api/games/config', { endlessListIds: [], endlessWords: [] })
+check('清空具体单词 = 范围内全部单词',
+  r.body?.ok === true && JSON.stringify(r.body.endlessWords) === '[]', r.body)
+
 // ── 打印批次记录 + 整批打卡 ────────────────────────────────────────────────
 
 r = await call('POST', '/api/lists', { name: 'Printed' })
