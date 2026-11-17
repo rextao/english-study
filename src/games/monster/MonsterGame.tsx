@@ -922,7 +922,7 @@ export function MonsterGame({ words, onNextRound }: GameProps) {
     if (status !== 'playing' || dragRef.current) return
     const field = fieldRef.current
     if (!field) return
-    // 拖起英文球就读一遍这个单词（中文球不读；喇叭关掉时 speakWord 什么都不做）
+    // 按一下（拖起）英文球就读一遍这个单词（中文球不读；喇叭关掉时 speakWord 什么都不做）
     if (ball.kind === 'word') speakWord(ball.text)
     event.preventDefault()
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -974,6 +974,9 @@ export function MonsterGame({ words, onNextRound }: GameProps) {
     if (!target) return
 
     if (target.group === ball.group && target.kind !== ball.kind) {
+      // 孩子经常先拖中文球再合到英文球上：这时英文球没被拿起过（pickUp 不会读），
+      // 就在合上的这一刻读一遍英文；拖英文球的那种顺序在 pickUp 里已经读过了，不重复读
+      if (ball.kind === 'meaning') speakWord(target.text)
       // 配成一对：两张球一起消失，从合并点朝小怪兽打出一颗魔法飞弹
       world.balls = world.balls.filter(item => item !== ball && item !== target)
       world.score += 100 + world.combo * 20

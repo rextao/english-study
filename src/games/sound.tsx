@@ -56,8 +56,9 @@ export function GameSoundProvider({ children }: { children: ReactNode }) {
     if (!enabled) return
     const text = word.trim()
     if (!text) return
-    // 点得快时上一次合成可能还没回来；speak 自己会掐掉上一条
-    void speak(text).catch(() => { /* 发音失败不影响游戏，页面不做提示 */ })
+    // 点得快时上一次合成可能还没回来；speak 自己会掐掉上一条。
+    // 失败不影响游戏，界面上不提示，只在控制台留一行，方便查「为什么没声音」
+    void speak(text).catch(error => { console.warn('[游戏发音] ' + text, error) })
   }, [enabled])
 
   // 离开游戏页时把还没播完的声音停掉

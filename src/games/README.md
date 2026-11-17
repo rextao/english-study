@@ -45,7 +45,8 @@
 - `GameSoundToggle`：右上角喇叭按钮（开 = 波纹，关 = 打叉），只在 `GamesPage` 里渲染一次，所有游戏共用；样式 `.games__sound` / `.games__sound.is-off` 在 `games.css`。
 - `useGameSound()`：游戏组件里取 `{ enabled, setEnabled, toggle, speakWord }`。
   - `speakWord(word)`：喇叭开着时走 `utils/speech` 的 `speak()` 播 `/api/tts` 发音；关着时什么都不做，失败也静默，不打断游戏、不弹提示。
-  - 已经接入的点击：消消乐点英文牌、打怪兽拖起英文球（中文牌 / 中文球不读）。
+  - 已经接入的点击：消消乐点英文牌、打怪兽拖起英文球（中文牌 / 中文球不读）；打怪兽里先拖中文球再合到英文球上时，英文球没被拿起过，改在合上的那一刻读一遍。
+  - 起播交给 `speak()` 里的 `unlockSpeech()`：先在手势里把共用的 `<audio>` 解锁，await 取完音频再播（否则 iOS 会静默拦掉）。
   - 没有 Provider（比如单独预览某个游戏）时返回静音的空实现，不会报错。
 
 ## 7. 接入一个新游戏的最小步骤

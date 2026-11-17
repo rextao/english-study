@@ -7,6 +7,9 @@
  *  - 慢速不是把播放速度拉慢（那样音色会变），而是带上 rate 让 Google 用 speakingRate
  *    原生慢慢念，回的是慢速音频本体，<audio> 始终按 1 倍速播；
  *  - 点新词会掐掉上一个，避免两个声音叠在一起；
+ *  - 全站共用一个 <audio>，并在用户手势里先「解锁」它（见 unlockSpeech）：
+ *    iOS / iPadOS Safari 只允许在手势的同步调用栈里起播，而这里是先取音频（IndexedDB /
+ *    网络）再 play()，await 回来手势已经失效，声音就被静默拦下——游戏里拖英文球没声音就是这个原因；
  *  - 喇叭按钮始终显示，密钥没配 / 断网 / 播放失败都由 speechErrorMessage 翻成一句中文写在页面上。
  */
 
@@ -30,6 +33,41 @@ const pendingAudio = new Map<string, Promise<string>>()
 let currentAudio: HTMLAudioElement | null = null
 /** 每次 stopSpeech / 新一次 speak 都加一：合成还没回来就被换词 / 离开页面时，回来也不再播 */
 let speechGeneration = 0
+/** 全站共用的音频元素：解锁过一次之后，同一个元素换 src 播放就不再受手势限制 */
+let sharedAudio: HTMLAudioElement | null = null
+let speechUnlocked = false
+/** 只尝试解锁一次：解锁失败（不在手势里、浏览器不支持）就退回「await 之后 play」的老路径 */
+let unlockAttempted = false
+/** 0 长度的静音 WAV：只用来在手势里把音频元素解锁，听不到任何声音 */
+const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA='
+
+function sharedAudioElement(): HTMLAudioElement {
+  if (!sharedAudio) sharedAudio = new Audio()
+  return sharedAudio
+}
+
+/**
+ * 在用户手势（pointerdown / click）的同步调用栈里把共用的音频元素解锁一次。
+ * speak() 一进来就会调它，所以所有调用方（喇叭按钮、游戏里拖球 / 点牌）都不用自己管；
+ * 不在手势里调用也没有副作用，只是解锁可能失败，之后照旧按老路径播放。
+ */
+export function unlockSpeech() {
+  if (speechUnlocked || unlockAttempted) return
+  unlockAttempted = true
+  const audio = sharedAudioElement()
+  try {
+    audio.src = SILENT_WAV
+    const started = audio.play()
+    if (started && typeof started.then === 'function') {
+      // 静音片段播起来就说明这个元素已经被手势解锁，后面换 src 也能直接播
+      started.then(() => { speechUnlocked = true }).catch(() => { /* 解锁失败：下次进页面再说 */ })
+    } else {
+      speechUnlocked = true
+    }
+  } catch {
+    // 老浏览器 / 元素被回收：不影响正常的 await 后播放
+  }
+}
 
 /** 缓存键 = 归一化文本 + 倍速：同一句话的正常速 / 慢速音频分开存，互不覆盖 */
 function cacheKeyOf(text: string, rate: number) {
@@ -113,6 +151,8 @@ export function stopSpeech() {
 export async function speak(text: string, options: { rate?: number } = {}): Promise<void> {
   const word = text.trim()
   if (!word) return
+  // 这一行还在用户手势的同步调用栈里，先解锁共用的音频元素（见 unlockSpeech）
+  unlockSpeech()
   const rate = options.rate && options.rate > 0 ? options.rate : 1
   stopSpeech()
   const generation = speechGeneration
@@ -120,11 +160,15 @@ export async function speak(text: string, options: { rate?: number } = {}): Prom
   // 合成期间点了别的词 / 换了卡片：这次的结果已经过时，别再出声
   if (generation !== speechGeneration) return
   await new Promise<void>((resolve, reject) => {
-    const audio = new Audio(url)
-    currentAudio = audio
+    // 复用解锁过的那一个元素：新造一个 <audio> 在手势之外是播不出来的
+    const audio = sharedAudioElement()
     const clear = () => { if (currentAudio === audio) currentAudio = null }
     audio.onended = () => { clear(); resolve() }
     audio.onerror = () => { clear(); reject(new Error('音频播放失败')) }
+    audio.src = url
+    // 复用同一个元素：src 没变时浏览器不会自动回到开头，显式倒一次
+    try { audio.currentTime = 0 } catch { /* 还没解出元数据时设不了，play 自己会从头播 */ }
+    currentAudio = audio
     const started = audio.play()
     if (started && typeof started.catch === 'function') {
       started.catch(() => { clear(); reject(new Error('浏览器拦下了这次播放')) })
