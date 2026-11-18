@@ -1153,6 +1153,18 @@
   color: var(--r-primary-deep);
 }
 
+/* 亮出来的中文：和卡片背面的释义同样醒目，但缩一号塞进确认卡片 */
+.recite-ask__translation {
+  margin: 0;
+  max-width: 100%;
+  font-size: clamp(26px, 3.4vw, 40px);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -.02em;
+  color: var(--r-ink);
+  word-break: break-word;
+}
+
 .recite-ask__actions {
   display: flex;
   gap: 12px;
@@ -1186,11 +1198,19 @@
 }
 
 .recite-ask__cancel:hover { background: var(--r-primary-wash); }
+.recite-ask__cancel:disabled {
+  border-color: var(--r-line);
+  color: var(--r-ink-3);
+  background: #fff;
+  cursor: default;
+  opacity: .6;
+}
 .recite-ask__confirm:hover { filter: brightness(1.05); }
-.recite-ask__cancel:active,
+.recite-ask__cancel:active:not(:disabled),
 .recite-ask__confirm:active { transform: scale(.98); }
 
 /* 「是否正确」这一步：左边 ✕（当作不会）右边 ✓（算会），和卡片上的不会 / 会同一顺序 */
+/* 「会说 / 不会」这一步：左边不会、右边会，和卡片底部同一顺序 */
 .recite-ask__actions--judge { gap: 16px; }
 
 .recite-ask__judge {
@@ -1198,7 +1218,7 @@
   min-height: clamp(72px, 12vh, 96px);
   border-radius: 22px;
   font-family: inherit;
-  font-size: clamp(32px, 4.6vw, 44px);
+  font-size: clamp(26px, 3.6vw, 34px);
   font-weight: 800;
   line-height: 1;
   cursor: pointer;
