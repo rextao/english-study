@@ -242,8 +242,8 @@ export function RecitePage({
   const [speechError, setSpeechError] = useState('')
   // 发音倍速（卡片右上角）：0 = 正常速，1 = 0.5 倍速；默认值按卡的类型给
   const [speedIndex, setSpeedIndex] = useState(0)
-  // 点「会」之后先问「说一下是什么意思」，点「确定」才进下一张
-  const [askMeaning, setAskMeaning] = useState(false)
+  // 点「会」之后的两步确认：先说中文（ask）→ 再判对错（judge），✕ 当作不会
+  const [askStep, setAskStep] = useState<'ask' | 'judge' | null>(null)
   // 连点喇叭时只认最后一次：旧的那次被掐掉后不会再改回「播放中」
   const playToken = useRef(0)
   // 点「下一张」先把卡片滑出去（180ms）再换下一张，换卡不是硬切
@@ -378,7 +378,7 @@ export function RecitePage({
     setAttempts(0)
     setFeedback(null)
     setLocalError('')
-    setAskMeaning(false)
+    setAskStep(null)
     setStage(pending.length > 0 && nextCard ? 'cards' : 'celebrate')
   }, [payload?.session?.sessionId, payload?.session?.cursor])
 
@@ -397,7 +397,7 @@ export function RecitePage({
     )
     setSpeechError('')
     setSpeaking(false)
-    setAskMeaning(false)
+    setAskStep(null)
     stopSpeech()
   }, [index])
 
@@ -460,24 +460,35 @@ export function RecitePage({
 
   function markMeaning(result: MeaningResult) {
     if (!card || card.cardType !== 'meaning') return
-    persistDraft({ cardId: card.id, result, attempts: 0 })
     if (result === 'known') {
-      // 说得出意思才算真会：先问一句，确认了才进下一张
-      setAskMeaning(true)
+      // 说得出中文才算真会：先让小朋友说，再判对错，都确认了才落草稿、进下一张
+      setAskStep('ask')
       return
     }
+    persistDraft({ cardId: card.id, result, attempts: 0 })
     setFlipped(true)
   }
 
-  /** 「说一下是什么意思」点「确定」：这一张算过，直接接下一张（最后一张则进完成页） */
-  function confirmMeaning() {
-    setAskMeaning(false)
-    leaveToNext()
+  /** 第一问点「确认」：进入「是否正确」这一步，等一个 ✓ / ✕ 的判定 */
+  function confirmAsk() {
+    setAskStep('judge')
   }
 
   /** 点「取消」：回到卡片，可以改点「不会」看答案 */
-  function cancelMeaning() {
-    setAskMeaning(false)
+  function cancelAsk() {
+    setAskStep(null)
+  }
+
+  /** ✓ = 会（记 known 进下一张）；✕ = 不会（记 unknown 并翻面看答案） */
+  function judgeMeaning(correct: boolean) {
+    if (!card || card.cardType !== 'meaning') return
+    setAskStep(null)
+    persistDraft({ cardId: card.id, result: correct ? 'known' : 'unknown', attempts: 0 })
+    if (correct) {
+      leaveToNext()
+      return
+    }
+    setFlipped(true)
   }
 
   /** 播离场动画，180ms 后切到下一张（最后一张则进完成页） */
@@ -996,16 +1007,40 @@ export function RecitePage({
         {speechError && <div className="recite__error" role="alert">{speechError}</div>}
         {recording.error && <div className="recite__error" role="alert">{recording.error}</div>}
       </main>
-      {/* 点「会」之后的确认：说得出意思再点确定，才进下一张 */}
-      {askMeaning && card && card.cardType === 'meaning' && (
+      {/* 点「会」之后的两步确认：先让小朋友说中文，再判说得对不对；✕ 当作不会（翻面看答案） */}
+      {askStep && card && card.cardType === 'meaning' && (
         <div className="recite-ask" role="dialog" aria-modal="true" aria-labelledby="recite-ask-title">
           <div className="recite-ask__card">
             <p className="recite-ask__word">{card.word}</p>
-            <h2 className="recite-ask__title" id="recite-ask-title">读一遍后，说一下什么意思，再点确定</h2>
-            <div className="recite-ask__actions">
-              <button type="button" className="recite-ask__cancel" onClick={cancelMeaning}>取消</button>
-              <button type="button" className="recite-ask__confirm" onClick={confirmMeaning}>确定</button>
-            </div>
+            {askStep === 'ask' ? (
+              <>
+                <h2 className="recite-ask__title" id="recite-ask-title">说一说中文，然后点击确认</h2>
+                <div className="recite-ask__actions">
+                  <button type="button" className="recite-ask__cancel" onClick={cancelAsk}>取消</button>
+                  <button type="button" className="recite-ask__confirm" onClick={confirmAsk}>确认</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="recite-ask__title" id="recite-ask-title">是否正确</h2>
+                <div className="recite-ask__actions recite-ask__actions--judge">
+                  <button
+                    type="button"
+                    className="recite-ask__judge recite-ask__judge--no"
+                    aria-label="不会，看答案"
+                    title="不会（当作不会，翻面看答案）"
+                    onClick={() => judgeMeaning(false)}
+                  >✕</button>
+                  <button
+                    type="button"
+                    className="recite-ask__judge recite-ask__judge--yes"
+                    aria-label="正确，下一张"
+                    title="正确（进下一张）"
+                    onClick={() => judgeMeaning(true)}
+                  >✓</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

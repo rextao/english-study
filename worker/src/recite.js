@@ -269,10 +269,8 @@ export function createReciteStore(db) {
           })
         }
       }
-      cards.sort((a, b) => a.orderKey - b.orderKey)
-      avoidLongSpellingRuns(cards)
       const seen = new Set()
-      for (const card of cards) {
+      for (const card of orderSessionCards(cards)) {
         if (seen.has(card.word)) continue
         seen.add(card.word)
         order[index].push(card.word)
@@ -1131,23 +1129,26 @@ async function answerResponse(session, cards, answeredCard, alreadyProcessed) {
   }
 }
 
-function avoidLongSpellingRuns(cards) {
-  for (let index = 2; index < cards.length; index++) {
-    if (cards[index - 2].cardType !== 'spelling' || cards[index - 1].cardType !== 'spelling'
-      || cards[index].cardType !== 'spelling') continue
-    const swap = cards.slice(index + 1).findIndex(card => card.cardType === 'meaning')
-    if (swap >= 0) {
-      const target = index + 1 + swap
-      const temp = cards[index]
-      cards[index] = cards[target]
-      cards[target] = temp
-    }
+/**
+ * 卡片顺序：单词之间按 stableHash 稳定打乱，同一个词的卡片永远挨在一起，
+ * 知意卡在前、拼写卡紧跟在后（拼写一定要在读完之后出现）。
+ * 计划里的一次、主动推送和配置页的预测顺序共用这一套规则。
+ */
+function orderSessionCards(cards) {
+  const groups = new Map()
+  for (const card of cards) {
+    const group = groups.get(card.word)
+    if (group) group.push(card)
+    else groups.set(card.word, [card])
   }
+  return Array.from(groups.values())
+    .sort((a, b) => a[0].orderKey - b[0].orderKey)
+    .flat()
 }
 
 /**
  * 生成一次学习的卡片：每个词一张 meaning 卡，勾了拼写的词再加一张 spelling 卡。
- * 顺序按 stableHash 稳定打乱、避开连续 3 张拼写卡——计划里的一次和主动推送共用这一套规则。
+ * 同一个词的两张卡前后挨着，拼写卡一定跟在自己的知意卡后面。
  */
 function buildSessionCards({ taskId, sessionIndex, items }) {
   const cards = []
@@ -1167,9 +1168,7 @@ function buildSessionCards({ taskId, sessionIndex, items }) {
       })
     }
   }
-  cards.sort((a, b) => a.orderKey - b.orderKey)
-  avoidLongSpellingRuns(cards)
-  return cards
+  return orderSessionCards(cards)
 }
 
 async function ensureStarted(app, rows, now) {

@@ -1190,6 +1190,38 @@
 .recite-ask__cancel:active,
 .recite-ask__confirm:active { transform: scale(.98); }
 
+/* 「是否正确」这一步：左边 ✕（当作不会）右边 ✓（算会），和卡片上的不会 / 会同一顺序 */
+.recite-ask__actions--judge { gap: 16px; }
+
+.recite-ask__judge {
+  flex: 1;
+  min-height: clamp(72px, 12vh, 96px);
+  border-radius: 22px;
+  font-family: inherit;
+  font-size: clamp(32px, 4.6vw, 44px);
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform .12s ease, filter .16s ease;
+}
+
+.recite-ask__judge--no {
+  border: 1.5px solid var(--r-primary-line);
+  background: #fff;
+  color: var(--r-ink);
+}
+
+.recite-ask__judge--yes {
+  border: none;
+  background: var(--r-primary-deep);
+  color: #fff;
+  box-shadow: 0 16px 28px -20px rgba(188, 85, 102, .8);
+}
+
+.recite-ask__judge--no:hover { background: var(--r-primary-wash); }
+.recite-ask__judge--yes:hover { filter: brightness(1.05); }
+.recite-ask__judge:active { transform: scale(.98); }
+
 @media (prefers-reduced-motion: reduce) {
   .recite-ask,
   .recite-ask__card { animation: none; }

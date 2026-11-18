@@ -2165,6 +2165,13 @@ r = await call('POST', '/api/recite/sessions/start')
 let recitePayload = r.body
 check('背词学习会话直接开始',
   r.status === 200 && recitePayload?.session?.status === 'active' && recitePayload?.card?.id, recitePayload)
+// 拼写一定在读之后：每个词的拼写卡都必须紧跟在自己的知意卡后面
+const reciteCards = recitePayload?.cards || []
+check('拼写卡排在自己那张知意卡后面',
+  reciteCards.length === 3
+  && reciteCards.every((card, index) => card.cardType !== 'spelling'
+    || (reciteCards[index - 1]?.cardType === 'meaning' && reciteCards[index - 1]?.word === card.word)),
+  reciteCards)
 // 已经开始过的周不能删，避免把已学记录和录音的归属一起删掉
 r = await call('DELETE', '/api/recite/task', { weekStart: singleWeekStart })
 check('已经开始的整周任务不能删除', r.status === 409 && /不能删除/.test(r.body?.error || ''), r.body)
