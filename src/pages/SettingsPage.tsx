@@ -60,9 +60,10 @@ export function SettingsPage(props: SettingsPageProps) {
   const { study, section, onSectionChange, offline, libraries, getLabelById, ...libraryProps } = props
   // 构建版本：commit 和本地 git 最新提交一致，就说明线上这版已经是最新代码
   const build = __BUILD_INFO__
+  // 带 * = 构建时工作区还有未提交改动，这种产物不对应任何一个提交
   const buildLabel = (build.commit === 'unknown' ? '本地构建' : '版本 ' + build.commit)
-    + (build.dirty ? '（有未提交改动）' : '')
-    + ' · ' + build.builtAt
+    + (build.dirty ? '*' : '')
+    + ' · ' + build.builtAt.slice(5)
 
   return (
     <div className="page settings-page">
@@ -72,6 +73,7 @@ export function SettingsPage(props: SettingsPageProps) {
           <span
             className="settings-version"
             title={'这一页构建于 ' + build.builtAt + (build.commit === 'unknown' ? '' : '（git ' + build.commit + '）')
+              + (build.dirty ? '，构建时还有未提交改动（带 *）' : '')
               + '；和 git 最新提交对比即可判断线上是否已经部署最新代码'}
           >
             {buildLabel}

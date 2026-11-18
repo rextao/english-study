@@ -1,11 +1,22 @@
 .settings-page { padding-bottom: 96px; max-width: 1040px; }
 
-/* 标题右侧的构建版本：只读小字，方便和 git 最新提交核对线上是否已部署 */
+/* 标题右侧的构建版本：整块脱离排版（绝对定位），
+   否则窄屏上这行字会把 .page-header 挤成两行、把下面的设置内容整体往下推。 */
+.settings-page .page-header { position: relative; }
+.settings-page .page-header__actions {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  max-width: calc(100% - 96px);
+}
+
+/* 只读小字，方便和 git 最新提交核对线上是否已部署 */
 .settings-version {
   color: var(--color-text-subtle);
   font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: right;
   user-select: all;
   overflow-wrap: anywhere;
 }
