@@ -1,5 +1,15 @@
 .settings-page { padding-bottom: 96px; max-width: 1040px; }
 
+/* 标题右侧的构建版本：只读小字，方便和 git 最新提交核对线上是否已部署 */
+.settings-version {
+  color: var(--color-text-subtle);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+
 /* 左侧竖向菜单 + 右侧内容区 */
 .settings-layout {
   display: flex;

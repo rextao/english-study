@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
+import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -41,8 +42,32 @@ function injectViteEnvFromDevVars() {
 
 injectViteEnvFromDevVars()
 
+/**
+ * 设置页标题右侧显示的构建版本：短 commit + 构建时间。
+ * 和本地 `git log -1 --format=%h` 一比就知道线上是不是已经部署了最新代码。
+ * 构建时工作区有未提交改动会带上 dirty 标记——这种构建不能代表任何一个提交。
+ */
+function readBuildInfo() {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  const now = new Date()
+  const builtAt = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate())
+    + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes())
+  try {
+    const commit = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim()
+    const dirty = execSync('git status --porcelain', { encoding: 'utf8' }).trim() !== ''
+    return { commit: commit || 'unknown', dirty, builtAt }
+  } catch {
+    // 没有 git（例如打包好的源码目录）时只显示构建时间
+    return { commit: 'unknown', dirty: false, builtAt }
+  }
+}
+
 export default defineConfig({
   plugins: [react()],
+  // 设置页的版本小字：构建期写死进 bundle，部署后打开页面就能看到这份产物来自哪个提交
+  define: {
+    __BUILD_INFO__: JSON.stringify(readBuildInfo()),
+  },
   build: {
     rollupOptions: {
       // 两个入口共用一份前端代码：index.html 是背单词应用，games.html 是独立的

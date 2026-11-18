@@ -43,7 +43,7 @@ src/pages/ListsPage.tsx           学习列表：切换 / 新建 / 重命名 / �
 src/pages/LibrariesPage.tsx       词库标签页（已并进设置页）：只显示 name + file + 显示标签 / 打印标签改名 / 重置默认值；embedded=true 时不渲染页头，主体抽成 content 变量
 src/pages/StudyPage.tsx           英语学习页：StudyGoal + 挑词弹窗（Modal，勾词 → 打印卡片 + plan.startWords）+ 月历复习计划「按天 / 按周」粒度切换（mode 只存组件 state，按天选一天 / 按周选整周，逾期折叠进今天或本周，只有当前这天 / 这周可打卡）+ 标题旁「配置背词任务」按钮跳二级页 #/recite/tasks（ReciteTasksPage，可返回）；
                                   月历格子右上角「背」小角标：完成的那天标绿（完成日期来自 /api/recite/history），今天以后按整周进度标金（进行中）/ 灰（未开始），今天之前没完成的日子不显示；日历下方一行图例说明三种颜色，角标悬停有 title、格子 aria-label 写明进度；复习面板头部用 Tag 标「未配置背词 / 背词 X/Y · 学习中」+ 打印记录：每导出一次卡片留一条档，可整批打卡 / 删记录（usePrintBatches）
-src/pages/SettingsPage.tsx        设置页（tab=settings）：顶部子菜单「词库配置 / 学习列表 / 学习记录 / 课堂录音 / 单词游戏 / 补充音标 / 补充音频 / 查询链路」；查询链路 = useDictSources.chain 排成有序列表（云端缓存 → dictionaryapi → 百度翻译），不可用步骤灰色标「跳过」并给原因；词库配置 = LibrariesPage embedded，学习记录 = LearningRecordsPage embedded
+src/pages/SettingsPage.tsx        设置页（tab=settings）：顶部子菜单「词库配置 / 学习列表 / 学习记录 / 课堂录音 / 单词游戏 / 补充音标 / 补充音频 / 查询链路」；标题右侧一行小字显示构建版本（vite define 的 __BUILD_INFO__ = 短 commit + 构建时间，带「有未提交改动」标记），和 git 最新提交对比即可判断线上是否已部署最新代码；查询链路 = useDictSources.chain 排成有序列表（云端缓存 → dictionaryapi → 百度翻译），不可用步骤灰色标「跳过」并给原因；词库配置 = LibrariesPage embedded，学习记录 = LearningRecordsPage embedded
 src/pages/AchievementsPage.tsx    学习成果页（tab=achievements）：目标达成度统计
 src/pages/GoalPage.tsx            目标页（tab=goal，导航「更多」里有入口）：长期里程碑时间轴 + 单词目标四项进度；周期与目标词数全在 src/config/goalMilestones.ts，页面不写死阶段数量
 src/pages/LearningRecordsPage.tsx  学习记录页：学习 / 打卡日志明细 + 筛选 + 批量删除；默认 embedded 进设置页「学习记录」分区，也仍挂在 #/records 上独立成页（导航里没有，从成果页进，带 onBack 和页头）；默认先只显示物理删除不可找回的红字提示（revealed=false 时不发请求），确认后才拉列表
