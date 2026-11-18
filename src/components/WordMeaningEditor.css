@@ -1,0 +1,8 @@
+/* 列表页「改词义」弹窗：词头一行 + 复用 TranslationChoices 的词义勾选区 */
+.word-meaning { display: flex; flex-direction: column; gap: 12px; }
+.word-meaning__head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.word-meaning__phonetic { font-family: var(--font-mono); color: var(--color-text-muted); }
+.word-meaning__count { margin-left: auto; color: var(--color-text-subtle); font-size: 12px; }
+.word-meaning__current { margin: 0; }
+.word-meaning__footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; }
+.word-meaning__buttons { display: flex; gap: 8px; }

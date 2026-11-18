@@ -38,8 +38,8 @@ src/index.css                     设计 token：--color-* --radius-* --shadow-*
 src/types/vocab.ts                所有共享类型；前后端字段的唯一约定处
 
 src/pages/SearchPage.tsx          查词页：标题左上角切换按钮（mode state）切批量导入，导入模式内嵌 ImportPage embedded；查词模式 = 输入 400ms 防抖 → useDictionary，词库命中 → useVocabMatch，渲染 WordCard
-src/pages/ImportPage.tsx          批量导入：多行文本 → 归一化 / 去重 / 词库筛选（NO_FILTER | ANY_LIB | 词库 id）→ 预览上限 200 行 → 先 POST /api/dict/search-batch 走完整查询链路选好中文 → study.importItems → useDictPrefetch 盯后台补齐进度；embedded=true 时不渲染页头和 .page 外壳，目标列表控件抽成 targetControls 复用
-src/pages/ListsPage.tsx           学习列表：切换 / 新建 / 重命名 / 删除；词条平铺一行一个；useDictBatch 取音标和中文词义；「批次」checkbox 按加入日期分组展示、可就地重命名（自定义名 + 只读日期 Tag）；「多选」开关 → 每行勾选框 + 全选 + 批量删除（二次确认）；词条首行 = 词 + 音标（左）+ 句子 / 词库 Tag 与「会拼 / 会读 / 知意」浅色小字（右），中文释义单独一行；音标后喇叭按钮（SpeakerButton）播 Google TTS，失败提示在页面顶部
+src/pages/ImportPage.tsx          批量导入：多行文本 → 归一化 / 去重 / 词库筛选（NO_FILTER | ANY_LIB | 词库 id）→ 预览上限 200 行 → 先 POST /api/dict/search-batch 走完整查询链路选好中文 → study.importItems → useDictPrefetch 盯后台补齐进度；embedded=true 时不渲染页头和 .page 外壳，目标列表控件抽成 targetControls 复用；词义选择区（按词性分组 + 自定义词义）复用 components/TranslationChoices
+src/pages/ListsPage.tsx           学习列表：切换 / 新建 / 重命名 / 删除；词条平铺一行一个；useDictBatch 取音标和中文词义；「批次」checkbox 按加入日期分组展示、可就地重命名（自定义名 + 只读日期 Tag）；「多选」开关 → 每行勾选框 + 全选 + 批量删除（二次确认）；词条首行 = 词 + 音标（左）+ 句子 / 词库 Tag 与「会拼 / 会读 / 知意」浅色小字（右），中文释义单独一行，释义后面「改词义」按钮打开 WordMeaningEditor 补 / 改这个解释要背的中文词义；音标后喇叭按钮（SpeakerButton）播 Google TTS，失败提示在页面顶部
 src/pages/LibrariesPage.tsx       词库标签页（已并进设置页）：只显示 name + file + 显示标签 / 打印标签改名 / 重置默认值；embedded=true 时不渲染页头，主体抽成 content 变量
 src/pages/StudyPage.tsx           英语学习页：StudyGoal + 挑词弹窗（Modal，勾词 → 打印卡片 + plan.startWords）+ 月历复习计划「按天 / 按周」粒度切换（mode 只存组件 state，按天选一天 / 按周选整周，逾期折叠进今天或本周，只有当前这天 / 这周可打卡）+ 标题旁「配置背词任务」按钮跳二级页 #/recite/tasks（ReciteTasksPage，可返回）；
                                   月历格子右上角「背」小角标：完成的那天标绿（完成日期来自 /api/recite/history），今天以后按整周进度标金（进行中）/ 灰（未开始），今天之前没完成的日子不显示；日历下方一行图例说明三种颜色，角标悬停有 title、格子 aria-label 写明进度；复习面板头部用 Tag 标「未配置背词 / 背词 X/Y · 学习中」+ 打印记录：每导出一次卡片留一条档，可整批打卡 / 删记录（usePrintBatches）
@@ -62,6 +62,8 @@ src/components/PageHeader.tsx     页标题区（title / subtitle / actions）�
 src/components/WordCard.tsx       词卡：音标 / 词库标签 / 中文释义 / 右上角「加入学习」小按钮；卡片上不显示英文释义、也不显示例句
 src/components/SpeakerButton.tsx  音标旁的喇叭按钮：点一下走 utils/speech 的 speak() 播放 /api/tts 发音，取音频 / 播放中图标变蓝（不旋转）；多选模式在 Checkbox label 内，onClick 拦事件；失败原因由 onError 透传给 ListsPage 的红色 toast（lists-toast--error）
 src/components/StudyGoal.tsx      目标模块：目标词库（useStudyGoal）vs 已开始学的词 → 达成度 +「目标外的获得」；buildFormIndex 做词形宽松匹配
+src/components/TranslationChoices.tsx  中文词义勾选区（按词性分组 + 自定义词义输入），批量导入弹窗与列表页「改词义」共用；MAX_PICKED_TRANSLATIONS / MAX_CUSTOM_TRANSLATIONS / MAX_CUSTOM_TRANSLATION_LEN 只在这里定义，改上限要同步服务端
+src/components/WordMeaningEditor.tsx  列表页「改词义」弹窗：按词条已保存的 translationIds / customTranslations 回填，保存时用 formatTranslationWithCustom 拼快照走 study.updateItemTranslations；词典缓存里没这个词条时只改自定义词义（不覆盖原快照）
 src/components/RecitePushPanel.tsx 主动推送弹窗（受控 Modal）：第 1 步选词 = 学习列表下拉 + ReciteWordGrid（与配置弹窗同一个选词网格），第 2 步确认里逐词勾「拼写」（句子 / 没释义的词不出拼写卡），底部「已选择 N 个 / 取消 / 下一步 / 返回选词 / 推送」；推送调 POST /api/recite/push（带 spellingWords），成功后刷新任务列表；有进行中的会话时整窗禁用并说明原因
 src/components/ReciteWordGrid.tsx 背词选词网格（配置弹窗与推送弹窗共用）：搜索 + 按批次分组 + 每组「全选」+ 单词后的（N）（本周其他次数也选了它）；导出 wordKey / selectionKeyOf / wordLabelOf，两边的勾选键规则只此一份
 src/components/ReciteTaskPanel.tsx  背词任务配置弹窗（受控 Modal）：标题只显示这一周的日期区间（如 11.9—11.15），每次单词数 / 每周学习次数（默认 15 / 3，次数是 1–7 下拉框）/ 学习列表 / 选择单词排成一行不分组；弹窗内视图切换的选词器每个分组表头固定写「全选」，单词后的（N）表示本周其他次数也选了它、不禁选；

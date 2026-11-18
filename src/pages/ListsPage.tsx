@@ -5,6 +5,8 @@ import type { StudyWordItem } from '../types/vocab'
 import type { VocabLibraryInfo } from '../types/vocab'
 import { PageHeader } from '../components/PageHeader'
 import { SpeakerButton } from '../components/SpeakerButton'
+import { WordMeaningEditor } from '../components/WordMeaningEditor'
+import type { WordMeaningPayload } from '../components/WordMeaningEditor'
 import { formatTranslationOptions, selectedTranslationOptions } from '../utils/translations'
 import { Button, Checkbox, Input, Popconfirm, Select, Tag } from '../ui'
 import type { SelectOption } from '../ui'
@@ -68,6 +70,7 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
   const {
     lists, loading,
     fetchListWords, removeItem, removeItems, fetchBatches, fetchBatchMeta, renameBatch, reorderBatches, moveItemBatch,
+    updateItemTranslations,
   } = study
 
   const [selectedId, setSelectedId]     = useState(DEFAULT_LIST_ID)
@@ -81,6 +84,8 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
   const [selectMode, setSelectMode]     = useState(false)
   const [selected, setSelected]         = useState<Set<string>>(new Set())
   const [removing, setRemoving]         = useState(false)
+  // 正在改中文词义的那个词条（null = 没打开弹窗）
+  const [editingMeaning, setEditingMeaning] = useState<StudyWordItem | null>(null)
 
   // 分组展示：默认开启；batchNames 是各日期的显示名（可重命名）
   const [showBatches, setShowBatches]   = useState(true)
@@ -111,6 +116,7 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
     setNotice('')
     setSelectMode(false)
     setSelected(new Set())
+    setEditingMeaning(null)
     setWordsLoading(true)
     fetchListWords(selectedId).then(items => {
       if (!alive) return
@@ -220,6 +226,26 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
   async function handleRemoveWord(text: string) {
     const ok = await removeItem(selectedId, text)
     if (ok) setWords(prev => prev.filter(w => w.word !== text))
+  }
+
+  /** 保存挑好的中文词义：服务端返回更新后的条目，直接替换当前行 */
+  async function handleSaveMeaning(payload: WordMeaningPayload) {
+    const target = editingMeaning
+    if (!target) return
+    setError('')
+    setNotice('')
+    const updated = await updateItemTranslations(
+      selectedId, target.word, payload.translationIds, payload.translation, payload.customTranslations,
+    )
+    if (!updated) {
+      setError('中文词义保存失败，请确认云端服务可用')
+      return
+    }
+    setWords(prev => prev.map(item => (
+      item.word === target.word ? { ...item, ...updated } : item
+    )))
+    setEditingMeaning(null)
+    setNotice('已更新「' + displayTextOf(target) + '」的中文词义')
   }
 
   /** 进出多选模式都把已选清空，避免退出后偷偷留着一批选中项 */
@@ -347,6 +373,19 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
         <div className="word-row__detail">
           {translation && (
             <span className="word-row__translation">{translation}</span>
+          )}
+          {/* 多选模式下只做批量操作，单条的改词义入口先藏起来 */}
+          {!selectMode && (
+            <Button
+              type="link"
+              size="small"
+              className="word-row__edit-meaning"
+              title="补充 / 修改这个解释要背的中文词义"
+              aria-label={'修改 ' + displayTextOf(item) + ' 的中文词义'}
+              onClick={() => setEditingMeaning(item)}
+            >
+              改词义
+            </Button>
           )}
           <span
             className="word-row__tallies"
@@ -744,6 +783,15 @@ export function ListsPage({ libraries, getLabelById, study, onManageLists }: Lis
         <ul className="word-rows">
           {visibleWords.map(item => renderRow(item))}
         </ul>
+      )}
+
+      {editingMeaning && (
+        <WordMeaningEditor
+          item={editingMeaning}
+          entry={dict.getEntry(editingMeaning.word)}
+          onSave={handleSaveMeaning}
+          onCancel={() => setEditingMeaning(null)}
+        />
       )}
     </div>
   )

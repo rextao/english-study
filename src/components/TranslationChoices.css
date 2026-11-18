@@ -1,0 +1,27 @@
+/* 中文词义选择（导入弹窗 / 列表页改词义共用）：按词性分组 + 自定义词义 */
+.translation-choices__error { color: var(--color-danger, #c23b3b); font-size: 12px; }
+.translation-choices__groups { display: flex; flex-direction: column; gap: 6px; padding-left: 8px; }
+.translation-choices__group { display: flex; align-items: flex-start; gap: 8px; }
+.translation-choices__choices { display: flex; flex: 1; min-width: 0; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+.translation-choices__choices .ui-checkbox { align-items: center; flex: 0 0 auto; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); transition: border-color .15s ease, background-color .15s ease; }
+.translation-choices__choices .ui-checkbox__label { white-space: nowrap; }
+.translation-choices__choices .ui-checkbox:hover:not(.ui-checkbox--disabled) { border-color: var(--color-primary); }
+.translation-choices__choices .ui-checkbox:has(.ui-checkbox__input:checked) { border-color: var(--color-primary); background: var(--color-primary-soft); }
+.translation-choices__pos { flex: 0 0 30px; padding-top: 7px; color: var(--color-text-subtle); font-size: 12px; font-weight: 600; }
+
+/* 自定义词义：接在词典候选后面，成可删标签 + 一个输入框 */
+.translation-choices__custom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding-left: 8px;
+}
+.translation-choices__custom .ui-tag--green { cursor: pointer; }
+.translation-choices__custom-input { display: inline-flex; align-items: center; gap: 6px; }
+.translation-choices__custom-input .ui-input { width: 220px; max-width: 100%; }
+
+@media (max-width: 640px) {
+  .translation-choices__custom-input { flex: 1 1 100%; }
+  .translation-choices__custom-input .ui-input { flex: 1; width: auto; min-width: 0; }
+}

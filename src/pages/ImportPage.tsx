@@ -5,10 +5,10 @@ import { useDictPrefetch } from '../hooks/useDictPrefetch'
 import type { StudyListApi, ImportItem } from '../hooks/useStudyList'
 import type { DictionaryEntry, VocabLibrary } from '../types/vocab'
 import {
-  formatTranslationWithCustom, selectedTranslationOptions,
-  translationOptions, translationPosLabel,
+  formatTranslationWithCustom, selectedTranslationOptions, translationOptions,
 } from '../utils/translations'
 import { PageHeader } from '../components/PageHeader'
+import { MAX_CUSTOM_TRANSLATIONS, MAX_PICKED_TRANSLATIONS, TranslationChoices } from '../components/TranslationChoices'
 import { Button, Checkbox, Input, Modal, Select, Tag, TextArea } from '../ui'
 import type { SelectOption } from '../ui'
 import './ImportPage.css'
@@ -26,9 +26,6 @@ const SEARCH_REQUEST_TIMEOUT_MS = 90_000
 /** 网络错误、超时和服务端临时错误自动重试一次；客户端错误不重试。 */
 const SEARCH_REQUEST_MAX_RETRIES = 1
 const SEARCH_REQUEST_RETRY_DELAY_MS = 600
-const MAX_PICKED_TRANSLATIONS = 12
-/** 与服务端 MAX_CUSTOM_TRANSLATIONS 一致：一个词最多 6 条自定义词义 */
-const MAX_CUSTOM_TRANSLATIONS = 6
 const RANDOM_COUNT_OPTIONS: SelectOption[] = [5, 10, 20, 50, 100].map(count => ({
   value: String(count), label: count + ' 个',
 }))
@@ -1195,11 +1192,10 @@ const targetControls = (
           <div className="import-translation-picker">
             {pickerRows.map(row => {
               const entry = pickerEntries.get(row.key)
-              const translations = entry?.translations ?? []
               const selected = pickerSelected.get(row.key) ?? []
               const failed = pickerErrors.get(row.key)
               const spellingSuspect = isSpellingSuspect(row, entry)
-              const available = translationOptions(translations).slice(0, MAX_PICKED_TRANSLATIONS)
+              const available = translationOptions(entry?.translations ?? []).slice(0, MAX_PICKED_TRANSLATIONS)
               const allSelected = available.length > 0 && available.every(item => selected.includes(item.id))
               return (
                 <div className="import-translation-row" key={row.key}>
@@ -1226,74 +1222,20 @@ const targetControls = (
                   </div>
                   {spellingSuspect ? (
                     <span className="import-translation-row__suspect">可能拼写错误：本地词典、免费词典和词库均未命中，本条默认不导入</span>
-                  ) : failed ? (
-                    <span className="import-translation-row__error">查询失败：{failed}，本条不会导入</span>
-                  ) : translations.length > 0 ? (
-                    <div className="import-translation-row__groups">
-                      {(() => {
-                        const groups = new Map<string, ReturnType<typeof translationOptions>>()
-                        for (const item of translationOptions(translations)) {
-                          const key = item.pos ?? ''
-                          const group = groups.get(key) ?? []
-                          group.push(item)
-                          groups.set(key, group)
-                        }
-                        return Array.from(groups.entries()).map(([pos, items]) => (
-                          <div className="import-translation-row__group" key={pos || 'other'}>
-                            {pos && <span className="import-translation-row__pos">{translationPosLabel(pos)}</span>}
-                            <div className="import-translation-row__choices">
-                              {items.map(item => (
-                                <Checkbox
-                                  key={item.id}
-                                  checked={selected.includes(item.id)}
-                                  disabled={!selected.includes(item.id) && selected.length >= MAX_PICKED_TRANSLATIONS}
-                                  onChange={() => toggleTranslation(row.key, item.id)}
-                                >
-                                  {item.text}
-                                </Checkbox>
-                              ))}
-                            </div>
-                          </div>
-                        ))
-                      })()}
-                    </div>
                   ) : (
-                    <span className="import-translation-row__error">未获取到中文词义；可在下面自定义，否则本条不会导入</span>
-                  )}
-
-                  {!spellingSuspect && !failed && (
-                    <div className="import-translation-row__custom">
-                      {(pickerCustoms.get(row.key) ?? []).map((text, index) => (
-                        <Tag
-                          key={index}
-                          color="green"
-                          title="点击移除这条自定义词义"
-                          onClick={() => removeCustomTranslation(row.key, index)}
-                        >
-                          {text}
-                        </Tag>
-                      ))}
-                      <span className="import-translation-row__custom-input">
-                        <Input
-                          size="small"
-                          value={customDraftOf(row.key)}
-                          placeholder="自定义词义：词典里没有的也能自己加"
-                          maxLength={60}
-                          onChange={e => setCustomDraft(row.key, e.target.value)}
-                          onPressEnter={() => addCustomTranslation(row.key)}
-                        />
-                        <Button
-                          size="small"
-                          disabled={
-                            !customDraftOf(row.key).trim()
-                            || (pickerCustoms.get(row.key) ?? []).length >= MAX_CUSTOM_TRANSLATIONS
-                          }
-                          onClick={() => addCustomTranslation(row.key)}
-                        >
-                          添加
-                        </Button>
-                      </span>
-                    </div>
+                    <TranslationChoices
+                      entry={entry ?? null}
+                      selected={selected}
+                      customs={pickerCustoms.get(row.key) ?? []}
+                      customDraft={customDraftOf(row.key)}
+                      failed={failed}
+                      failedText="，本条不会导入"
+                      emptyText="未获取到中文词义；可在下面自定义，否则本条不会导入"
+                      onToggle={id => toggleTranslation(row.key, id)}
+                      onCustomDraftChange={value => setCustomDraft(row.key, value)}
+                      onAddCustom={() => addCustomTranslation(row.key)}
+                      onRemoveCustom={index => removeCustomTranslation(row.key, index)}
+                    />
                   )}
                 </div>
               )

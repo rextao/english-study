@@ -227,16 +227,7 @@
 }
 .import-translation-row__remove:hover { color: var(--color-danger, #b42318); }
 .import-translation-row__phonetic { color: var(--color-text-muted); font-family: var(--font-mono); font-size: 12px; font-weight: 400; }
-.import-translation-row__error { color: var(--color-danger, #c23b3b); font-size: 12px; }
 .import-translation-row__suspect { color: var(--ui-gold-text); font-size: 12px; }
-.import-translation-row__groups { display: flex; flex-direction: column; gap: 6px; padding-left: 8px; }
-.import-translation-row__group { display: flex; align-items: flex-start; gap: 8px; }
-.import-translation-row__choices { display: flex; flex: 1; min-width: 0; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
-.import-translation-row__choices .ui-checkbox { align-items: center; flex: 0 0 auto; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); transition: border-color .15s ease, background-color .15s ease; }
-.import-translation-row__choices .ui-checkbox__label { white-space: nowrap; }
-.import-translation-row__choices .ui-checkbox:hover:not(.ui-checkbox--disabled) { border-color: var(--color-primary); }
-.import-translation-row__choices .ui-checkbox:has(.ui-checkbox__input:checked) { border-color: var(--color-primary); background: var(--color-primary-soft); }
-.import-translation-row__pos { flex: 0 0 30px; padding-top: 7px; color: var(--color-text-subtle); font-size: 12px; font-weight: 600; }
 .import-translation-picker__footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; }
 .import-translation-picker__buttons { display: flex; gap: 8px; }
 
@@ -264,26 +255,3 @@
   .import-translation-picker__footer { align-items: flex-end; flex-direction: column; }
 }
 
-/* 自定义词义：接在词典候选后面，成可删标签 + 一个输入框 */
-.import-translation-row__custom {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 8px;
-  padding-left: 8px;
-}
-
-.import-translation-row__custom .ui-tag--green {
-  cursor: pointer;
-}
-
-.import-translation-row__custom-input {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.import-translation-row__custom-input .ui-input {
-  width: 220px;
-  max-width: 100%;
-}

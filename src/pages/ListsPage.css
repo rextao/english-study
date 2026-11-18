@@ -346,6 +346,14 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 词义行尾的「改词义」入口：小号链接按钮，常显但压得很淡，不抢词义的视觉重量 */
+.word-row .ui-btn.word-row__edit-meaning {
+  flex: 0 0 auto;
+  height: auto;
+  padding: 0;
+  font-size: 12px;
+}
+
 /* 0 次再淡一档：看得见但几乎不占视觉重量 */
 .word-row__tally--zero { opacity: .5; }
 
