@@ -126,6 +126,11 @@ export interface ReciteSessionPayload {
   cards?: ReciteCard[]
   /** 已经点过会 / 不会但还没确认的草稿，存在 Server，换设备也能接着判定 */
   drafts?: ReciteDraft[]
+  /**
+   * 本周全部「学习中 / 学完待保存」的会话：孩子没等家长保存就继续学下一次时会有多个，
+   * 家长端要能逐个保存；session / cards / drafts 等字段仍是其中最早那一次的（兼容旧调用方）。
+   */
+  actives?: ReciteSessionPayload[]
   complete?: boolean
   empty?: boolean
 }

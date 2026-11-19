@@ -2456,6 +2456,80 @@ r = await call('GET', '/api/recite/sessions/active')
 check('保存后不再有待确认会话',
   r.status === 200 && r.body?.session === null, r.body)
 
+// ── 没保存就继续学下一次：两次都待确认，家长能分别保存 ──────────────────
+
+console.log('')
+console.log('多次待保存')
+
+const multiCtx = makeContext()
+use(multiCtx)
+r = await call('POST', '/api/lists', { name: 'Recite multi save test' })
+const multiListId = r.body?.id
+r = await call('POST', '/api/lists/' + multiListId + '/import', {
+  items: [{ text: 'apple', translation: '苹果' }, { text: 'banana', translation: '香蕉' }],
+})
+check('两次待保存词条准备完成', r.body?.added === 2, r.body)
+r = await call('PUT', '/api/recite/task', {
+  perSessionCount: 1,
+  sessionCount: 2,
+  selections: [
+    { listId: multiListId, word: 'apple' },
+    { listId: multiListId, word: 'banana' },
+  ],
+  spellingWords: [],
+})
+check('两次待保存任务配置完成',
+  r.status === 200 && r.body?.task?.sessionCount === 2, r.body)
+r = await call('POST', '/api/recite/sessions/start')
+const multiFirstId = r.body?.session?.sessionId
+const multiFirstCards = r.body?.cards || []
+for (const card of multiFirstCards) {
+  await call('POST', '/api/recite/sessions/' + multiFirstId + '/drafts', {
+    cardId: card.id,
+    result: 'known',
+    attempts: 0,
+  })
+}
+r = await call('POST', '/api/recite/sessions/start')
+const multiSecondId = r.body?.session?.sessionId
+const multiSecondCards = r.body?.cards || []
+check('第一次没保存也能开始第二次学习',
+  r.status === 200 && r.body?.session?.sessionIndex === 2
+  && Boolean(multiSecondId) && multiSecondId !== multiFirstId, r.body)
+for (const card of multiSecondCards) {
+  await call('POST', '/api/recite/sessions/' + multiSecondId + '/drafts', {
+    cardId: card.id,
+    result: 'known',
+    attempts: 0,
+  })
+}
+r = await call('GET', '/api/recite/sessions/active')
+const multiActives = r.body?.actives || []
+const multiActiveIds = multiActives.map(item => item.session?.sessionId)
+check('两次待保存都能读回来',
+  r.status === 200 && multiActiveIds.length === 2
+  && multiActiveIds.includes(multiFirstId) && multiActiveIds.includes(multiSecondId), r.body)
+check('两次待保存各自带草稿',
+  multiActives.length === 2 && multiActives.every(item =>
+    (item.drafts || []).length === (item.cards || []).filter(card => card.status === 'pending').length), r.body)
+
+// 先保存第二次（家长看到的是最近学完的那一次），第一次仍留着可保存
+const multiSecondDrafts = multiActives.find(item => item.session?.sessionId === multiSecondId)?.drafts || []
+r = await call('POST', '/api/recite/sessions/' + multiSecondId + '/commit', {
+  answers: multiSecondDrafts.map(draft => ({
+    cardId: draft.cardId,
+    result: draft.result,
+    answer: draft.answer,
+    attempts: draft.attempts,
+    requestId: 'recite-multi-test|' + draft.cardId,
+  })),
+})
+check('第二次保存完成', r.status === 200 && r.body?.completed === true, r.body)
+r = await call('GET', '/api/recite/sessions/active')
+const multiRemainIds = (r.body?.actives || []).map(item => item.session?.sessionId)
+check('保存第二次后第一次仍可保存',
+  r.status === 200 && multiRemainIds.length === 1 && multiRemainIds[0] === multiFirstId, r.body)
+
 // ── 保存时给单词加的次数：普通卡记知意，拼写卡记会拼 ──────────────────────
 
 console.log('')

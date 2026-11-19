@@ -18,6 +18,7 @@ import {
   planReciteTask,
 } from '../hooks/useRecite'
 import type {
+  ReciteCard,
   ReciteCardTimes,
   ReciteDraft,
   ReciteHistoryRecord,
@@ -110,6 +111,34 @@ interface SessionWord {
 }
 
 /**
+ * 家长端看到的一次「学习中 / 学完待保存」的会话。
+ * 孩子没等保存就继续学下一次时，一次学习可能同时有好几条，每一条都能单独保存。
+ */
+interface ActiveRowView {
+  sessionId: string
+  weekStart: number
+  sessionIndex: number
+  /** 这一次的逐词判定（草稿优先，其次已落库的结果） */
+  marks: Map<string, SessionWord>
+  /** 还有几张卡片没判定；大于 0 时不能保存 */
+  missing: number
+  /** 全部判完了（孩子已经停在完成动画），按已完成展示但保存按钮仍在 */
+  judged: boolean
+  /** 这次还没落库、按卡片顺序排好的卡片 */
+  pendingCards: ReciteCard[]
+  /** 卡片 id → 草稿 */
+  drafts: Map<string, ReciteDraft>
+  payload: ReciteSessionPayload
+}
+
+/** 一次接口结果里的全部待确认会话：新接口给 actives，老接口只有单条 */
+function activePayloadList(payload: ReciteSessionPayload | null): ReciteSessionPayload[] {
+  if (!payload) return []
+  const list = payload.actives?.length ? payload.actives : (payload.session ? [payload] : [])
+  return list.filter(item => Boolean(item.session))
+}
+
+/**
  * 保存抽屉里一张卡的默认次数：判「会」的普通卡加会读、知意各 1 次，
  * 「拼写正确」的拼写卡加会拼 1 次，「不会」的词一律不加。
  */
@@ -198,7 +227,7 @@ function WordChips({ items, marks, showSpelling, order }: {
  * 一周的明细行：第 1 列日期（rowSpan 跨整周），后面每次学习一行。
  * 已完成的次数在单词后直接带判定；进行中的那一次在行右侧保存；没开始的次数点行改这一周的词。
  */
-function WeekRows({ task, isThisWeek, onEdit, onDelete, onPush, pushDisabled, pushReason, sessionMarks, activeMarks, activeIndex, activeWeek, activeSave, activeJudged, recordings, onPlaybackError }: {
+function WeekRows({ task, isThisWeek, onEdit, onDelete, onPush, pushDisabled, pushReason, sessionMarks, activeRows, savingSessionId, onSave, recordings, onPlaybackError }: {
   task: ReciteTask
   isThisWeek: boolean
   /** 点行传 session（1-based）只改这一行；点「修改配置」不传，改整周 */
@@ -211,16 +240,11 @@ function WeekRows({ task, isThisWeek, onEdit, onDelete, onPush, pushDisabled, pu
   pushReason?: string
   /** 这一周每一次（1-based）已保存记录的逐词判定 */
   sessionMarks: Map<number, Map<string, SessionWord>>
-  /** 正在进行那一次的逐词判定（来自当前会话的卡片与草稿） */
-  activeMarks?: Map<string, SessionWord>
-  /** 当前这次会话是第几次（1-based）：判定 / 保存按钮 / 已完成标记只落在这一行 */
-  activeIndex?: number
-  /** 当前这次会话属于哪一周，避免其他周的同序号行也挂上判定 */
-  activeWeek?: number
-  /** 进行中那一次的保存按钮状态；没有进行中的会话时不传 */
-  activeSave?: { saving: boolean; missing: number; onSave: () => void }
-  /** 进行中的那一次已全部判完（背词页停在完成动画），这次按已完成展示，保存按钮仍在 */
-  activeJudged?: boolean
+  /** 这一周「学习中 / 学完待保存」的会话，key = 第几次（1-based）；可能同时有好几次 */
+  activeRows?: Map<number, ActiveRowView>
+  /** 正在提交保存的那次会话 id，按钮显示「保存中…」 */
+  savingSessionId?: string | null
+  onSave: (view: ActiveRowView) => void
   /** 课堂录音：key = 周 + 第几次；同一次学习的几段已经归好组 */
   recordings?: Map<string, RecordingGroup>
   onPlaybackError: (message: string) => void
@@ -233,15 +257,16 @@ function WeekRows({ task, isThisWeek, onEdit, onDelete, onPush, pushDisabled, pu
       {Array.from({ length: task.sessionCount }, (_, index) => {
         const state = sessionState(task, index)
         const session = task.sessions?.find(item => item.index === index + 1)
-        /** 只有当前读回来的那次会话有判定和保存按钮：学完待保存的那一次也能看到自己的判定 */
-        const isActiveRow = state === 'active' && index + 1 === activeIndex && task.weekStart === activeWeek
+        /** 这一次是「学习中 / 学完待保存」：判定和保存按钮落在这一行，跟别的那几次互不影响 */
+        const activeRow = state === 'active' ? activeRows?.get(index + 1) : undefined
+        const isActiveRow = Boolean(activeRow)
         const marks = state === 'done'
           ? sessionMarks.get(index + 1)
-          : isActiveRow ? activeMarks : undefined
+          : activeRow?.marks
         /** 主动推送的那一次不占本周计划的词表，也不能点行改词 */
         const pushed = Boolean(session?.pushed)
         /** 整周任务开始后不能再改整周配置；没开始 / 正在学习中的这一次仍然可以点行改它自己的单词 */
-        const clickable = state !== 'done' && !pushed && !(isActiveRow && activeJudged)
+        const clickable = state !== 'done' && !pushed && !(isActiveRow && activeRow?.judged)
         return (
           <tr
             key={index}
@@ -297,16 +322,17 @@ function WeekRows({ task, isThisWeek, onEdit, onDelete, onPush, pushDisabled, pu
               order={task.wordOrder?.[index]}
               recording={recordings?.get(task.weekStart + ':' + (index + 1))}
               onPlaybackError={onPlaybackError}
-              activeJudged={isActiveRow ? activeJudged : undefined}
-              saveSlot={isActiveRow && activeSave ? (
+              activeJudged={activeRow?.judged}
+              saveSlot={activeRow ? (
                 <Button
                   type="primary"
                   size="small"
                   className="recite-tasks__row-save"
-                  disabled={activeSave.missing > 0 || activeSave.saving}
-                  onClick={event => { event.stopPropagation(); void activeSave.onSave() }}
+                  disabled={activeRow.missing > 0 || savingSessionId === activeRow.sessionId}
+                  title={activeRow.missing > 0 ? '还有 ' + activeRow.missing + ' 张卡片没有判定，等孩子背完再保存' : '保存这一次的判定'}
+                  onClick={event => { event.stopPropagation(); onSave(activeRow) }}
                 >
-                  {activeSave.saving ? '保存中…' : '保存'}
+                  {savingSessionId === activeRow.sessionId ? '保存中…' : '保存'}
                 </Button>
               ) : undefined}
             />
@@ -376,8 +402,11 @@ function SessionCells({ task, index, per, marks, session, order, saveSlot, recor
 export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) {
   const thisWeek = useMemo(() => startOfWeek(today), [today])
   const [tasks, setTasks] = useState<ReciteTask[]>([])
-  /** 当前进行中的会话（只会属于本周任务），用来在行内显示判定和保存按钮 */
-  const [active, setActive] = useState<ReciteSessionPayload | null>(null)
+  /**
+   * 本周全部「学习中 / 学完待保存」的会话（只会属于本周任务）。
+   * 孩子没等家长保存就点了继续学习时会有好几条，每条都能单独保存。
+   */
+  const [activeSessions, setActiveSessions] = useState<ReciteSessionPayload[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -397,8 +426,8 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
   /** 最近 15 天的课堂录音，按「周 + 第几次」挂到对应行的「次数」下面 */
   const [recordings, setRecordings] = useState<ReciteRecordingSummary[]>([])
   const [playError, setPlayError] = useState('')
-  /** 保存抽屉：点行右侧「保存」先弹出来，按序号给每个单词填要加的次数 */
-  const [saveOpen, setSaveOpen] = useState(false)
+  /** 保存抽屉：存要保存的那次会话 id，null 表示抽屉关着 */
+  const [saveSessionId, setSaveSessionId] = useState<string | null>(null)
   /** 抽屉里播放课堂录音失败的提示，只显示在抽屉里 */
   const [drawerPlayError, setDrawerPlayError] = useState('')
   /** 抽屉里每张卡各维度要加的次数，key = 卡片 id */
@@ -422,11 +451,11 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
       // 录音只是锦上添花：拉不到不影响任务配置
       fetchReciteRecordings(RECORDING_LIMIT).catch(() => [] as ReciteRecordingSummary[]),
     ])
-      .then(([list, history, activeSession, recordingList]) => {
+      .then(([list, history, activePayload, recordingList]) => {
         if (!alive) return
         setTasks(list)
         setHistoryRecords(history.records || [])
-        setActive(activeSession)
+        setActiveSessions(activePayloadList(activePayload))
         setRecordings(recordingList)
         setLoadError('')
         setSaveError('')
@@ -514,55 +543,75 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
     return map
   }, [recordings])
 
-  /** 进行中那一次的逐词判定：草稿优先（孩子刚判定还没保存的结果），其次卡片结果 */
-  const activeMarks = useMemo(() => {
-    if (!active?.cards) return undefined
-    const drafts = new Map((active.drafts ?? []).map(draft => [draft.cardId, draft]))
-    return wordsToMarks(active.cards.map(card => ({
-      word: card.word,
-      displayText: card.displayText,
-      cardType: card.cardType,
-      result: drafts.get(card.id)?.result ?? card.result,
-    })))
-  }, [active])
+  /**
+   * 每个待确认会话一份视图数据：逐词判定（草稿优先）、还差几张没判、待保存的卡片。
+   * 同时有好几次「学习中 / 学完待保存」时各算各的，保存按钮和抽屉都按会话走。
+   */
+  const activeViews = useMemo<ActiveRowView[]>(() => {
+    const views: ActiveRowView[] = []
+    for (const payload of activeSessions) {
+      const session = payload.session
+      if (!session) continue
+      const drafts = new Map((payload.drafts ?? []).map(draft => [draft.cardId, draft]))
+      const cards = payload.cards ?? []
+      const pendingCards = cards
+        .filter(card => card.status === 'pending')
+        .slice()
+        .sort((a, b) => a.position - b.position)
+      const missing = pendingCards.filter(card => !drafts.has(card.id)).length
+      views.push({
+        sessionId: session.sessionId,
+        weekStart: payload.task?.weekStart ?? 0,
+        sessionIndex: session.sessionIndex,
+        marks: wordsToMarks(cards.map(card => ({
+          word: card.word,
+          displayText: card.displayText,
+          cardType: card.cardType,
+          result: drafts.get(card.id)?.result ?? card.result,
+        }))),
+        missing,
+        judged: missing === 0,
+        pendingCards,
+        drafts,
+        payload,
+      })
+    }
+    return views
+  }, [activeSessions])
 
-  /** 进行中那一次每张卡的判定草稿，抽屉里给单词标判定、按判定给默认次数 */
-  const draftByCard = useMemo(() => {
-    const map = new Map<string, ReciteDraft>()
-    for (const draft of active?.drafts ?? []) map.set(draft.cardId, draft)
+  /** 按「周 → 第几次」索引，表格每一行去找自己那一次的视图 */
+  const activeRowsByWeek = useMemo(() => {
+    const map = new Map<number, Map<number, ActiveRowView>>()
+    for (const view of activeViews) {
+      const rows = map.get(view.weekStart) ?? new Map<number, ActiveRowView>()
+      rows.set(view.sessionIndex, view)
+      map.set(view.weekStart, rows)
+    }
     return map
-  }, [active])
+  }, [activeViews])
 
-  /** 进行中那一次还有几张卡片没判定，没判定完不能保存 */
-  const activeMissing = useMemo(() => {
-    const cards = active?.cards ?? []
-    return cards.filter(card => card.status === 'pending' && !draftByCard.has(card.id)).length
-  }, [active, draftByCard])
+  /** 抽屉正在保存的那一次；会话被保存 / 关掉抽屉后清空 */
+  const saveView = saveSessionId
+    ? activeViews.find(view => view.sessionId === saveSessionId) ?? null
+    : null
+  const pendingCards = saveView?.pendingCards ?? []
+  const activeMissing = saveView?.missing ?? 0
 
-  /** 进行中那一次还没判定的卡片，按背词页的卡片顺序排（也就是表里的序号） */
-  const pendingCards = useMemo(() => (
-    (active?.cards ?? [])
-      .filter(card => card.status === 'pending')
-      .slice()
-      .sort((a, b) => a.position - b.position)
-  ), [active])
-
-  /** 点行右侧「保存」：先弹抽屉，按卡片判定给好默认次数 */
-  function openSaveDrawer() {
-    if (!active?.session) return
+  /** 点行右侧「保存」：先弹抽屉，按这次会话的卡片判定给好默认次数 */
+  function openSaveDrawer(view: ActiveRowView) {
     const initial: Record<string, ReciteCardTimes> = {}
-    for (const card of pendingCards) {
-      initial[card.id] = defaultCardTimes(draftByCard.get(card.id)?.result)
+    for (const card of view.pendingCards) {
+      initial[card.id] = defaultCardTimes(view.drafts.get(card.id)?.result)
     }
     setCardTimes(initial)
     setSaveError('')
-    setSaveOpen(true)
+    setSaveSessionId(view.sessionId)
   }
 
   /** 关抽屉：清掉抽屉里的播放失败提示（按钮卸载时会自动停掉正在播的录音） */
   function closeSaveDrawer() {
     setDrawerPlayError('')
-    setSaveOpen(false)
+    setSaveSessionId(null)
   }
 
   /** 抽屉里调节某一维度的次数：0 到 MAX_CARD_TIMES 之间 */
@@ -576,16 +625,16 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
     })
   }
 
-  /** 把进行中那一次的草稿统一提交保存（带上抽屉里填的次数），保存后刷新整个页面 */
+  /** 把这一次会话的草稿统一提交保存（带上抽屉里填的次数），保存后刷新整个页面 */
   async function saveActiveSession() {
-    const session = active?.session
-    if (!session || saving) return
-    const drafts = new Map((active?.drafts ?? []).map(draft => [draft.cardId, draft]))
+    const view = saveView
+    const session = view?.payload.session
+    if (!view || !session || saving) return
     setSaving(true)
     setSaveError('')
     try {
-      const answers = pendingCards.map(card => {
-        const draft = drafts.get(card.id)
+      const answers = view.pendingCards.map(card => {
+        const draft = view.drafts.get(card.id)
         if (!draft) throw new Error('还有卡片没有判定，等孩子背完再保存。')
         return {
           cardId: card.id,
@@ -601,7 +650,7 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
       for (let start = 0; start < answers.length; start += COMMIT_CHUNK) {
         await commitReciteSession(session.sessionId, answers.slice(start, start + COMMIT_CHUNK))
       }
-      setSaveOpen(false)
+      setSaveSessionId(null)
       setReload(value => value + 1)
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : '保存失败，请重试')
@@ -626,18 +675,13 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
     }
   }
 
-  const activeSave = active?.session
-    ? { saving, missing: activeMissing, onSave: openSaveDrawer }
-    : undefined
-  /** 进行中的那一次已全部判完（背词页会停在完成动画）：按已完成展示，但还没保存，保存按钮仍在 */
-  const activeJudged = Boolean(active?.session) && activeMissing === 0
-  /** 只有还没学完的那一次才档着推送；已经学完只是没点保存的，推送时服务端会先按默认次数保存 */
+  /** 只有还没学完的那一次才挡着推送；已经学完只是没点保存的，推送时服务端会先按默认次数保存 */
   const pushBlocked = Boolean(taskByWeek.get(thisWeek)?.sessions?.some(
     session => session.status === 'active' && !session.judged,
   ))
-  /** 进行中那一次的课堂录音（抽屉标题旁试听，没有录音就不显示） */
-  const activeRecording = active?.session && active.task
-    ? recordingBySession.get(active.task.weekStart + ':' + active.session.sessionIndex)
+  /** 抽屉里那次学习的课堂录音（抽屉顶部试听，没有录音就显示「暂无音频」） */
+  const activeRecording = saveView
+    ? recordingBySession.get(saveView.weekStart + ':' + saveView.sessionIndex)
     : undefined
 
   return (
@@ -717,11 +761,9 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
                       pushDisabled={pushBlocked}
                       pushReason="有进行中的一次学习，学完再推送"
                       sessionMarks={marksByWeek.get(week) ?? new Map()}
-                      activeMarks={activeMarks}
-                      activeIndex={active?.session?.sessionIndex}
-                      activeWeek={active?.task?.weekStart}
-                      activeSave={activeSave}
-                      activeJudged={activeJudged}
+                      activeRows={activeRowsByWeek.get(task.weekStart)}
+                      savingSessionId={saving ? saveView?.sessionId ?? null : null}
+                      onSave={openSaveDrawer}
                       recordings={recordingBySession}
                       onPlaybackError={setPlayError}
                     />
@@ -747,9 +789,9 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
       />
 
       <Drawer
-        open={saveOpen}
+        open={saveSessionId !== null}
         width="wide"
-        title="确认这次学习的次数"
+        title={saveView ? '确认这次学习的次数 · 第 ' + saveView.sessionIndex + ' 次' : '确认这次学习的次数'}
         onClose={closeSaveDrawer}
         footer={
           <>
@@ -769,12 +811,13 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
         {activeMissing > 0 && (
           <p className="callout callout--warn">还有 {activeMissing} 张卡片没有判定，等孩子背完再保存。</p>
         )}
+        {saveError && <p className="callout callout--error">{saveError}</p>}
         {drawerPlayError && <p className="callout callout--error">{drawerPlayError}</p>}
         <ul className="recite-tasks__counts">
           {pendingCards.map(card => {
             const times = cardTimes[card.id] ?? { spelling: 0, reading: 0, meaning: 0 }
             const no = card.position + 1
-            const result = draftByCard.get(card.id)?.result
+            const result = saveView?.drafts.get(card.id)?.result
             return (
               <li key={card.id} className="recite-tasks__count-row">
                 <span className="recite-tasks__count-no">{no}</span>

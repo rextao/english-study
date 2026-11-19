@@ -1065,13 +1065,19 @@ export function createReciteStore(db) {
   /** 家长端读取当前待确认会话（含草稿）；不存在进行中的会话时返回 session: null */
   async function activeSession(env, now = Date.now()) {
     const current = await currentTask(env, now)
-    if (!current) return { task: null, session: null, cards: [], drafts: [] }
-    const active = await db.first(
-      "SELECT * FROM recite_sessions WHERE task_id = ? AND status = 'active' ORDER BY session_index LIMIT 1",
+    if (!current) return { task: null, session: null, cards: [], drafts: [], actives: [] }
+    const rows = await db.all(
+      "SELECT * FROM recite_sessions WHERE task_id = ? AND status = 'active' ORDER BY session_index",
       current.task.id,
     )
-    if (!active) return { task: await taskPayload(current), session: null, cards: [], drafts: [] }
-    return await hydrateSession(current.task, active)
+    if (rows.length === 0) {
+      return { task: await taskPayload(current), session: null, cards: [], drafts: [], actives: [] }
+    }
+    // 孩子没等家长保存就点了「继续学习」时，可能同时有好几次「学习中 / 学完待保存」。
+    // 全部返回，家长端才能给每一次单独保存；只给最早那一次会把后学的挡在外面。
+    const actives = []
+    for (const row of rows) actives.push(await hydrateSession(current.task, row))
+    return { ...actives[0], actives }
   }
 
   /** 已保存的背诵记录：按完成时间倒序，带上每张卡片的判定结果 */
