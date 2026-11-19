@@ -5,7 +5,7 @@ import { readRecordPref, useReciteRecording, writeRecordPref } from '../hooks/us
 import { useRecitePreload } from '../hooks/useRecitePreload'
 import type { ReciteCard, ReciteSessionPayload, ReciteTask } from '../hooks/useRecite'
 import { ReciteDebugPanel } from '../components/ReciteDebugPanel'
-import { speak, speechErrorMessage, stopSpeech } from '../utils/speech'
+import { SENTENCE_SPEAKING_RATE, speak, speechErrorMessage, stopSpeech } from '../utils/speech'
 import { flushQueuedRecordings } from '../utils/reciteRecordingUpload'
 import './RecitePage.css'
 
@@ -52,7 +52,7 @@ const NORMAL_SPEED: SpeedPreset = { label: '正常速', rate: 1 }
 /** 单词卡：正常速 / 0.5 倍速（走相对倍速；正常速与背词首页预取的音频共用缓存） */
 const WORD_SPEED_PRESETS: SpeedPreset[] = [NORMAL_SPEED, { label: '0.5 倍速', rate: 0.5 }]
 /** 句子卡：整句默认让 Google 用 speakingRate 0.7 念（正常速对小朋友太快） */
-const SENTENCE_SPEED_PRESETS: SpeedPreset[] = [NORMAL_SPEED, { label: '0.7 倍速', speakingRate: 0.7 }]
+const SENTENCE_SPEED_PRESETS: SpeedPreset[] = [NORMAL_SPEED, { label: '0.7 倍速', speakingRate: SENTENCE_SPEAKING_RATE }]
 /** 句子默认第二档（0.7 倍速），单词默认正常速 */
 const SENTENCE_SPEED_INDEX = 1
 

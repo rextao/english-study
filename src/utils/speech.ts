@@ -69,11 +69,15 @@ export function unlockSpeech() {
   }
 }
 
+/** 句子整句默认让 Google 用 0.7 念：背词页档位与首页预取共用这一个值，预取拉回来的音频点喇叭才命中 */
+export const SENTENCE_SPEAKING_RATE = 0.7
+
 /**
- * 缓存键 = 归一化文本 + 语速：正常速（rate=1 / 不传 speakingRate）就只是文本，
+ * 本地缓存键 = 归一化文本 + 语速：正常速（rate=1 / 不传 speakingRate）就只是文本，
  * 与背词首页预取的键一致；直接指定 Google 语速的另存一份（如 `句子@sr0.7`），两者互不覆盖。
+ * 预取（useRecitePreload）也走这个函数，两边的键必须一致。
  */
-function cacheKeyOf(text: string, rate: number, speakingRate?: number) {
+export function speechCacheKey(text: string, rate = 1, speakingRate?: number) {
   const base = text.trim().replace(/\s+/g, ' ').toLowerCase()
   if (speakingRate) return base + '@sr' + speakingRate
   return rate === 1 ? base : base + '@' + rate
@@ -98,7 +102,7 @@ function rememberUrl(key: string, url: string) {
 }
 
 async function loadAudioUrl(text: string, rate: number, speakingRate?: number): Promise<string> {
-  const key = cacheKeyOf(text, rate, speakingRate)
+  const key = speechCacheKey(text, rate, speakingRate)
   const cached = audioUrls.get(key)
   if (cached) return cached
   const pending = pendingAudio.get(key)

@@ -8,11 +8,16 @@
  * 并发 2，不抢正着急的页面请求；发音服务没配好（503）或令牌失效（401 / 403）时
  * 整体停下并把原因交给调试面板，单个词断网只记失败、可单独重试。
  * 已经在本地缓存里的词直接跳过，反复打开页面不会重复下载。
+ *
+ * 语速要和背词页的默认档位一致，否则预取回来的音频点喇叭时用不上：
+ * 单词卡默认正常速，句子卡默认 speakingRate 0.7（见 speech.ts 的 SENTENCE_SPEAKING_RATE），
+ * 所以句子按 0.7 拉，缓存键也走 speechCacheKey 带上 @sr0.7。
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiFetch } from '../utils/apiBase'
 import type { ReciteTask } from './useRecite'
+import { SENTENCE_SPEAKING_RATE, speechCacheKey } from '../utils/speech'
 import {
   audioCacheKeyOf,
   loadPersistedAudio,
@@ -46,15 +51,36 @@ const IDLE: RecitePreloadState = { status: 'idle', total: 0, done: 0, failed: []
 
 type FetchOutcome = 'ok' | 'failed' | 'fatal-config' | 'fatal-auth'
 
+/** 一条要预取的发音：text 是实际念的文本，句子带上默认的 speakingRate */
+interface PreloadItem {
+  text: string
+  speakingRate?: number
+}
+
+/** 与 speech.ts 的缓存键一致：句子按自带语速另存一份，单词就是文本本身 */
+function cacheKeyOf(item: PreloadItem) {
+  return speechCacheKey(item.text, 1, item.speakingRate)
+}
+
 /**
  * 本周要缓存发音的词：
  *  - 有 wordOrder 时把「下一次要学的那一次」排最前（第 1 次学习就是新一周的第一组），
  *    其余各次按顺序补上，让小朋友等最少的时间就能播到第一张卡；
  *  - 没有顺序信息就用任务词表兜底；
- *  - 主动推送的那一次也属本周，排在最后。
+ *  - 主动推送的那一次也属本周，排在最后；
+ *  - 句子用背词页的默认语速（0.7）拉，单词用正常速。
  */
-function buildPreloadWords(task: ReciteTask | null): string[] {
+function buildPreloadItems(task: ReciteTask | null): PreloadItem[] {
   if (!task) return []
+  // 任务词表里存着每个词条的类型和实际念的文本，用来认出哪些是句子
+  const sentences = new Set<string>()
+  for (const item of task.words ?? []) {
+    if (item.type !== 'sentence') continue
+    const label = item.displayText?.trim() || item.word
+    const key = audioCacheKeyOf(label)
+    if (key) sentences.add(key)
+  }
+
   const groups: string[][] = []
   const order = Array.isArray(task.wordOrder) ? task.wordOrder.filter(group => Array.isArray(group)) : []
   if (order.length > 0) {
@@ -65,31 +91,38 @@ function buildPreloadWords(task: ReciteTask | null): string[] {
       if (index !== priority) groups.push(group)
     })
   } else {
-    groups.push(task.words.map(item => item.word))
+    groups.push((task.words ?? []).map(item => item.type === 'sentence' && item.displayText ? item.displayText : item.word))
   }
   for (const session of task.sessions ?? []) {
     if (session.pushed && session.words?.length) groups.push(session.words)
   }
+
   const seen = new Set<string>()
-  const words: string[] = []
-  for (const word of groups.flat()) {
-    const key = audioCacheKeyOf(word)
+  const items: PreloadItem[] = []
+  for (const text of groups.flat()) {
+    const item: PreloadItem = sentences.has(audioCacheKeyOf(text))
+      ? { text, speakingRate: SENTENCE_SPEAKING_RATE }
+      : { text }
+    const key = cacheKeyOf(item)
     if (!key || seen.has(key)) continue
     seen.add(key)
-    words.push(word)
+    items.push(item)
   }
-  return words
+  return items
 }
 
-async function fetchWordAudio(word: string): Promise<FetchOutcome> {
+async function fetchItemAudio(item: PreloadItem): Promise<FetchOutcome> {
   try {
-    const response = await apiFetch('/api/tts?text=' + encodeURIComponent(word))
+    const query = item.speakingRate
+      ? '?text=' + encodeURIComponent(item.text) + '&speakingRate=' + item.speakingRate
+      : '?text=' + encodeURIComponent(item.text)
+    const response = await apiFetch('/api/tts' + query)
     if (response.status === 503) return 'fatal-config'
     if (response.status === 401 || response.status === 403) return 'fatal-auth'
     let payload: { audio?: string; mime?: string } | null = null
     try { payload = await response.json() } catch { payload = null }
     if (!response.ok || !payload?.audio) return 'failed'
-    await storePersistedAudio(audioCacheKeyOf(word), payload.audio, payload.mime || 'audio/mpeg')
+    await storePersistedAudio(cacheKeyOf(item), payload.audio, payload.mime || 'audio/mpeg')
     return 'ok'
   } catch {
     return 'failed'
@@ -97,30 +130,30 @@ async function fetchWordAudio(word: string): Promise<FetchOutcome> {
 }
 
 /** 拉一批词：先在本地排队扣掉已缓存的，剩下的并发 2 逐个下载 */
-async function preloadWords(
-  words: string[],
+async function preloadItems(
+  items: PreloadItem[],
   report: (state: RecitePreloadState) => void,
 ): Promise<RecitePreloadState> {
-  const total = words.length
+  const total = items.length
   let done = 0
   const failed: string[] = []
   let fatalReason = ''
   let aborted = false
 
-  const pending: string[] = []
-  for (const word of words) {
-    const persisted = await loadPersistedAudio(audioCacheKeyOf(word))
+  const pending: PreloadItem[] = []
+  for (const item of items) {
+    const persisted = await loadPersistedAudio(cacheKeyOf(item))
     if (persisted) done += 1
-    else pending.push(word)
+    else pending.push(item)
   }
   report({ status: 'loading', total, done, failed: [], reason: '' })
 
   let cursor = 0
   const worker = async () => {
     while (!aborted && cursor < pending.length) {
-      const word = pending[cursor]
+      const item = pending[cursor]
       cursor += 1
-      const outcome = await fetchWordAudio(word)
+      const outcome = await fetchItemAudio(item)
       if (outcome === 'fatal-config') {
         fatalReason = '发音服务没配置（GOOGLE_TTS_API_KEY 缺失），本次没有拉取'
         aborted = true
@@ -131,7 +164,7 @@ async function preloadWords(
         aborted = true
         return
       }
-      if (outcome === 'failed') failed.push(word)
+      if (outcome === 'failed') failed.push(item.text)
       done += 1
       report({ status: 'loading', total, done, failed: [...failed], reason: '' })
     }
@@ -156,7 +189,7 @@ export function useRecitePreload(task: ReciteTask | null, enabled: boolean): Use
   const taskRef = useRef(task)
   taskRef.current = task
 
-  const run = useCallback((target: string[]) => {
+  const run = useCallback((target: PreloadItem[]) => {
     const token = runToken.current + 1
     runToken.current = token
     if (target.length === 0) {
@@ -164,7 +197,7 @@ export function useRecitePreload(task: ReciteTask | null, enabled: boolean): Use
       return
     }
     setState({ status: 'loading', total: target.length, done: 0, failed: [], reason: '' })
-    void preloadWords(target, next => {
+    void preloadItems(target, next => {
       if (runToken.current !== token) return
       setState(next)
     }).then(result => {
@@ -188,8 +221,8 @@ export function useRecitePreload(task: ReciteTask | null, enabled: boolean): Use
 
   useEffect(() => {
     if (!enabled || !task) return
-    const target = buildPreloadWords(task)
-    const signature = task.id + '|' + task.configVersion + '|' + target.join('\n')
+    const target = buildPreloadItems(task)
+    const signature = task.id + '|' + task.configVersion + '|' + target.map(cacheKeyOf).join('\n')
     if (signature === signatureRef.current) return
     signatureRef.current = signature
     run(target)
@@ -210,15 +243,17 @@ export function useRecitePreload(task: ReciteTask | null, enabled: boolean): Use
   }, [enabled])
 
   const reload = useCallback((words?: string[]) => {
-    const full = buildPreloadWords(taskRef.current)
+    const full = buildPreloadItems(taskRef.current)
     if (!words || words.length === 0) {
       run(full)
       return
     }
-    // 只重试失败词时也按整周的词数算进度：把要重试的排到队头，其余照旧（已缓存的会跳过）
+    // 只重试失败词时也按整周的词数算进度：把要重试的排到队头，其余照旧（已缓存的会跳过）。
+    // 重试的条目照旧从整周清单里取，句子的 0.7 语速才不会丢。
     const priority = new Set(words.map(audioCacheKeyOf))
-    const ordered = [...words, ...full.filter(word => !priority.has(audioCacheKeyOf(word)))]
-    run(ordered)
+    const retry = full.filter(item => priority.has(audioCacheKeyOf(item.text)))
+    const rest = full.filter(item => !priority.has(audioCacheKeyOf(item.text)))
+    run([...retry, ...rest])
   }, [run])
 
   return { ...state, reload }
