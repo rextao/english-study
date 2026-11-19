@@ -1847,6 +1847,24 @@ check('同一个词第二次直接读 D1 缓存，不再打外网',
   r.status === 200 && r.body?.cached === true && ttsCalls.length === 0,
   { body: r.body, calls: ttsCalls.length })
 
+// 句子整句：前端直接指定 Google 语速（0.7），不走相对倍速；同一段文本按语速分开缓存
+ttsCalls.length = 0
+const sentenceText = 'I like apples'
+r = await call('GET', '/api/tts?text=' + encodeURIComponent(sentenceText) + '&speakingRate=0.7')
+const sentenceBody = JSON.parse(ttsCalls[0]?.options?.body || '{}')
+check('句子整句按指定 speakingRate 0.7 合成',
+  r.status === 200 && sentenceBody.audioConfig?.speakingRate === 0.7,
+  { body: r.body, tts: sentenceBody })
+r = await call('GET', '/api/tts?text=' + encodeURIComponent(sentenceText) + '&speakingRate=0.7')
+check('同一句同一语速第二次读缓存',
+  r.status === 200 && r.body?.cached === true && ttsCalls.length === 1,
+  { body: r.body, calls: ttsCalls.length })
+r = await call('GET', '/api/tts?text=' + encodeURIComponent(sentenceText) + '&rate=0.5')
+const slowBody = JSON.parse(ttsCalls[1]?.options?.body || '{}')
+check('相对倍速档位仍按 0.9 × 0.5 合成，且与句子语速分开缓存',
+  r.status === 200 && r.body?.cached === false && slowBody.audioConfig?.speakingRate === 0.45,
+  { body: r.body, tts: slowBody, calls: ttsCalls.length })
+
 r = await call('GET', '/api/tts?text=')
 check('空文本直接拒绝', r.status === 400, r.body)
 r = await call('GET', '/api/tts?text=' + 'a'.repeat(200))

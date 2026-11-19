@@ -315,9 +315,15 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     return { status: 200, body: { ...ttsStatus(app), limit: MAX_TTS_TEXT_LENGTH } }
   }
 
-  // rate = 前端倍速档位（1 正常速 / 0.5 / 0.3）：慢速交给 Google 用 speakingRate 原生念慢，音色不变
+  // rate = 前端倍速档位（1 正常速 / 0.5 / 0.3）：慢速交给 Google 用 speakingRate 原生念慢，音色不变；
+  // speakingRate = 直接指定 Google 语速（句子整句用 0.7），传了就不看 rate
   if (method === 'GET' && pathname === '/api/tts') {
-    return synthesizeSpeech(app, searchParams.get('text'), searchParams.get('rate'))
+    return synthesizeSpeech(
+      app,
+      searchParams.get('text'),
+      searchParams.get('rate'),
+      searchParams.get('speakingRate'),
+    )
   }
 
   // GET /api/tts/missing — 设置页展示所有学习列表里还没有发音缓存的词和句子

@@ -4,8 +4,8 @@
  * GET /api/tts?text=word&rate=1 由 Worker 调 Google Cloud Text-to-Speech 合成 MP3，
  * 回的是 base64；这里解成 Blob URL 交给 <audio> 播放：
  *  - 同一个词只合成 / 下载一次，URL 复用到刷新页面为止；
- *  - 慢速不是把播放速度拉慢（那样音色会变），而是带上 rate 让 Google 用 speakingRate
- *    原生慢慢念，回的是慢速音频本体，<audio> 始终按 1 倍速播；
+ *  - 慢速不是把播放速度拉慢（那样音色会变），而是带上 rate（或直接给 speakingRate）
+ *    让 Google 用 speakingRate 原生慢慢念，回的是慢速音频本体，<audio> 始终按 1 倍速播；
  *  - 点新词会掐掉上一个，避免两个声音叠在一起；
  *  - 全站共用一个 <audio>，并在用户手势里先「解锁」它（见 unlockSpeech）：
  *    iOS / iPadOS Safari 只允许在手势的同步调用栈里起播，而这里是先取音频（IndexedDB /
@@ -69,9 +69,13 @@ export function unlockSpeech() {
   }
 }
 
-/** 缓存键 = 归一化文本 + 倍速：同一句话的正常速 / 慢速音频分开存，互不覆盖 */
-function cacheKeyOf(text: string, rate: number) {
+/**
+ * 缓存键 = 归一化文本 + 语速：正常速（rate=1 / 不传 speakingRate）就只是文本，
+ * 与背词首页预取的键一致；直接指定 Google 语速的另存一份（如 `句子@sr0.7`），两者互不覆盖。
+ */
+function cacheKeyOf(text: string, rate: number, speakingRate?: number) {
   const base = text.trim().replace(/\s+/g, ' ').toLowerCase()
+  if (speakingRate) return base + '@sr' + speakingRate
   return rate === 1 ? base : base + '@' + rate
 }
 
@@ -93,8 +97,8 @@ function rememberUrl(key: string, url: string) {
   }
 }
 
-async function loadAudioUrl(text: string, rate: number): Promise<string> {
-  const key = cacheKeyOf(text, rate)
+async function loadAudioUrl(text: string, rate: number, speakingRate?: number): Promise<string> {
+  const key = cacheKeyOf(text, rate, speakingRate)
   const cached = audioUrls.get(key)
   if (cached) return cached
   const pending = pendingAudio.get(key)
@@ -110,7 +114,10 @@ async function loadAudioUrl(text: string, rate: number): Promise<string> {
       return cachedUrl
     }
 
-    const response = await apiFetch('/api/tts?text=' + encodeURIComponent(text) + '&rate=' + rate)
+    const query = speakingRate
+      ? '?text=' + encodeURIComponent(text) + '&speakingRate=' + speakingRate
+      : '?text=' + encodeURIComponent(text) + '&rate=' + rate
+    const response = await apiFetch('/api/tts' + query)
     let payload: { audio?: string; mime?: string; error?: string } | null = null
     try { payload = await response.json() } catch { payload = null }
     if (!response.ok || !payload?.audio) {
@@ -143,20 +150,25 @@ export function stopSpeech() {
 }
 
 /**
- * 朗读一个词；Promise 在播放结束（或失败）后 resolve / reject。
- * rate 是背词页右上角的倍速档位（正常速 1 / 0.5 / 0.3）：按这个档位向 Worker 要
- * 对应语速的音频（Google 自己念慢，音色不变），<audio> 固定 1 倍速播。
- * 每个档位各自缓存，同一个词同一档位只合成 / 下载一次。
+ * 朗读一个词 / 一句话；Promise 在播放结束（或失败）后 resolve / reject。
+ * rate 是背词页右上角的倍速档位（正常速 1 / 0.5）：按这个档位向 Worker 要对应语速的
+ * 音频（Google 自己念慢，音色不变），<audio> 固定 1 倍速播。
+ * speakingRate 直接指定 Google 语速（句子整句用 0.7），传了就不看 rate；
+ * 每个语速各自缓存，同一段文本同一语速只合成 / 下载一次。
  */
-export async function speak(text: string, options: { rate?: number } = {}): Promise<void> {
+export async function speak(
+  text: string,
+  options: { rate?: number; speakingRate?: number } = {},
+): Promise<void> {
   const word = text.trim()
   if (!word) return
   // 这一行还在用户手势的同步调用栈里，先解锁共用的音频元素（见 unlockSpeech）
   unlockSpeech()
   const rate = options.rate && options.rate > 0 ? options.rate : 1
+  const speakingRate = options.speakingRate && options.speakingRate > 0 ? options.speakingRate : undefined
   stopSpeech()
   const generation = speechGeneration
-  const url = await loadAudioUrl(word, rate)
+  const url = await loadAudioUrl(word, rate, speakingRate)
   // 合成期间点了别的词 / 换了卡片：这次的结果已经过时，别再出声
   if (generation !== speechGeneration) return
   await new Promise<void>((resolve, reject) => {

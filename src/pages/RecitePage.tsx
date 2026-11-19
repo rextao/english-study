@@ -38,10 +38,22 @@ interface DraftAnswer {
 const KEYBOARD_ROWS = ['qw', 'abcdefghijklmnopqrstuvwxyz']
 const FIRST_ROW_KEYS = 'qw'
 
-/** 发音倍速：卡片右上角的按钮点一下换一个；带 rate 请 Worker 要对应语速的音频（Google 原生念慢，音色不变） */
-const SPEED_RATES = [1, 0.5]
-const SPEED_LABELS = ['正常速', '0.5 倍速']
-/** 句子默认 0.5 倍速（正常速对小朋友太快），单词默认正常速；卡片上手动切过就按切的那档 */
+/**
+ * 发音语速档位：rate = 相对正常速的倍数（Worker 乘上 0.9，交 Google 原生念慢，音色不变）；
+ * speakingRate = 直接指定 Google 的语速（句子整句用 0.7，比 0.5 倍速快一点、长句又听得清）。
+ * 卡片右上角的按钮点一下换一档；卡片上手动切过就按切的那档，换卡时按卡片类型重置。
+ */
+interface SpeedPreset {
+  label: string
+  rate?: number
+  speakingRate?: number
+}
+const NORMAL_SPEED: SpeedPreset = { label: '正常速', rate: 1 }
+/** 单词卡：正常速 / 0.5 倍速（走相对倍速；正常速与背词首页预取的音频共用缓存） */
+const WORD_SPEED_PRESETS: SpeedPreset[] = [NORMAL_SPEED, { label: '0.5 倍速', rate: 0.5 }]
+/** 句子卡：整句默认让 Google 用 speakingRate 0.7 念（正常速对小朋友太快） */
+const SENTENCE_SPEED_PRESETS: SpeedPreset[] = [NORMAL_SPEED, { label: '0.7 倍速', speakingRate: 0.7 }]
+/** 句子默认第二档（0.7 倍速），单词默认正常速 */
 const SENTENCE_SPEED_INDEX = 1
 
 /**
@@ -420,7 +432,7 @@ export function RecitePage({
     stopSpeech()
   }, [index])
 
-  // 每张卡进来先给它默认倍速：句子 0.5 倍速、单词正常速；这张卡上手动切过的档位换卡前保留
+  // 每张卡进来先给它默认语速：句子 0.7 倍速、单词正常速；这张卡上手动切过的档位换卡前保留
   const cardId = cards[index]?.id ?? ''
   useEffect(() => {
     setSpeedIndex(isSentenceCard(cards[index] ?? null) ? SENTENCE_SPEED_INDEX : 0)
@@ -430,6 +442,9 @@ export function RecitePage({
   const isSpelling = card?.cardType === 'spelling'
   /** 句子卡：卡上的每个单词可以单独点来听，单词卡没有这个功能（只用喇叭听整词） */
   const isSentence = isSentenceCard(card)
+  /** 当前这张卡可用的语速档位（句子 / 单词两套）与当前档位 */
+  const speedPresets = isSentence ? SENTENCE_SPEED_PRESETS : WORD_SPEED_PRESETS
+  const speed = speedPresets[speedIndex] ?? NORMAL_SPEED
   const display = card?.displayText || card?.word || ''
   const answer = card?.word || ''
   const total = session?.cardCount || cards.length || 0
@@ -557,16 +572,16 @@ export function RecitePage({
 
   /**
    * 播一段文本（整句 / 句子里的某个单词）：连点只认最后一次，失败原因写在页面上。
-   * rate 不传就用卡片右上角的档位；点句子里单个单词时强制正常速。
+   * 不传 speed 就用卡片右上角选中的档位；点句子里单个单词时固定正常速。
    */
-  function playText(text: string, rate?: number) {
+  function playText(text: string, preset?: SpeedPreset) {
     const value = text.trim()
     if (!value) return
     const token = playToken.current + 1
     playToken.current = token
     setSpeechError('')
     setSpeaking(true)
-    void speak(value, { rate: rate ?? SPEED_RATES[speedIndex] })
+    void speak(value, preset ?? speed)
       .catch(error => {
         if (playToken.current === token) setSpeechError(speechErrorMessage(error))
       })
@@ -846,18 +861,18 @@ export function RecitePage({
           }
           onClick={isReview && !isSpelling ? flipCard : undefined}
         >
-          {/* 右上角倍速：点一下在正常速 / 0.5 倍速 / 0.3 倍速之间循环 */}
+          {/* 右上角语速：点一下在「正常速 / 0.5 倍速」（句子卡是 0.7 倍速）之间循环 */}
           <button
             type="button"
             className="recite-card__speed"
             onClick={event => {
               // 回看时点卡片会翻面，别让倍速按钮把卡片翻过去
               event.stopPropagation()
-              setSpeedIndex(value => (value + 1) % SPEED_RATES.length)
+              setSpeedIndex(value => (value + 1) % speedPresets.length)
             }}
-            aria-label={'发音速度：' + SPEED_LABELS[speedIndex] + '，点击切换'}
-            title={'发音速度：' + SPEED_LABELS[speedIndex] + '，点一下切换'}
-          >{SPEED_LABELS[speedIndex]}</button>
+            aria-label={'发音速度：' + speed.label + '，点击切换'}
+            title={'发音速度：' + speed.label + '，点一下切换'}
+          >{speed.label}</button>
           {isSpelling ? (
             <>
               <p className="recite-card__hint">看中文，拼出英文</p>
@@ -881,7 +896,7 @@ export function RecitePage({
                   {/* 翻面后：句子卡每个单词仍可单独点，单词卡就是整词文本 */}
                   <span className="recite-card__back-word">
                     {isSentence
-                      ? <SentenceWords text={card.displayText || card.word} onSpeak={word => playText(word, 1)} />
+                      ? <SentenceWords text={card.displayText || card.word} onSpeak={word => playText(word, NORMAL_SPEED)} />
                       : card.word}
                   </span>
                   <strong className="recite-card__back-translation">{card.translation || '暂无中文含义'}</strong>
@@ -891,7 +906,7 @@ export function RecitePage({
                 <>
                   {/* 句子卡：每个单词单独可点；单词卡只是文本，靠下面的喇叭听整词 */}
                   <div className="recite-card__prompt" style={promptStyle}>
-                    {isSentence ? <SentenceWords text={display} onSpeak={word => playText(word, 1)} /> : display}
+                    {isSentence ? <SentenceWords text={display} onSpeak={word => playText(word, NORMAL_SPEED)} /> : display}
                   </div>
                   {speakButton}
                 </>

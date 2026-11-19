@@ -104,12 +104,25 @@ export function speakingRateFor(rate) {
 }
 
 /**
- * 缓存键带上音色和语速：换音色 / 换倍速后旧音频不会被错用。
- * 正常速沿用老的 `音色|文本`（设置页的缺音频查询和一整库旧缓存都认这个键），
- * 慢速另存一份 `音色|@0.45|文本`。
+ * 最终交给 Google 的 speakingRate：
+ *  - 显式传了 speakingRate（句子整句默认 0.7）就直接用它，超出合法区间夹一下、保留两位小数；
+ *  - 没传就按前端倍速档位换算（见 speakingRateFor）。
  */
-export function ttsCacheKey(text, env, rate) {
-  const speakingRate = speakingRateFor(rate)
+export function resolveSpeakingRate(rate, speakingRate) {
+  const exact = Number(speakingRate)
+  if (Number.isFinite(exact) && exact > 0) {
+    const clamped = Math.min(MAX_SPEAKING_RATE, Math.max(MIN_SPEAKING_RATE, exact))
+    return Math.round(clamped * 100) / 100
+  }
+  return speakingRateFor(rate)
+}
+
+/**
+ * 缓存键带上音色和语速：换音色 / 换语速后旧音频不会被错用。
+ * 正常速（0.9）沿用老的 `音色|文本`（设置页的缺音频查询和一整库旧缓存都认这个键），
+ * 其他语速另存一份，如 `音色|@0.45|文本`、`音色|@0.7|文本`。
+ */
+export function ttsCacheKey(text, env, speakingRate) {
   const prefix = voiceOf(env) + '|'
   return speakingRate === NORMAL_SPEAKING_RATE
     ? prefix + text
@@ -167,10 +180,11 @@ async function writeCachedAudio(app, key, text, mime, audio) {
 /**
  * 合成一个词 / 短语的 MP3。返回 { status, body }，与 routes.js 其他处理器一致。
  * body.audio 是 base64（Google 原样返回的内容），前端解成 Blob 再播放。
+ * rate 是前端倍速档位，speakingRate 是显式指定的 Google 语速（句子整句用），后者优先。
  */
-export async function synthesizeSpeech(app, rawText, rate) {
+export async function synthesizeSpeech(app, rawText, rate, speakingRate) {
   const env = app.env
-  const speakingRate = speakingRateFor(rate)
+  const resolvedRate = resolveSpeakingRate(rate, speakingRate)
   const text = String(rawText ?? '').trim().replace(/\s+/g, ' ')
   if (!text) return { status: 400, body: { error: 'missing text' } }
   if (text.length > MAX_TTS_TEXT_LENGTH) {
@@ -181,7 +195,7 @@ export async function synthesizeSpeech(app, rawText, rate) {
   }
   if (app.config.noNetwork) return { status: 503, body: { error: 'network disabled' } }
 
-  const key = ttsCacheKey(text, env, rate)
+  const key = ttsCacheKey(text, env, resolvedRate)
   const cached = await readCachedAudio(app, key)
   if (cached) return { status: 200, body: { text, mime: cached.mime, audio: cached.audio, cached: true } }
 
@@ -199,7 +213,7 @@ export async function synthesizeSpeech(app, rawText, rate) {
     endpoint: endpointLabel(endpoint),
     voice,
     language,
-    speakingRate,
+    speakingRate: resolvedRate,
     timeoutMs: timeout,
   }
   const controller = new AbortController()
@@ -211,7 +225,7 @@ export async function synthesizeSpeech(app, rawText, rate) {
       body: JSON.stringify({
         input: { text },
         voice: { languageCode: languageOf(env), name: voiceOf(env) },
-        audioConfig: { audioEncoding: 'MP3', speakingRate, pitch: 0 },
+        audioConfig: { audioEncoding: 'MP3', speakingRate: resolvedRate, pitch: 0 },
       }),
       signal: controller.signal,
     })
