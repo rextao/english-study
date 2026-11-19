@@ -136,3 +136,47 @@
 
 .recite-player__rate:disabled { opacity: .55; cursor: default; }
 
+/* 多段录音的时间标记：一段一格，宽度大致按时长分，点哪格从哪段开始播 */
+.recite-player__segments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.recite-player__seg {
+  flex: 1 1 96px;
+  min-width: 88px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 5px 8px;
+  border: 1px solid var(--color-border, #dbe2ef);
+  border-radius: 10px;
+  background: #fff;
+  color: #35405c;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease;
+}
+
+.recite-player__seg:hover:not(:disabled) {
+  border-color: #2563eb;
+  background: #eef4ff;
+}
+
+.recite-player__seg.is-active {
+  border-color: #2563eb;
+  background: #eef4ff;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, .25);
+}
+
+.recite-player__seg:disabled { opacity: .55; cursor: default; }
+
+.recite-player__seg-no { font-weight: 700; }
+.recite-player__seg-span { font-variant-numeric: tabular-nums; color: var(--color-text-subtle, #8b97b0); }
+.recite-player__seg-at { font-variant-numeric: tabular-nums; color: var(--color-text-subtle, #8b97b0); }
+

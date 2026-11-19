@@ -13,6 +13,14 @@ function fmtTime(seconds: number): string {
   return Math.floor(total / 60) + ':' + String(total % 60).padStart(2, '0')
 }
 
+/** 片段开始录制的钟点，如「11-19 18:22」：家长对时间用 */
+function fmtClock(ts?: number): string {
+  if (!ts) return ''
+  const at = new Date(ts)
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return (at.getMonth() + 1) + '-' + pad(at.getDate()) + ' ' + pad(at.getHours()) + ':' + pad(at.getMinutes())
+}
+
 /**
  * 一次学习的课堂录音播放器：挂在保存抽屉顶部。
  * 组里可能有多段（关页面 / 切后台各停过一次）：能拼就按顺序连着播，进度条按整条算；
@@ -51,6 +59,16 @@ export function ReciteRecordingPlayer({ group, onError }: {
   const progress = duration > 0 ? Math.min(1, current / duration) : 0
   const playable = !playback.loading && !playback.failed
   const segmentCount = group.segments.length
+  /** 每段在整条里的起止秒数：进度条和下面的分段标记共用同一套时长 */
+  const ranges: Array<{ start: number; end: number; length: number }> = []
+  {
+    let acc = 0
+    group.segments.forEach((segment, index) => {
+      const length = Math.max(0, playback.lengths[index] ?? (segment.durationMs || 0) / 1000)
+      ranges.push({ start: acc, end: acc + length, length })
+      acc += length
+    })
+  }
 
   function cycleRate() {
     const nextIndex = (PLAYBACK_RATES.indexOf(rate) + 1) % PLAYBACK_RATES.length
@@ -106,7 +124,7 @@ export function ReciteRecordingPlayer({ group, onError }: {
         onClick={() => playback.toggle()}
         disabled={!playable}
         aria-label={playback.playing ? '暂停播放' : '播放录音'}
-        title={playback.playing ? '暂停' : '播放'}
+        title={playback.playing ? '暂停' : current > 0 ? '继续播放' : '播放'}
       >
         {playback.playing ? (
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -151,6 +169,31 @@ export function ReciteRecordingPlayer({ group, onError }: {
             title="点击切换倍速"
           >{rate}×</button>
         </div>
+        {segmentCount > 1 && (
+          <div className="recite-player__segments">
+            {ranges.map((range, index) => {
+              const segment = group.segments[index]
+              const active = playback.segmentIndex === index
+              const clock = fmtClock(segment?.recordedAt)
+              const span = fmtTime(range.start) + '–' + fmtTime(range.end)
+              return (
+                <button
+                  key={segment?.id ?? index}
+                  type="button"
+                  className={'recite-player__seg' + (active ? ' is-active' : '')}
+                  style={{ flexGrow: Math.max(1, range.length) }}
+                  onClick={() => playback.seek(range.start)}
+                  disabled={!playable}
+                  title={'第 ' + (index + 1) + ' 段 ' + span + (clock ? ' · 开始于 ' + clock : '') + '，点击从这一段开始播'}
+                >
+                  <span className="recite-player__seg-no">第 {index + 1} 段</span>
+                  <span className="recite-player__seg-span">{span}</span>
+                  {clock && <span className="recite-player__seg-at">{clock}</span>}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )

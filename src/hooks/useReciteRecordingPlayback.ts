@@ -37,15 +37,24 @@ export interface RecordingPlayback {
   duration: number
   /** 正在播第几段（从 0 起） */
   segmentIndex: number
+  /** 每段在整条里的时长（秒）：先用服务端记录的，拿到真实元数据后以真实值为准 */
+  lengths: number[]
   toggle: () => void
   seek: (seconds: number) => void
   setRate: (rate: number) => void
+  /** 暂停在当前位置，再次 toggle 从这里接着播 */
+  pause: () => void
   stop: () => void
 }
 
 /** 组里每段的时长（秒）：先用服务端记录的，拿到真实元数据后以真实值为准 */
 function useSegments(group: RecordingGroup | null) {
   return useMemo(() => group?.segments ?? [], [group])
+}
+
+/** 只有服务端时长时的每段长度，等真实元数据到了再逐段替换 */
+function fallbackLengths(list: RecordingGroup['segments']): number[] {
+  return list.map(segment => Math.max(0, (segment.durationMs || 0) / 1000))
 }
 
 export function useReciteRecordingPlayback(group: RecordingGroup | null): RecordingPlayback {
@@ -57,12 +66,15 @@ export function useReciteRecordingPlayback(group: RecordingGroup | null): Record
   const [current, setCurrent] = useState(0)
   const [duration, setDuration] = useState(group ? group.durationMs / 1000 : 0)
   const [segmentIndex, setSegmentIndex] = useState(0)
+  const [lengths, setLengths] = useState<number[]>(() => fallbackLengths(segments))
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const urlsRef = useRef(new Map<number, string>())
   const actualRef = useRef(new Map<number, number>())
   const indexRef = useRef(0)
   const playingRef = useRef(false)
+  /** 整条播到结尾了：再次播放从头开始，而不是停在最后一刻 */
+  const endedRef = useRef(false)
   const rateRef = useRef(1)
   const opRef = useRef(0)
   const mountedRef = useRef(true)
@@ -105,12 +117,26 @@ export function useReciteRecordingPlayback(group: RecordingGroup | null): Record
       } catch { /* 忽略 */ }
     }
     playingRef.current = false
+    endedRef.current = false
     setPlaying(false)
     setLoading(false)
     setCurrent(0)
     indexRef.current = 0
     setSegmentIndex(0)
     if (activeStop === stop) activeStop = null
+  }, [])
+
+  /** 暂停：保留 src 与当前位置，再次 toggle 从这一秒接着播（不是回到开头） */
+  const pause = useCallback(() => {
+    // 正在换段 / 拖动时暂停：把在途的 playFrom 作废，避免它一会儿自己又响起来
+    opRef.current += 1
+    const audio = audioRef.current
+    if (audio) {
+      try { audio.pause() } catch { /* 已经停了 */ }
+    }
+    playingRef.current = false
+    setPlaying(false)
+    setLoading(false)
   }, [])
 
   const ensureUrl = useCallback(async (index: number): Promise<string> => {
@@ -160,7 +186,14 @@ export function useReciteRecordingPlayback(group: RecordingGroup | null): Record
         audio.addEventListener('loadedmetadata', () => {
           const player = audioRef.current
           if (!player || !isFinite(player.duration) || player.duration <= 0) return
-          actualRef.current.set(indexRef.current, player.duration)
+          const index = indexRef.current
+          actualRef.current.set(index, player.duration)
+          setLengths(previous => {
+            const next = previous.slice()
+            while (next.length < segmentsRef.current.length) next.push(0)
+            next[index] = player.duration
+            return next
+          })
           setDuration(totalOf())
         })
         audio.addEventListener('play', () => {
@@ -179,12 +212,14 @@ export function useReciteRecordingPlayback(group: RecordingGroup | null): Record
             return
           }
           playingRef.current = false
+          endedRef.current = true
           setPlaying(false)
           setCurrent(totalOf())
           if (activeStop === stop) activeStop = null
         })
         audioRef.current = audio
       }
+      endedRef.current = false
       indexRef.current = index
       setSegmentIndex(index)
       audio.src = url
@@ -210,7 +245,12 @@ export function useReciteRecordingPlayback(group: RecordingGroup | null): Record
   const toggle = useCallback(() => {
     const audio = audioRef.current
     if (playingRef.current) {
-      stop()
+      // 暂停（不是停掉）：再点一次从这一秒接着播
+      pause()
+      return
+    }
+    if (endedRef.current) {
+      void playFrom(0, 0, true)
       return
     }
     if (audio && audio.src && indexRef.current < segmentsRef.current.length) {
@@ -223,7 +263,7 @@ export function useReciteRecordingPlayback(group: RecordingGroup | null): Record
       return
     }
     void playFrom(0, 0, true)
-  }, [playFrom, stop])
+  }, [pause, playFrom, stop])
 
   const seek = useCallback((seconds: number) => {
     const total = totalOf()
@@ -240,6 +280,7 @@ export function useReciteRecordingPlayback(group: RecordingGroup | null): Record
       base += length
     }
     const offset = Math.max(0, target - base)
+    endedRef.current = false
     if (index === indexRef.current && audioRef.current?.src) {
       try { audioRef.current.currentTime = offset } catch { /* 忽略 */ }
       setCurrent(target)
@@ -266,6 +307,7 @@ export function useReciteRecordingPlayback(group: RecordingGroup | null): Record
     revokeAll()
     actualRef.current.clear()
     setFailed('')
+    setLengths(fallbackLengths(segmentsRef.current))
     setDuration(group ? group.durationMs / 1000 : 0)
     // 只在换组时重置；stop / revokeAll 都是稳定的
   }, [group, revokeAll, stop])
@@ -283,5 +325,5 @@ export function useReciteRecordingPlayback(group: RecordingGroup | null): Record
     if (activeStop === stop) activeStop = null
   }, [revokeAll, stop])
 
-  return { loading, playing, failed, current, duration, segmentIndex, toggle, seek, setRate, stop }
+  return { loading, playing, failed, current, duration, segmentIndex, lengths, toggle, seek, setRate, pause, stop }
 }

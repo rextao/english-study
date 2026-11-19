@@ -30,7 +30,11 @@ function AudioButton({ group, onError, title }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playback.failed])
 
-  const label = playback.playing ? '停止播放这次课堂录音' : '播放这次课堂录音'
+  const label = playback.playing
+    ? '暂停这次课堂录音'
+    : playback.current > 0
+      ? '继续播放这次课堂录音'
+      : '播放这次课堂录音'
   return (
     <button
       type="button"
@@ -44,7 +48,7 @@ function AudioButton({ group, onError, title }: {
         playback.toggle()
       }}
     >
-      <span aria-hidden="true">{playback.playing ? '⏹' : '🔊'}</span>
+      <span aria-hidden="true">{playback.playing ? '⏸' : '🔊'}</span>
     </button>
   )
 }

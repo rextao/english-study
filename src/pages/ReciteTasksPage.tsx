@@ -778,8 +778,15 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
             return (
               <li key={card.id} className="recite-tasks__count-row">
                 <span className="recite-tasks__count-no">{no}</span>
-                <span className="recite-tasks__count-word">
-                  {card.displayText || card.word}
+                <span
+                  className="recite-tasks__count-word"
+                  title={card.cardType === 'spelling' ? '拼写卡：' + card.word + ' = ' + (card.translation || '') : undefined}
+                >
+                  {/* 一律显示英文单词：拼写卡的 displayText 是中文释义，不能拿来当标题 */}
+                  {card.word}
+                  {card.cardType === 'spelling' && (
+                    <i className="recite-tasks__count-kind">拼写</i>
+                  )}
                   {result && (
                     <Tag color={result === 'known' || result === 'correct' ? 'green' : 'default'}>
                       {RESULT_LABEL[result] || result}

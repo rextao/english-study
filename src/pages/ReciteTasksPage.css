@@ -215,6 +215,18 @@
   word-break: break-word;
 }
 
+/* 同一单词的拼写卡：标题也用英文，只加一个浅色小标记和知意卡区分 */
+.recite-tasks__count-kind {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full, 999px);
+  color: var(--color-text-subtle);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+}
+
 /* 每张卡按维度（会拼 / 会读 / 知意）调节要加的次数，控件与学习成果页编辑次数一致 */
 .recite-tasks__count-tallies {
   flex-shrink: 0;
