@@ -214,6 +214,27 @@ function generateFx(kind: FxKind): FxParticle[] {
   return particles
 }
 
+/** 本周下一条还没建过会话的次数（1-based）；每一次都建过会话时返回 null */
+function nextSessionIndex(task: ReciteTask | null): number | null {
+  if (!task) return null
+  const used = new Set((task.sessions ?? []).map(item => item.index))
+  for (let index = 1; index <= task.sessionCount; index += 1) {
+    if (!used.has(index)) return index
+  }
+  return null
+}
+
+/**
+ * 这一次有没有选好单词：任务词表按每次单词数切开，这一格是空的就说明还没配。
+ * 后面的次数共用同一份词表、按顺序切分，所以最后一格没词时再往后也不会有。
+ */
+function sessionHasWords(task: ReciteTask | null, index: number | null): boolean {
+  if (!task || index == null) return false
+  const order = task.wordOrder
+  if (order && order.length > 0) return (order[index - 1]?.length ?? 0) > 0
+  return task.words.length > (index - 1) * Math.max(1, task.perSessionCount)
+}
+
 export function RecitePage({
   payload,
   loading,
@@ -289,17 +310,15 @@ export function RecitePage({
   // 右下角齿轮：输入口令 123 后打开调试面板（录音状态 + 本地缓存情况）
   const [debugOpen, setDebugOpen] = useState(false)
   const week = homeTask ?? payload?.task ?? null
-  // 完成页「继续学习」：本周计划里还有没建过会话的次数就能接着学；
+  // 完成页「继续学习」：本周计划里还有没建过会话、并且已经选好单词的次数才能接着学；
   // 学完但家长还没保存的那一次已经有会话了，不占「还能学」的名额
   const taskInfo = payload?.task ?? null
-  const usedSessionIndexes = new Set((taskInfo?.sessions ?? []).map(item => item.index))
-  let remainingSessions = 0
-  if (taskInfo) {
-    for (let i = 1; i <= taskInfo.sessionCount; i += 1) {
-      if (!usedSessionIndexes.has(i)) remainingSessions += 1
-    }
-  }
-  const hasNextSession = remainingSessions > 0 && !payload?.complete
+  const nextLearnable = nextSessionIndex(taskInfo)
+  const remainingSessions = taskInfo && sessionHasWords(taskInfo, nextLearnable)
+    ? Math.max(0, taskInfo.sessionCount - (taskInfo.sessions?.length ?? 0))
+    : 0
+  // 后面的次数还没选词时不给「继续学习」：点进去只会是空的一场，直接停在最后一页
+  const hasNextSession = remainingSessions > 0 && !payload?.complete && !payload?.empty
 
   /** 录音开关的偏好：开关本身和调试面板里的按钮都走这里 */
   const applyRecordPref = (next: boolean) => {
@@ -641,6 +660,11 @@ export function RecitePage({
     }
     const finished = homeTask.completedSessions >= homeTask.sessionCount
     const nextIndex = homeTask.activeSessionIndex ?? homeTask.completedSessions + 1
+    // 下一条次数还没选单词：点了也只会空转（进来没有卡片），直接在首页说明情况
+    const nextUnstarted = nextSessionIndex(homeTask)
+    const missingWords = homeTask.activeSessionIndex == null
+      && nextUnstarted != null
+      && !sessionHasWords(homeTask, nextUnstarted)
     return (
       <div className="recite recite--state">
         <div className="recite__panel recite__panel--lite">
@@ -651,7 +675,9 @@ export function RecitePage({
               ? '本周 ' + homeTask.sessionCount + ' 次学习全部完成，真棒！'
               : '本周第 ' + nextIndex + ' / ' + homeTask.sessionCount + ' 次，每次 ' + homeTask.perSessionCount + ' 个单词'}
           </p>
-          {!finished && (
+          {!finished && (missingWords ? (
+            <p className="recite__state-sub">这一次还没选单词，请家长在背词任务页补上。</p>
+          ) : (
             <button
               type="button"
               className="recite__state-btn"
@@ -660,7 +686,7 @@ export function RecitePage({
             >
               {homeTask.activeSessionIndex == null ? '开始学习' : '继续学习'}
             </button>
-          )}
+          ))}
         </div>
                 {debugButton}
         {debugPanel}
@@ -709,22 +735,8 @@ export function RecitePage({
     )
   }
 
-  // 下一次要学的单词已经不在学习列表里了：给个明确的说法，不要留在空白的卡片上
-  if (payload.empty) {
-    return (
-      <div className="recite recite--state">
-        <div className="recite__panel recite__panel--lite">
-          <span className="recite__emoji">🌤️</span>
-          <b>下一组单词还没准备好</b>
-          <p>这一组还没选词，或者这些单词已经不在学习列表里了，请家长在背词任务页补上这一周的单词。</p>
-        </div>
-        {debugButton}
-        {debugPanel}
-      </div>
-    )
-  }
-
-  if (payload.complete || stage === 'celebrate') {
+  // 下一次没有单词（没选词 / 单词已经不在学习列表里）：停在最后一页，不再单独给一个回不去的空页面
+  if (payload.empty || payload.complete || stage === 'celebrate') {
     return (
       <div className="recite recite--celebrate">
         <div className="recite__celebrate-card">
