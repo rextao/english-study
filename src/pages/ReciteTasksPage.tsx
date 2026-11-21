@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Button, Drawer, Input, Modal, Select, Tag } from '../ui'
 import { PageHeader } from '../components/PageHeader'
@@ -464,8 +464,24 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
   const [saveError, setSaveError] = useState('')
   /** 正在复制的那一次（「周 + 第几次」），同时只允许一个复制请求 */
   const [copyingKey, setCopyingKey] = useState('')
-  const [copyNotice, setCopyNotice] = useState('')
   const [copyError, setCopyError] = useState('')
+  /** 操作结果 toast：复制 / 删除成功后浮在页底，2.6 秒自动消失（文案相同也靠自增 id 重新出现） */
+  const [toast, setToast] = useState<{ text: string; id: number } | null>(null)
+  const toastSeq = useRef(0)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function showToast(text: string) {
+    if (!text) return
+    const id = ++toastSeq.current
+    setToast({ text, id })
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => {
+      setToast(current => (current && current.id === id ? null : current))
+    }, 2600)
+  }
+
+  // 卸载时取消定时器，避免对已卸载组件 setState
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current) }, [])
   /** 删除某一次学习的确认弹窗：存「周 + 第几次」，null 表示关闭 */
   const [deleteSessionTarget, setDeleteSessionTarget] = useState<{ week: number; session: number } | null>(null)
   const [deletingSession, setDeletingSession] = useState(false)
@@ -763,11 +779,10 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
   async function copySessionWords(weekStart: number, session: number) {
     if (copyingKey) return
     setCopyingKey(weekStart + ':' + session)
-    setCopyNotice('')
     setCopyError('')
     try {
       const result = await copyReciteSession(weekStart, session)
-      setCopyNotice('已把第 ' + session + ' 次的 ' + result.count + ' 个单词复制到新增的第 ' + result.sessionIndex + ' 次。')
+      showToast('已把第 ' + session + ' 次的 ' + result.count + ' 个单词复制到新增的第 ' + result.sessionIndex + ' 次。')
       setReload(value => value + 1)
     } catch (error) {
       setCopyError(error instanceof Error ? error.message : '复制失败，请重试')
@@ -783,7 +798,7 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
     setDeleteSessionError('')
     try {
       const result = await deleteReciteSession(deleteSessionTarget.week, deleteSessionTarget.session)
-      setCopyNotice('已删除第 ' + deleteSessionTarget.session + ' 次学习，本周剩 ' + result.sessionCount + ' 次。')
+      showToast('已删除第 ' + deleteSessionTarget.session + ' 次学习，本周剩 ' + result.sessionCount + ' 次。')
       setDeleteSessionTarget(null)
       setReload(value => value + 1)
     } catch (error) {
@@ -824,7 +839,6 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
         {saveError && <p className="callout callout--error">{saveError}</p>}
         {playError && <p className="callout callout--error">{playError}</p>}
         {copyError && <p className="callout callout--error">{copyError}</p>}
-        {copyNotice && <p className="callout callout--success">{copyNotice}</p>}
 
         {!loading && !loadError && (
           <div className="recite-tasks__scroll">
@@ -1061,6 +1075,13 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
         </div>
         {planError && <p className="callout callout--error">{planError}</p>}
       </Modal>
+
+      {toast && (
+        <div key={toast.id} className="recite-tasks__toast" role="status" aria-live="polite">
+          <span className="recite-tasks__toast-mark" aria-hidden="true">✓</span>
+          <span>{toast.text}</span>
+        </div>
+      )}
 
       <RecitePushPanel
         open={pushWeek !== null}

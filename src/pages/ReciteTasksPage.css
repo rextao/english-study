@@ -278,6 +278,38 @@
   .recite-tasks__count-word { flex-basis: 100%; }
 }
 
+/* 操作结果 toast：底部居中浮层，复制 / 删除成功后自动消失 */
+.recite-tasks__toast {
+  position: fixed;
+  z-index: 70;
+  left: 50%;
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 10px 15px;
+  border-radius: var(--radius);
+  background: #27272a;
+  box-shadow: var(--shadow-lg);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.5;
+  transform: translateX(-50%);
+  animation: recite-tasks-toast-in .18s ease-out;
+}
+
+.recite-tasks__toast-mark { color: #86efac; font-weight: 700; }
+
+@keyframes recite-tasks-toast-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+}
+
+@media (max-width: 720px) {
+  .recite-tasks__toast { bottom: 16px; }
+}
+
 /* 保存抽屉：按序号一个词一行，右侧按维度调节要增加的次数 */
 .recite-tasks__counts {
   list-style: none;
