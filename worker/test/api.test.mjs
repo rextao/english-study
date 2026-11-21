@@ -2407,6 +2407,22 @@ check('还没开始的那一次也能复制',
 r = await call('POST', '/api/recite/task/copy', { weekStart: rowWeekStart, session: 9 })
 check('复制不存在的次数被拒绝', r.status === 400, r.body)
 
+// 删除还没开始的一次学习（复制出来的次数就是靠它清理）
+r = await call('DELETE', '/api/recite/task/session', { weekStart: rowWeekStart, session: 3 })
+check('还没开始的那一次可以删除',
+  r.status === 200 && r.body?.task?.sessionCount === 3 && r.body?.removed === 3
+  && (r.body?.task?.words || []).map(item => item.word).join() === 'apple,banana,cherry,dog,apple,banana', r.body)
+r = await call('DELETE', '/api/recite/task/session', { weekStart: rowWeekStart, session: 3 })
+check('删除复制出来的最后一次后只剩两次',
+  r.status === 200 && r.body?.task?.sessionCount === 2
+  && (r.body?.task?.words || []).map(item => item.word).join() === 'apple,banana,cherry,dog', r.body)
+r = await call('DELETE', '/api/recite/task/session', { weekStart: rowWeekStart, session: 2 })
+check('正在学习的那一次不能删除', r.status === 400 && /不能删除/.test(r.body?.error || ''), r.body)
+r = await call('DELETE', '/api/recite/task/session', { weekStart: rowWeekStart, session: 1 })
+check('已经学过的那一次不能删除', r.status === 400, r.body)
+r = await call('DELETE', '/api/recite/task/session', { weekStart: rowWeekStart, session: 9 })
+check('删除不存在的次数被拒绝', r.status === 400, r.body)
+
 console.log('')
 console.log('背词家长确认统一提交')
 

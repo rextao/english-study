@@ -275,6 +275,24 @@ export async function copyReciteSession(
 }
 
 /**
+ * 删除还没开始的一次学习（复制出来的次数）：本周次数 -1，那一次的单词一起移除。
+ * 已经学过 / 正在学习的次数删不了，服务端会拒绝。
+ */
+export async function deleteReciteSession(
+  weekStart: number,
+  session: number,
+): Promise<{ task: ReciteTask; removed: number; sessionCount: number }> {
+  const response = await apiFetch('/api/recite/task/session', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ weekStart, session }),
+  })
+  const data = await readJson<{ ok: boolean; task: ReciteTask; removed: number; sessionCount: number }>(response)
+  invalidateApiCache(['recite-task', 'recite-session'])
+  return data
+}
+
+/**
  * 只配置一周的任务框架（每次单词数 / 每周学习次数），不选单词。
  * 配置页右上角的「配置周任务」用它把下一周建好，单词留给每一行各自点开配置；
  * 这一周已有任务且没开始时只改框架，已选好的单词保留。

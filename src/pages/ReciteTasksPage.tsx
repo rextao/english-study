@@ -11,6 +11,7 @@ import type { TallyKind } from '../components/TallyCounter'
 import {
   commitReciteSession,
   copyReciteSession,
+  deleteReciteSession,
   deleteReciteTask,
   fetchReciteActiveSession,
   fetchReciteHistory,
@@ -230,7 +231,7 @@ function WordChips({ items, marks, showSpelling, order }: {
  * 一周的明细行：第 1 列日期（rowSpan 跨整周），后面每次学习一行。
  * 已完成的次数在单词后直接带判定；进行中的那一次在行右侧保存；没开始的次数点行改这一周的词。
  */
-function WeekRows({ task, isThisWeek, onEdit, onDelete, onPush, pushDisabled, pushReason, sessionMarks, activeRows, savingSessionId, onSave, onCopy, copyingKey, recordings, onPlaybackError }: {
+function WeekRows({ task, isThisWeek, onEdit, onDelete, onPush, pushDisabled, pushReason, sessionMarks, activeRows, savingSessionId, onSave, onCopy, copyingKey, onDeleteSession, recordings, onPlaybackError }: {
   task: ReciteTask
   isThisWeek: boolean
   /** 点行传 session（1-based）只改这一行；点「修改配置」不传，改整周 */
@@ -251,6 +252,8 @@ function WeekRows({ task, isThisWeek, onEdit, onDelete, onPush, pushDisabled, pu
   /** 把某一次学习的单词复制到新增的最后一次；copyingKey = 正在复制的「周 + 第几次」 */
   onCopy: (weekStart: number, session: number) => void
   copyingKey?: string
+  /** 删除还没开始的一次学习（含复制出来的次数） */
+  onDeleteSession: (weekStart: number, session: number) => void
   /** 课堂录音：key = 周 + 第几次；同一次学习的几段已经归好组 */
   recordings?: Map<string, RecordingGroup>
   onPlaybackError: (message: string) => void
@@ -273,6 +276,9 @@ function WeekRows({ task, isThisWeek, onEdit, onDelete, onPush, pushDisabled, pu
         const pushed = Boolean(session?.pushed)
         /** 整周任务开始后不能再改整周配置；没开始 / 正在学习中的这一次仍然可以点行改它自己的单词 */
         const clickable = state !== 'done' && !pushed && !(isActiveRow && activeRow?.judged)
+        /** 删除这一次：还没开始，且它后面的次数也都还没开始（否则已有记录会错位） */
+        const deletable = state === 'todo' && task.sessionCount > 1
+          && !(task.sessions ?? []).some(item => item.index >= index + 1)
         return (
           <tr
             key={index}
@@ -331,6 +337,8 @@ function WeekRows({ task, isThisWeek, onEdit, onDelete, onPush, pushDisabled, pu
               onCopy={onCopy}
               copying={copyingKey === task.weekStart + ':' + (index + 1)}
               copyDisabled={Boolean(copyingKey)}
+              onDeleteSession={onDeleteSession}
+              deletable={deletable}
               activeJudged={activeRow?.judged}
               saveSlot={activeRow ? (
                 <Button
@@ -352,7 +360,7 @@ function WeekRows({ task, isThisWeek, onEdit, onDelete, onPush, pushDisabled, pu
   )
 }
 
-function SessionCells({ task, index, per, marks, session, order, saveSlot, recording, onPlaybackError, onCopy, copying, copyDisabled, activeJudged }: {
+function SessionCells({ task, index, per, marks, session, order, saveSlot, recording, onPlaybackError, onCopy, copying, copyDisabled, onDeleteSession, deletable, activeJudged }: {
   task: ReciteTask
   index: number
   per: number
@@ -371,6 +379,9 @@ function SessionCells({ task, index, per, marks, session, order, saveSlot, recor
   copying?: boolean
   /** 有别的次数正在复制，按钮先禁用 */
   copyDisabled?: boolean
+  /** 删除这一次（只对还没开始、且后面都没开始的次数显示） */
+  onDeleteSession: (weekStart: number, session: number) => void
+  deletable?: boolean
   /** 进行中的那一次已全部判完（背词页停在完成动画），这次按已完成展示，保存按钮仍在 */
   activeJudged?: boolean
 }) {
@@ -411,6 +422,18 @@ function SessionCells({ task, index, per, marks, session, order, saveSlot, recor
           >
             {copying ? '复制中…' : '复制'}
           </Button>
+          {deletable && (
+            <Button
+              size="small"
+              type="text"
+              danger
+              className="recite-tasks__copy-btn"
+              title="删除这一次（还没开始学习）"
+              onClick={event => { event.stopPropagation(); onDeleteSession(task.weekStart, index + 1) }}
+            >
+              删除
+            </Button>
+          )}
         </div>
       </td>
       {/* data-label：手机端表格转卡片后靠它给两列各标一行小标签 */}
@@ -443,6 +466,10 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
   const [copyingKey, setCopyingKey] = useState('')
   const [copyNotice, setCopyNotice] = useState('')
   const [copyError, setCopyError] = useState('')
+  /** 删除某一次学习的确认弹窗：存「周 + 第几次」，null 表示关闭 */
+  const [deleteSessionTarget, setDeleteSessionTarget] = useState<{ week: number; session: number } | null>(null)
+  const [deletingSession, setDeletingSession] = useState(false)
+  const [deleteSessionError, setDeleteSessionError] = useState('')
   /** 删除确认弹窗：存目标周（周一 0 点），null 表示关闭 */
   const [deleteWeek, setDeleteWeek] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -749,6 +776,23 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
     }
   }
 
+  /** 删除还没开始的一次学习：删完重拉任务列表，这一周次数减 1 */
+  async function removeSession() {
+    if (!deleteSessionTarget || deletingSession) return
+    setDeletingSession(true)
+    setDeleteSessionError('')
+    try {
+      const result = await deleteReciteSession(deleteSessionTarget.week, deleteSessionTarget.session)
+      setCopyNotice('已删除第 ' + deleteSessionTarget.session + ' 次学习，本周剩 ' + result.sessionCount + ' 次。')
+      setDeleteSessionTarget(null)
+      setReload(value => value + 1)
+    } catch (error) {
+      setDeleteSessionError(error instanceof Error ? error.message : '删除失败，请重试')
+    } finally {
+      setDeletingSession(false)
+    }
+  }
+
   /** 只有还没学完的那一次才挡着推送；已经学完只是没点保存的，推送时服务端会先按默认次数保存 */
   const pushBlocked = Boolean(taskByWeek.get(thisWeek)?.sessions?.some(
     session => session.status === 'active' && !session.judged,
@@ -842,6 +886,7 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
                       onSave={openSaveDrawer}
                       onCopy={copySessionWords}
                       copyingKey={copyingKey}
+                      onDeleteSession={(week, session) => { setDeleteSessionError(''); setDeleteSessionTarget({ week, session }) }}
                       recordings={recordingBySession}
                       onPlaybackError={setPlayError}
                     />
@@ -951,6 +996,25 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
           只删除还没开始的任务配置，删掉后这一周可以重新选词配置；已经开始过的周不能删除。
         </p>
         {deleteError && <p className="callout callout--error">{deleteError}</p>}
+      </Modal>
+
+      <Modal
+        open={deleteSessionTarget !== null}
+        title={'删除第 ' + (deleteSessionTarget?.session ?? '') + ' 次学习？'}
+        onClose={() => { if (!deletingSession) setDeleteSessionTarget(null) }}
+        footer={
+          <>
+            <Button disabled={deletingSession} onClick={() => setDeleteSessionTarget(null)}>取消</Button>
+            <Button type="primary" danger loading={deletingSession} onClick={() => { void removeSession() }}>
+              删除
+            </Button>
+          </>
+        }
+      >
+        <p className="hint">
+          只删除还没开始的这一次，单词会一起移除，本周学习次数减 1；已学过的次数不受影响。
+        </p>
+        {deleteSessionError && <p className="callout callout--error">{deleteSessionError}</p>}
       </Modal>
 
       <Modal

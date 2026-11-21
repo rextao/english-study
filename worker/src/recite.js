@@ -95,6 +95,11 @@ function rowSnapshotFromRow(row) {
   }
 }
 
+/** 计划词表的行 → 带拼写标记的快照：复制 / 删除某一次时重建词表用 */
+function taskRowSnapshot(row) {
+  return { ...rowSnapshotFromRow(row), spellingEnabled: Number(row.spelling_enabled) === 1 }
+}
+
 function taskWordResponse(row) {
   return {
     word: row.word,
@@ -650,9 +655,8 @@ export function createReciteStore(db) {
     if (sessions >= MAX_SESSION_COUNT) throw new Error('本周学习次数已达上限 ' + MAX_SESSION_COUNT + ' 次，不能再复制')
 
     // 与 startSession 同一套取词口径：计划里的每一次按每次词数切分，摊平后顺序不变
-    const snapshotOf = row => ({ ...rowSnapshotFromRow(row), spellingEnabled: Number(row.spelling_enabled) === 1 })
     const slices = Array.from({ length: sessions }, (_, slot) => (
-      existing.words.slice(slot * per, (slot + 1) * per).map(snapshotOf)
+      existing.words.slice(slot * per, (slot + 1) * per).map(taskRowSnapshot)
     ))
     let copied = slices[index - 1]
     const source = await db.first(
@@ -709,6 +713,54 @@ export function createReciteStore(db) {
       copiedFrom: index,
       sessionIndex: nextSessions,
       count: copied.length,
+    }
+  }
+
+  /**
+   * 删除还没开始的一次学习（复制出来的次数通常就排在最后）：本周次数 -1，单词一起删掉。
+   * 只能删还没建过会话的次数，而且它后面的次数也都还没开始——否则已有记录会错位。
+   */
+  async function deleteSession({ env, now = Date.now(), weekStart, session }) {
+    const week = resolveWeekStart(weekStart, env, now)
+    const existing = await getTask(week)
+    if (!existing) throw new Error('这一周还没有背词任务')
+    const task = existing.task
+    const per = Math.max(1, Number(task.per_session_count))
+    const sessions = Math.max(1, Number(task.session_count))
+    const index = Number(session)
+    if (!Number.isInteger(index) || index < 1 || index > sessions) throw new Error('第几次学习无效')
+    if (sessions <= 1) throw new Error('至少要保留一次学习')
+    const started = await db.first(
+      'SELECT session_index FROM recite_sessions WHERE task_id = ? AND session_index >= ? LIMIT 1',
+      task.id, index,
+    )
+    if (started) throw new Error('这一次或后面几次已经开始学习，不能删除')
+
+    const slices = Array.from({ length: sessions }, (_, slot) => (
+      existing.words.slice(slot * per, (slot + 1) * per).map(taskRowSnapshot)
+    ))
+    const merged = slices.filter((_, slot) => slot !== index - 1).flat()
+    const nextSessions = sessions - 1
+    const statements = [['DELETE FROM recite_task_words WHERE task_id = ?', task.id]]
+    merged.forEach((item, position) => {
+      statements.push([
+        `INSERT INTO recite_task_words
+          (task_id, word, list_id, position, type, display_text, translation, source_type, source_group, source_last_at, spelling_enabled)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        task.id, item.word, item.listId, position, item.type, item.displayText || null,
+        item.translation || null, item.sourceType, item.sourceGroup || null, item.sourceLastAt,
+        item.spellingEnabled ? 1 : 0,
+      ])
+    })
+    statements.push([
+      'UPDATE recite_tasks SET session_count = ?, capacity = ?, config_version = ?, updated_at = ? WHERE id = ?',
+      nextSessions, per * nextSessions, Number(task.config_version || 0) + 1, now, task.id,
+    ])
+    await db.batch(statements)
+    return {
+      task: await taskPayload(await getTask(week)),
+      removed: index,
+      sessionCount: nextSessions,
     }
   }
 
@@ -1198,7 +1250,7 @@ export function createReciteStore(db) {
   }
 
   return {
-    currentTask, preview, saveTask, planTask, deleteTask, saveSessionWords, copySession, startSession, answerCard, commitSession,
+    currentTask, preview, saveTask, planTask, deleteTask, saveSessionWords, copySession, deleteSession, startSession, answerCard, commitSession,
     getDrafts, saveDraft, activeSession, history, getTask, taskPayload, listTasks,
     pushSession, sweepPushedSessions,
   }

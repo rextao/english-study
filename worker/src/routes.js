@@ -954,6 +954,20 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     }
   }
 
+  // DELETE /api/recite/task/session — 删除还没开始的一次学习（复制出来的次数），本周次数 -1
+  if (method === 'DELETE' && pathname === '/api/recite/task/session') {
+    try {
+      const result = await app.recite.deleteSession({
+        env,
+        weekStart: body?.weekStart,
+        session: body?.session,
+      })
+      return { status: 200, body: { ok: true, ...result } }
+    } catch (error) {
+      return { status: 400, body: { ok: false, error: error?.message || '删除失败' } }
+    }
+  }
+
   // GET /api/recite/sessions/active  — 家长端读当前待确认会话（含草稿）
   if (method === 'GET' && pathname === '/api/recite/sessions/active') {
     await app.recite.sweepPushedSessions(app, env)
