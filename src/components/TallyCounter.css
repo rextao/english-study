@@ -19,4 +19,17 @@
   font-weight: 600;
 }
 
+/* confirm=false 时按钮外面没有 Popconfirm 包裹，按位置补回左右两端的圆角与减号按钮的紧凑样式 */
+.tally-counter > .ui-btn:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.tally-counter > .ui-btn:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  margin-left: -1px;
+  padding-left: 7px;
+  padding-right: 7px;
+  font-weight: 600;
+}
+
 .tally-counter__tally { white-space: nowrap; }
