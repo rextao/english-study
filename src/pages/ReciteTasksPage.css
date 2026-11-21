@@ -165,10 +165,107 @@
 .recite-tasks__mark--unknown,
 .recite-tasks__mark--skipped { background: var(--ui-danger-bg); color: var(--ui-danger-strong); }
 
+/*
+ * 手机端：表格不再横向滚动，一周一张卡。
+ * 卡头是周日期和整周操作的按钮，往下每次学习一段（第 2 次起加一条虚线分隔），
+ * 读的单词 / 背的单词上下排，各自带一行小标签。
+ */
 @media (max-width: 720px) {
-  .recite-tasks__col-week { width: 132px; }
-  .recite-tasks__col-times { width: 84px; }
+  /* 卡片内边距收一档（权重高于 App.css 里的 .card--pad） */
+  .recite-tasks.card--pad { padding: 14px 12px; }
+
+  .recite-tasks__head { gap: 6px 10px; margin-bottom: 12px; }
+  /* 标题、说明、按钮各占一行，别在窄屏里挤成一条 */
+  .recite-tasks__title { flex: 1 1 100%; }
+  .recite-tasks__hint { flex: 1 1 100%; }
+  .recite-tasks__plan-btn { margin-left: 0; }
+
+  .recite-tasks__scroll { overflow-x: visible; }
+  .recite-tasks__table { display: block; table-layout: auto; }
+  .recite-tasks__table colgroup,
+  .recite-tasks__table thead { display: none; }
+
+  .recite-tasks__table tbody {
+    display: block;
+    margin-bottom: 10px;
+    padding: 12px 12px 4px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+  }
+  .recite-tasks__table tbody:last-child { margin-bottom: 0; }
+
+  .recite-tasks__table tbody .recite-tasks__row {
+    display: block;
+    padding: 0 0 10px;
+  }
+  /* 同一周的第 2 次起分段：跟卡头的操作区和上一次隔开 */
+  .recite-tasks__table tbody .recite-tasks__row + .recite-tasks__row {
+    padding-top: 10px;
+    border-top: 1px dashed var(--color-border);
+  }
+
+  /* 周格子（rowSpan 在块状布局里不起作用）就地当卡头 */
+  .recite-tasks__table tbody .recite-tasks__row > .recite-tasks__week-cell {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 0 0 10px;
+    border: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .recite-tasks__week-date { flex: 1 1 auto; flex-wrap: wrap; }
+  .recite-tasks__week-cell .ui-btn { margin-top: 0; }
+
+  .recite-tasks__table tbody .recite-tasks__row > td {
+    display: block;
+    padding: 10px 0 0;
+    border: 0;
+  }
+
+  .recite-tasks__times-cell { white-space: normal; }
+  .recite-tasks__times-line { flex-wrap: wrap; }
+  .recite-tasks__times-cell > .recite-audio-btn { margin-top: 4px; }
+
+  /* 两列单词上下排，各带一行小标签（桌面端靠表头区分，手机上没有表头） */
+  .recite-tasks__words-cell[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 6px;
+    color: var(--color-text-subtle);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  /* 保存按钮单独占一行铺满，别跟词条挤在一起 */
+  .recite-tasks__row-save {
+    width: 100%;
+    margin-top: 2px;
+    margin-left: 0;
+  }
+
   .recite-tasks__chip { font-size: 12px; padding: 1px 8px; }
+
+  /* 没任务的周：一句话和一个按钮，窄屏放不下就换行 */
+  .recite-tasks__table tbody .recite-tasks__row--empty .recite-tasks__empty-cell {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding-top: 10px;
+  }
+  .recite-tasks__empty-text { margin-right: 0; }
+
+  /* 保存抽屉：一行一个词的次数调节，窄屏整行铺开 */
+  .recite-tasks__count-row { gap: 8px; }
+  .recite-tasks__count-tallies { gap: 6px; }
+}
+
+/* 超窄屏（如 320px）：次数调节按钮允许折行，不把抽屉撑出横向滚动 */
+@media (max-width: 380px) {
+  .recite-tasks__count-tallies { justify-content: flex-start; margin-left: 0; }
+  .recite-tasks__count-word { flex-basis: 100%; }
 }
 
 /* 保存抽屉：按序号一个词一行，右侧按维度调节要增加的次数 */

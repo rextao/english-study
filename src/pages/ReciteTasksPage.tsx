@@ -386,10 +386,11 @@ function SessionCells({ task, index, per, marks, session, order, saveSlot, recor
         </div>
         {recording && <ReciteRecordingButton group={recording} onError={onPlaybackError} />}
       </td>
-      <td className="recite-tasks__words-cell">
+      {/* data-label：手机端表格转卡片后靠它给两列各标一行小标签 */}
+      <td className="recite-tasks__words-cell" data-label="读的单词">
         <WordChips items={read} marks={marks} order={order} />
       </td>
-      <td className="recite-tasks__words-cell">
+      <td className="recite-tasks__words-cell" data-label="背的单词">
         <div className="recite-tasks__cell-flow">
           <WordChips items={spell} marks={marks} showSpelling order={order} />
           {saveSlot}
