@@ -494,6 +494,8 @@ export function RecitePage({
 
   function markMeaning(result: MeaningResult) {
     if (!card || card.cardType !== 'meaning') return
+    // 点「会 / 不会」先把这张卡念一遍：先出声音，再判定 / 翻面（手势里调用，Safari 才给播）
+    playWord()
     if (result === 'known') {
       // 说得出中文才算真会：先让小朋友说，卡片上确认了再判会 / 不会
       setAskStep('ask')
