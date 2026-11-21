@@ -47,6 +47,8 @@ const MAX_CARD_TIMES = 10
 /** 「配置周任务」的默认框架：每次 15 词、每周 3 次 */
 const DEFAULT_PER_SESSION = 15
 const DEFAULT_SESSION_COUNT = 3
+/** 每次学习单词数的上限，与输入框的 max 一致 */
+const MAX_PER_SESSION = 200
 /** 每周学习次数下拉的范围 */
 const SESSION_OPTIONS = Array.from({ length: 7 }, (_, index) => ({
   value: String(index + 1), label: String(index + 1),
@@ -438,6 +440,8 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
   /** 「配置周任务」弹窗：只配每次词数 / 每周次数，给下一周建框架，不选单词 */
   const [planOpen, setPlanOpen] = useState(false)
   const [planPer, setPlanPer] = useState(DEFAULT_PER_SESSION)
+  /** 输入框里的原始文本：允许先清空再输入，不在每次按键时就夹成 1 */
+  const [planPerText, setPlanPerText] = useState(String(DEFAULT_PER_SESSION))
   const [planSessions, setPlanSessions] = useState(DEFAULT_SESSION_COUNT)
   const [planBusy, setPlanBusy] = useState(false)
   const [planError, setPlanError] = useState('')
@@ -497,10 +501,33 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
   /** 打开配置周任务弹窗：这一周已有任务（框架）时回填它现在的词数与次数 */
   function openPlan() {
     const existing = taskByWeek.get(planWeek)
-    setPlanPer(existing?.perSessionCount ?? DEFAULT_PER_SESSION)
+    const per = existing?.perSessionCount ?? DEFAULT_PER_SESSION
+    setPlanPer(per)
+    setPlanPerText(String(per))
     setPlanSessions(existing?.sessionCount ?? DEFAULT_SESSION_COUNT)
     setPlanError('')
     setPlanOpen(true)
+  }
+
+  /** 输入框文本 → 实际生效的每次词数：空 / 非法回退到当前值，超出范围夹到 1–200 */
+  function resolvedPlanPer(): number {
+    const parsed = Number(planPerText)
+    if (!Number.isFinite(parsed) || parsed < 1) return planPer
+    return Math.min(MAX_PER_SESSION, Math.floor(parsed))
+  }
+
+  /** 输入途中只接受合法值；清空 / 输入 0 时先留着文本，失焦再回填，这样才输得出 20、30 */
+  function changePlanPer(raw: string) {
+    setPlanPerText(raw)
+    const parsed = Number(raw)
+    if (Number.isFinite(parsed) && parsed >= 1) setPlanPer(Math.min(MAX_PER_SESSION, Math.floor(parsed)))
+  }
+
+  /** 失焦时把文本归一化：空串、0、小数都回填成实际生效的整数 */
+  function commitPlanPer() {
+    const next = resolvedPlanPer()
+    setPlanPer(next)
+    setPlanPerText(String(next))
   }
 
   /** 保存框架：服务端只写词数与次数，不选单词；单词随后在每一行里配置 */
@@ -509,7 +536,7 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
     setPlanBusy(true)
     setPlanError('')
     try {
-      await planReciteTask({ weekStart: planWeek, perSessionCount: planPer, sessionCount: planSessions })
+      await planReciteTask({ weekStart: planWeek, perSessionCount: resolvedPlanPer(), sessionCount: planSessions })
       setPlanOpen(false)
       setReload(value => value + 1)
     } catch (error) {
@@ -900,9 +927,10 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
               id="recite-plan-per"
               type="number"
               min={1}
-              max={200}
-              value={String(planPer)}
-              onChange={event => setPlanPer(Math.max(1, Number(event.target.value) || 1))}
+              max={MAX_PER_SESSION}
+              value={planPerText}
+              onChange={event => changePlanPer(event.target.value)}
+              onBlur={commitPlanPer}
             />
           </div>
           <div className="recite-tasks__plan-field">

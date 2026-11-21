@@ -12,6 +12,8 @@ const DAY = 86400000
 /** 打开弹窗时的默认配置：每次 15 词、学习 3 次 */
 const DEFAULT_PER_SESSION = 15
 const DEFAULT_SESSION_COUNT = 3
+/** 每次学习单词数的上限，与输入框的 max 一致 */
+const MAX_PER_SESSION = 200
 
 interface ReciteTaskPanelProps {
   /** 弹窗是否打开 */
@@ -64,6 +66,8 @@ export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, o
   const [existing, setExisting] = useState<ReciteTask | null>(null)
   const [taskLoading, setTaskLoading] = useState(false)
   const [perSessionCount, setPerSessionCount] = useState(DEFAULT_PER_SESSION)
+  /** 输入框里的原始文本：允许先清空再输入，不在每次按键时就夹成 1 */
+  const [perText, setPerText] = useState(String(DEFAULT_PER_SESSION))
   const [sessionCount, setSessionCount] = useState(DEFAULT_SESSION_COUNT)
   const [activeListId, setActiveListId] = useState(study.lists[0]?.id || '')
   const [listWords, setListWords] = useState<Record<string, StudyWordItem[]>>({})
@@ -156,8 +160,34 @@ export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, o
     if (!study.lists.some(list => list.id === activeListId)) setActiveListId(study.lists[0]?.id || '')
   }, [activeListId, study.lists])
 
+  /** 输入框文本 → 实际生效的每次词数：空 / 非法回退到当前值，超出范围夹到 1–200 */
+  function resolvedPer(): number {
+    const parsed = Number(perText)
+    if (!Number.isFinite(parsed) || parsed < 1) return perSessionCount
+    return Math.min(MAX_PER_SESSION, Math.floor(parsed))
+  }
+
+  /** 输入途中只接受合法值；清空 / 输入 0 时先留着文本，失焦再回填，这样才输得出 20、30 */
+  function changePer(raw: string) {
+    setPerText(raw)
+    const parsed = Number(raw)
+    if (Number.isFinite(parsed) && parsed >= 1) {
+      setPerSessionCount(Math.min(MAX_PER_SESSION, Math.floor(parsed)))
+      setTaskPreview(null)
+    }
+  }
+
+  /** 失焦时把文本归一化：空串、0、小数都回填成实际生效的整数 */
+  function commitPer() {
+    const next = resolvedPer()
+    setPerSessionCount(next)
+    setPerText(String(next))
+    setTaskPreview(null)
+  }
+
   function resetForm() {
     setPerSessionCount(DEFAULT_PER_SESSION)
+    setPerText(String(DEFAULT_PER_SESSION))
     setSessionCount(DEFAULT_SESSION_COUNT)
     setSelected([])
     setSpellingWords(new Set())
@@ -172,6 +202,7 @@ export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, o
     if (task && editable) {
       // 还没开始的任务直接回填表单，保存就等于修改这一周的任务；改单行时只回填这一行的词
       setPerSessionCount(task.perSessionCount)
+      setPerText(String(task.perSessionCount))
       setSessionCount(task.sessionCount)
       const per = Math.max(1, task.perSessionCount)
       const pool = rowSession ? task.words.slice((rowSession - 1) * per, rowSession * per) : task.words
@@ -332,7 +363,7 @@ export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, o
       const selections = rowMode ? rowSelections() : selected
       const task = await saveReciteTask({
         weekStart,
-        perSessionCount: rowMode && current ? current.perSessionCount : perSessionCount,
+        perSessionCount: rowMode && current ? current.perSessionCount : resolvedPer(),
         sessionCount: rowMode && current ? current.sessionCount : sessionCount,
         selections,
         spellingWords: [...spellingWords],
@@ -430,7 +461,15 @@ export function ReciteTaskPanel({ open, study, weekStart, focusSession = null, o
                   <>
                     <div className="recite-task__field recite-task__field--count">
                       <label className="field-label" htmlFor="recite-per-session">每次学习单词数</label>
-                      <Input id="recite-per-session" type="number" min={1} max={200} value={String(perSessionCount)} onChange={event => { setPerSessionCount(Math.max(1, Number(event.target.value) || 1)); setTaskPreview(null) }} />
+                      <Input
+                        id="recite-per-session"
+                        type="number"
+                        min={1}
+                        max={MAX_PER_SESSION}
+                        value={perText}
+                        onChange={event => changePer(event.target.value)}
+                        onBlur={commitPer}
+                      />
                     </div>
                     <div className="recite-task__field recite-task__field--sessions">
                       <label className="field-label" htmlFor="recite-session-count">每周学习次数</label>
