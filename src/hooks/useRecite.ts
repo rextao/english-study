@@ -257,6 +257,24 @@ export async function saveReciteTask(input: ReciteTaskInput & { spellingWords: s
 }
 
 /**
+ * 把某一次学习的单词复制到新增的一次（本周次数 +1，新的一次排在最后）。
+ * 已完成的、学习中的、没开始的次数都能复制，原有的会话和判定不受影响。
+ */
+export async function copyReciteSession(
+  weekStart: number,
+  session: number,
+): Promise<{ task: ReciteTask; copiedFrom: number; sessionIndex: number; count: number }> {
+  const response = await apiFetch('/api/recite/task/copy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ weekStart, session }),
+  })
+  const data = await readJson<{ ok: boolean; task: ReciteTask; copiedFrom: number; sessionIndex: number; count: number }>(response)
+  invalidateApiCache(['recite-task', 'recite-session'])
+  return data
+}
+
+/**
  * 只配置一周的任务框架（每次单词数 / 每周学习次数），不选单词。
  * 配置页右上角的「配置周任务」用它把下一周建好，单词留给每一行各自点开配置；
  * 这一周已有任务且没开始时只改框架，已选好的单词保留。

@@ -2390,6 +2390,23 @@ check('改词后重新开始拿到新单词',
   r.status === 200 && (r.body?.cards || []).length > 0
   && (r.body?.cards || []).every(card => card.word === 'cherry' || card.word === 'dog'), r.body)
 
+// 复制某一次的单词到新增的一次：已完成的、没开始的都能复制
+r = await call('POST', '/api/recite/task/copy', { weekStart: rowWeekStart, session: 1 })
+check('已完成的那一次可以复制到新增的一次',
+  r.status === 200 && r.body?.task?.sessionCount === 3 && r.body?.sessionIndex === 3
+  && r.body?.count === 2
+  && (r.body?.task?.words || []).map(item => item.word).join() === 'apple,banana,cherry,dog,apple,banana', r.body)
+check('复制出来的新一次排在最后且不影响正在学习的那一次',
+  r.body?.task?.completedSessions === 1 && r.body?.task?.activeSessionIndex === 2, r.body?.task)
+check('复制出来的新一次单词与源次数一致',
+  (r.body?.task?.wordOrder?.[2] || []).slice().sort().join() === 'apple,banana', r.body?.task?.wordOrder)
+r = await call('POST', '/api/recite/task/copy', { weekStart: rowWeekStart, session: 3 })
+check('还没开始的那一次也能复制',
+  r.status === 200 && r.body?.task?.sessionCount === 4 && r.body?.sessionIndex === 4
+  && (r.body?.task?.words || []).map(item => item.word).join() === 'apple,banana,cherry,dog,apple,banana,apple,banana', r.body)
+r = await call('POST', '/api/recite/task/copy', { weekStart: rowWeekStart, session: 9 })
+check('复制不存在的次数被拒绝', r.status === 400, r.body)
+
 console.log('')
 console.log('背词家长确认统一提交')
 

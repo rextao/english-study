@@ -21,6 +21,8 @@ const MAX_CARD_TIMES = 10
 const PUSH_SESSION_PREFIX = 'recite-push-'
 /** 一次推送最多选多少个单词 */
 const MAX_PUSH_WORDS = 200
+/** 每周学习次数上限，与 preview / planTask 的校验保持一致 */
+const MAX_SESSION_COUNT = 31
 
 function parseJson(value, fallback) {
   try {
@@ -631,6 +633,85 @@ export function createReciteStore(db) {
     }
   }
 
+  /**
+   * 把某一次学习的单词复制到新增的一次：本周次数 +1，新的一次排在最后。
+   * 已完成的、学习中的、还没开始的次数都能复制；主动推送的那一次不占计划词表，
+   * 单词从会话卡片还原。复制只改配置，不动已有的会话和判定。
+   */
+  async function copySession({ env, now = Date.now(), weekStart, session }) {
+    const week = resolveWeekStart(weekStart, env, now)
+    const existing = await getTask(week)
+    if (!existing) throw new Error('这一周还没有背词任务')
+    const task = existing.task
+    const per = Math.max(1, Number(task.per_session_count))
+    const sessions = Math.max(1, Number(task.session_count))
+    const index = Number(session)
+    if (!Number.isInteger(index) || index < 1 || index > sessions) throw new Error('第几次学习无效')
+    if (sessions >= MAX_SESSION_COUNT) throw new Error('本周学习次数已达上限 ' + MAX_SESSION_COUNT + ' 次，不能再复制')
+
+    // 与 startSession 同一套取词口径：计划里的每一次按每次词数切分，摊平后顺序不变
+    const snapshotOf = row => ({ ...rowSnapshotFromRow(row), spellingEnabled: Number(row.spelling_enabled) === 1 })
+    const slices = Array.from({ length: sessions }, (_, slot) => (
+      existing.words.slice(slot * per, (slot + 1) * per).map(snapshotOf)
+    ))
+    let copied = slices[index - 1]
+    const source = await db.first(
+      'SELECT id FROM recite_sessions WHERE task_id = ? AND session_index = ?',
+      task.id, index,
+    )
+    if (source && isPushedSession(source)) {
+      const cards = await db.all(
+        'SELECT * FROM recite_cards WHERE session_id = ? ORDER BY position', source.id,
+      )
+      const spelling = new Set(cards.filter(card => card.card_type === 'spelling').map(card => card.word))
+      const seen = new Set()
+      copied = []
+      for (const card of cards) {
+        if (seen.has(card.word)) continue
+        seen.add(card.word)
+        const row = await loadWordRow(db, card.list_id, card.word)
+        const translation = card.translation || row?.translation || ''
+        copied.push({
+          word: card.word,
+          listId: card.list_id,
+          type: row?.type === 'sentence' ? 'sentence' : 'word',
+          displayText: card.display_text || row?.display_text || '',
+          translation,
+          sourceType: 'selected',
+          sourceGroup: '',
+          sourceLastAt: null,
+          spellingEnabled: spelling.has(card.word) && Boolean(translation),
+        })
+      }
+    }
+    if (!copied || copied.length === 0) throw new Error('这一次还没有选单词，没法复制')
+
+    const nextSessions = sessions + 1
+    const merged = [...slices.flat(), ...copied]
+    const statements = [['DELETE FROM recite_task_words WHERE task_id = ?', task.id]]
+    merged.forEach((item, position) => {
+      statements.push([
+        `INSERT INTO recite_task_words
+          (task_id, word, list_id, position, type, display_text, translation, source_type, source_group, source_last_at, spelling_enabled)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        task.id, item.word, item.listId, position, item.type, item.displayText || null,
+        item.translation || null, item.sourceType, item.sourceGroup || null, item.sourceLastAt,
+        item.spellingEnabled ? 1 : 0,
+      ])
+    })
+    statements.push([
+      'UPDATE recite_tasks SET session_count = ?, capacity = ?, config_version = ?, updated_at = ? WHERE id = ?',
+      nextSessions, per * nextSessions, Number(task.config_version || 0) + 1, now, task.id,
+    ])
+    await db.batch(statements)
+    return {
+      task: await taskPayload(await getTask(week)),
+      copiedFrom: index,
+      sessionIndex: nextSessions,
+      count: copied.length,
+    }
+  }
+
   async function startSession(app, env, now = Date.now()) {
     const current = await currentTask(env, now)
     if (!current) return { task: null, session: null, empty: true }
@@ -1117,7 +1198,7 @@ export function createReciteStore(db) {
   }
 
   return {
-    currentTask, preview, saveTask, planTask, deleteTask, saveSessionWords, startSession, answerCard, commitSession,
+    currentTask, preview, saveTask, planTask, deleteTask, saveSessionWords, copySession, startSession, answerCard, commitSession,
     getDrafts, saveDraft, activeSession, history, getTask, taskPayload, listTasks,
     pushSession, sweepPushedSessions,
   }

@@ -89,8 +89,17 @@
 
 .recite-tasks__times { font-weight: 600; }
 
-/* 次数下面那个录音喇叭（ReciteRecordingButton）与单元格的分隔 */
+/* 次数下面那一行小工具：录音喇叭（ReciteRecordingButton）+ 复制到新一次的按钮 */
+.recite-tasks__times-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
 .recite-tasks__times-cell > .recite-audio-btn { margin-top: 6px; }
+/* 复制按钮用文字按钮，和图标的录音喇叭排在同一行 */
+.recite-tasks__copy-btn { padding-left: 2px; padding-right: 2px; }
 
 /* td 保持 table-cell，词条折行交给里面的 div */
 .recite-tasks__words {
@@ -227,6 +236,7 @@
   .recite-tasks__times-cell { white-space: normal; }
   .recite-tasks__times-line { flex-wrap: wrap; }
   .recite-tasks__times-cell > .recite-audio-btn { margin-top: 4px; }
+  .recite-tasks__times-tools { margin-top: 4px; }
 
   /* 两列单词上下排，各带一行小标签（桌面端靠表头区分，手机上没有表头） */
   .recite-tasks__words-cell[data-label]::before {

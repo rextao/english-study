@@ -10,6 +10,7 @@ import { TallyCounter } from '../components/TallyCounter'
 import type { TallyKind } from '../components/TallyCounter'
 import {
   commitReciteSession,
+  copyReciteSession,
   deleteReciteTask,
   fetchReciteActiveSession,
   fetchReciteHistory,
@@ -229,7 +230,7 @@ function WordChips({ items, marks, showSpelling, order }: {
  * 一周的明细行：第 1 列日期（rowSpan 跨整周），后面每次学习一行。
  * 已完成的次数在单词后直接带判定；进行中的那一次在行右侧保存；没开始的次数点行改这一周的词。
  */
-function WeekRows({ task, isThisWeek, onEdit, onDelete, onPush, pushDisabled, pushReason, sessionMarks, activeRows, savingSessionId, onSave, recordings, onPlaybackError }: {
+function WeekRows({ task, isThisWeek, onEdit, onDelete, onPush, pushDisabled, pushReason, sessionMarks, activeRows, savingSessionId, onSave, onCopy, copyingKey, recordings, onPlaybackError }: {
   task: ReciteTask
   isThisWeek: boolean
   /** 点行传 session（1-based）只改这一行；点「修改配置」不传，改整周 */
@@ -247,6 +248,9 @@ function WeekRows({ task, isThisWeek, onEdit, onDelete, onPush, pushDisabled, pu
   /** 正在提交保存的那次会话 id，按钮显示「保存中…」 */
   savingSessionId?: string | null
   onSave: (view: ActiveRowView) => void
+  /** 把某一次学习的单词复制到新增的最后一次；copyingKey = 正在复制的「周 + 第几次」 */
+  onCopy: (weekStart: number, session: number) => void
+  copyingKey?: string
   /** 课堂录音：key = 周 + 第几次；同一次学习的几段已经归好组 */
   recordings?: Map<string, RecordingGroup>
   onPlaybackError: (message: string) => void
@@ -324,6 +328,9 @@ function WeekRows({ task, isThisWeek, onEdit, onDelete, onPush, pushDisabled, pu
               order={task.wordOrder?.[index]}
               recording={recordings?.get(task.weekStart + ':' + (index + 1))}
               onPlaybackError={onPlaybackError}
+              onCopy={onCopy}
+              copying={copyingKey === task.weekStart + ':' + (index + 1)}
+              copyDisabled={Boolean(copyingKey)}
               activeJudged={activeRow?.judged}
               saveSlot={activeRow ? (
                 <Button
@@ -345,7 +352,7 @@ function WeekRows({ task, isThisWeek, onEdit, onDelete, onPush, pushDisabled, pu
   )
 }
 
-function SessionCells({ task, index, per, marks, session, order, saveSlot, recording, onPlaybackError, activeJudged }: {
+function SessionCells({ task, index, per, marks, session, order, saveSlot, recording, onPlaybackError, onCopy, copying, copyDisabled, activeJudged }: {
   task: ReciteTask
   index: number
   per: number
@@ -358,6 +365,12 @@ function SessionCells({ task, index, per, marks, session, order, saveSlot, recor
   /** 这一次学习留下的课堂录音（可能因为关页面 / 切后台分成好几段，已经归好组） */
   recording?: RecordingGroup
   onPlaybackError: (message: string) => void
+  /** 复制这一次的单词到新增的最后一次 */
+  onCopy: (weekStart: number, session: number) => void
+  /** 正在复制这一次 */
+  copying?: boolean
+  /** 有别的次数正在复制，按钮先禁用 */
+  copyDisabled?: boolean
   /** 进行中的那一次已全部判完（背词页停在完成动画），这次按已完成展示，保存按钮仍在 */
   activeJudged?: boolean
 }) {
@@ -386,7 +399,19 @@ function SessionCells({ task, index, per, marks, session, order, saveSlot, recor
             <Tag color={activeJudged ? 'green' : 'gold'}>{activeJudged ? '已完成' : '学习中'}</Tag>
           )}
         </div>
-        {recording && <ReciteRecordingButton group={recording} onError={onPlaybackError} />}
+        <div className="recite-tasks__times-tools">
+          {recording && <ReciteRecordingButton group={recording} onError={onPlaybackError} />}
+          <Button
+            size="small"
+            type="text"
+            className="recite-tasks__copy-btn"
+            disabled={copyDisabled}
+            title="把这一次的单词复制到新增的最后一次"
+            onClick={event => { event.stopPropagation(); onCopy(task.weekStart, index + 1) }}
+          >
+            {copying ? '复制中…' : '复制'}
+          </Button>
+        </div>
       </td>
       {/* data-label：手机端表格转卡片后靠它给两列各标一行小标签 */}
       <td className="recite-tasks__words-cell" data-label="读的单词">
@@ -414,6 +439,10 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
   const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  /** 正在复制的那一次（「周 + 第几次」），同时只允许一个复制请求 */
+  const [copyingKey, setCopyingKey] = useState('')
+  const [copyNotice, setCopyNotice] = useState('')
+  const [copyError, setCopyError] = useState('')
   /** 删除确认弹窗：存目标周（周一 0 点），null 表示关闭 */
   const [deleteWeek, setDeleteWeek] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -703,6 +732,23 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
     }
   }
 
+  /** 复制某一次的单词到新增的最后一次：服务端本周次数 +1，重新拉任务列表 */
+  async function copySessionWords(weekStart: number, session: number) {
+    if (copyingKey) return
+    setCopyingKey(weekStart + ':' + session)
+    setCopyNotice('')
+    setCopyError('')
+    try {
+      const result = await copyReciteSession(weekStart, session)
+      setCopyNotice('已把第 ' + session + ' 次的 ' + result.count + ' 个单词复制到新增的第 ' + result.sessionIndex + ' 次。')
+      setReload(value => value + 1)
+    } catch (error) {
+      setCopyError(error instanceof Error ? error.message : '复制失败，请重试')
+    } finally {
+      setCopyingKey('')
+    }
+  }
+
   /** 只有还没学完的那一次才挡着推送；已经学完只是没点保存的，推送时服务端会先按默认次数保存 */
   const pushBlocked = Boolean(taskByWeek.get(thisWeek)?.sessions?.some(
     session => session.status === 'active' && !session.judged,
@@ -733,6 +779,8 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
         {loadError && <p className="callout callout--error">{loadError}</p>}
         {saveError && <p className="callout callout--error">{saveError}</p>}
         {playError && <p className="callout callout--error">{playError}</p>}
+        {copyError && <p className="callout callout--error">{copyError}</p>}
+        {copyNotice && <p className="callout callout--success">{copyNotice}</p>}
 
         {!loading && !loadError && (
           <div className="recite-tasks__scroll">
@@ -792,6 +840,8 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
                       activeRows={activeRowsByWeek.get(task.weekStart)}
                       savingSessionId={saving ? saveView?.sessionId ?? null : null}
                       onSave={openSaveDrawer}
+                      onCopy={copySessionWords}
+                      copyingKey={copyingKey}
                       recordings={recordingBySession}
                       onPlaybackError={setPlayError}
                     />

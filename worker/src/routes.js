@@ -940,6 +940,20 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     }
   }
 
+  // POST /api/recite/task/copy — 把某一次学习的单词复制到新增的最后一次（已完成 / 未完成都能复制）
+  if (method === 'POST' && pathname === '/api/recite/task/copy') {
+    try {
+      const result = await app.recite.copySession({
+        env,
+        weekStart: body?.weekStart,
+        session: body?.session,
+      })
+      return { status: 200, body: { ok: true, ...result } }
+    } catch (error) {
+      return { status: 400, body: { ok: false, error: error?.message || '复制失败' } }
+    }
+  }
+
   // GET /api/recite/sessions/active  — 家长端读当前待确认会话（含草稿）
   if (method === 'GET' && pathname === '/api/recite/sessions/active') {
     await app.recite.sweepPushedSessions(app, env)
