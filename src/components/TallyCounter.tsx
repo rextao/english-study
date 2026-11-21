@@ -22,12 +22,14 @@ export interface TallyCounterProps {
   addDescription?: ReactNode
   /** 减一次确认弹窗的说明；不传用学习成果页的默认口径 */
   reduceDescription?: ReactNode
+  /** 加 / 减是否二次确认，默认 true；背词保存抽屉里只改待保存的次数，不需要确认 */
+  confirm?: boolean
   onAdjust: (kind: TallyKind, delta: 1 | -1) => void
 }
 
 /**
- * 「维度 次数 / −」计次控件：加和减都走 Popconfirm 二次确认。
- * 学习成果页的编辑次数与背词保存抽屉共用这一份，两边口径不会走偏。
+ * 「维度 次数 / −」计次控件：默认加和减都走 Popconfirm 二次确认（学习成果页会改永久记录），
+ * confirm=false 时点一下直接加减（背词保存抽屉里只影响这次保存的量）。
  */
 export function TallyCounter({
   kind,
@@ -36,47 +38,64 @@ export function TallyCounter({
   disabled,
   addDescription,
   reduceDescription,
+  confirm = true,
   onAdjust,
 }: TallyCounterProps) {
   const label = TALLY_KIND_LABEL[kind]
   const atMax = max != null && value >= max
+  const addDisabled = Boolean(disabled) || atMax
+  const reduceDisabled = Boolean(disabled) || value <= 0
+
+  const addButton = (
+    <Button
+      size="small"
+      className="tally-counter__tally"
+      aria-label={'增加一次' + label}
+      disabled={addDisabled}
+      onClick={confirm ? undefined : () => onAdjust(kind, 1)}
+    >
+      {label} {value}
+    </Button>
+  )
+  const reduceButton = (
+    <Button
+      size="small"
+      className="tally-counter__tally"
+      aria-label={'减少一次' + label}
+      disabled={reduceDisabled}
+      onClick={confirm ? undefined : () => onAdjust(kind, -1)}
+    >
+      −
+    </Button>
+  )
+
   return (
     <span className="tally-counter">
-      <Popconfirm
-        title={'增加一次' + label + '？'}
-        description={addDescription ?? '这会新增一条永久学习记录。'}
-        okText="确认修改"
-        cancelText="取消"
-        disabled={disabled || atMax}
-        onConfirm={() => onAdjust(kind, 1)}
-      >
-        <Button
-          size="small"
-          className="tally-counter__tally"
-          aria-label={'增加一次' + label}
-          disabled={disabled || atMax}
+      {confirm ? (
+        <Popconfirm
+          title={'增加一次' + label + '？'}
+          description={addDescription ?? '这会新增一条永久学习记录。'}
+          okText="确认修改"
+          cancelText="取消"
+          disabled={addDisabled}
+          onConfirm={() => onAdjust(kind, 1)}
         >
-          {label} {value}
-        </Button>
-      </Popconfirm>
-      <Popconfirm
-        title={'减少一次' + label + '？'}
-        description={reduceDescription ?? '这会同步修改永久学习成果，操作不可撤销。'}
-        okText="确认修改"
-        cancelText="取消"
-        danger
-        disabled={disabled || value <= 0}
-        onConfirm={() => onAdjust(kind, -1)}
-      >
-        <Button
-          size="small"
-          className="tally-counter__tally"
-          aria-label={'减少一次' + label}
-          disabled={disabled || value <= 0}
+          {addButton}
+        </Popconfirm>
+      ) : addButton}
+      {confirm ? (
+        <Popconfirm
+          title={'减少一次' + label + '？'}
+          description={reduceDescription ?? '这会同步修改永久学习成果，操作不可撤销。'}
+          okText="确认修改"
+          cancelText="取消"
+          danger
+          disabled={reduceDisabled}
+          onConfirm={() => onAdjust(kind, -1)}
         >
-          −
-        </Button>
-      </Popconfirm>
+          {reduceButton}
+        </Popconfirm>
+      ) : reduceButton}
     </span>
   )
 }

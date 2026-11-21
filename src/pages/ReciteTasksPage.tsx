@@ -844,8 +844,7 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
                       value={times[kind]}
                       max={MAX_CARD_TIMES}
                       disabled={saving}
-                      addDescription="保存这次学习后，会计入该单词的永久学习成果。"
-                      reduceDescription="只减少这次保存要加的次数，不影响已经保存的记录。"
+                      confirm={false}
                       onAdjust={(_, delta) => bumpCardTimes(card.id, kind, delta)}
                     />
                   ))}
