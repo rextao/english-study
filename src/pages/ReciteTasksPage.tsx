@@ -522,7 +522,8 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
     let alive = true
     setLoading(true)
     Promise.all([
-      fetchReciteTasks(),
+      // 只取这一页要显示的周：本周到 12 周后，历史周不再跟着一起读
+      fetchReciteTasks({ from: thisWeek, to: thisWeek + MAX_WEEK_OFFSET * 7 * DAY }),
       fetchReciteHistory(HISTORY_LIMIT),
       fetchReciteActiveSession(),
       // 录音只是锦上添花：拉不到不影响任务配置
@@ -543,7 +544,7 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
       })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-  }, [reload])
+  }, [reload, thisWeek])
 
   /** 表格只列本周到 12 周后，服务端返回的全量任务按周找出对应的配置 */
   const weeks = useMemo(() => (

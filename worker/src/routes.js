@@ -844,11 +844,17 @@ export async function handleApi(method, pathname, searchParams, body, app) {
   }
 
   // ── Recite：配置端任务与学生端会话 ───────────────────────────────────────
-  // GET /api/recite/tasks — 全部背词任务，配置页按周列表和学习页月历标记共用
+  // GET /api/recite/tasks?from=&to= — 背词任务，配置页按周列表和学习页月历标记共用。
+  // from / to 为周一 0 点毫秒（含两端），只取这段周区间；不带参数时回全量，兼容老调用。
   if (method === 'GET' && pathname === '/api/recite/tasks') {
     // 推送的那一次跨天了还没学完：先按「不会」收尾，再吐任务
     await app.recite.sweepPushedSessions(app, env)
-    return { status: 200, body: { tasks: await app.recite.listTasks() } }
+    const fromParam = searchParams.get('from')
+    const toParam = searchParams.get('to')
+    const from = Number(fromParam)
+    const to = Number(toParam)
+    const ranged = Boolean(fromParam) && Boolean(toParam) && Number.isFinite(from) && Number.isFinite(to)
+    return { status: 200, body: { tasks: await app.recite.listTasks(ranged ? { from, to } : undefined) } }
   }
 
   // POST /api/recite/push — 主动推送一批单词：本周次数 +1，直接建好这一次会话

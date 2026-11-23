@@ -464,13 +464,26 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById, onOpenRec
   const activeItems = (isWeek ? dueByWeek.get(activeWeek) : dueByDay.get(activeDay)) ?? []
   const dict = useDictBatch(activeItems.map(item => item.word))
 
-  /** 当前周的背词任务，标记和详情都从全量列表里取 */
+  /** 当前周的背词任务，标记和详情都从按区间拉取的列表里取 */
   const weekTask = weekTasks.get(activeWeek) ?? null
+
+  /**
+   * 月历只需要当月这几周 + 当前选中周的任务：把请求区间收窄，
+   * 不跟着历史周一起把每周的单词和卡片顺序都拉下来。
+   */
+  const taskRange = useMemo(() => {
+    const monthEnd = new Date(monthFirst)
+    monthEnd.setMonth(monthEnd.getMonth() + 1, 0)
+    return {
+      from: Math.min(startOfWeek(monthFirst), activeWeek),
+      to: Math.max(startOfWeek(startOfDay(monthEnd.getTime())), activeWeek),
+    }
+  }, [monthFirst, activeWeek])
 
   useEffect(() => {
     let alive = true
     setWeekTaskLoading(true)
-    Promise.all([fetchReciteTasks(), fetchReciteHistory(60)])
+    Promise.all([fetchReciteTasks(taskRange), fetchReciteHistory(60)])
       .then(([list, history]) => {
         if (!alive) return
         setWeekTasks(new Map(list.map(task => [task.weekStart, task])))
@@ -488,8 +501,8 @@ export function StudyPage({ libraries, study, plan, getPrintLabelById, onOpenRec
       })
       .finally(() => { if (alive) setWeekTaskLoading(false) })
     return () => { alive = false }
-  // 切走再回来会重新挂载并重读，这里不用额外的刷新触发器
-  }, [])
+  // 切走再回来会重新挂载并重读，这里不用额外的刷新触发器；换月 / 换周时按新区间重读
+  }, [taskRange])
 
   /** 复习面板头部的背词任务标记：未配置可点击去配置，已配置显示完成进度 X/Y */
   const reciteMarker = useMemo(() => {

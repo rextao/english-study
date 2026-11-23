@@ -289,7 +289,7 @@ PrintBatch       { id, printedAt, kind: 'start'|'review', scope?, title, wordCou
 | `GET /api/vocab-print-labels` + 同构 POST/PATCH/DELETE | 打印标签（与显示标签同构的一组接口） | useVocabLibraries |
 | `GET \| PUT /api/recite/task` `{weekStart?, perSessionCount, sessionCount, selections, spellingWords, session?}` | 周任务读写；PUT 在本周已有会话时 409 `TASK_STARTED`；带 `session`（1-based）时只替换这一次的词，这一次没开始时即使整周已开始也能改，这一次已学过 / 正在学 → 409 `SESSION_STARTED` | useRecite |
 | `DELETE /api/recite/task` `{weekStart}` | 删除整周任务，只允许一次会话都没建过的周（否则 409 `TASK_STARTED`）；词表一起删，这一周回到可重新配置 | ReciteTasksPage |
-| `GET /api/recite/tasks` | 全部周任务列表（按 week_start 排序），供配置二级页与学习页月历标记 | ReciteTasksPage / StudyPage |
+| `GET /api/recite/tasks?from=&to=` | 周任务列表（按 week_start 排序）；`from` / `to` 为周一 0 点毫秒（含两端），只返回这段周区间，不传则全量；供配置二级页与学习页月历标记 | ReciteTasksPage / StudyPage |
 | `POST /api/recite/preview` | 只算不存：容量截断、学习成果逆序自动填充、非法选词 | ReciteTaskPanel |
 | `POST /api/recite/push` `{weekStart, selections, spellingWords?}` | 主动推送一批单词：本周 `session_count + 1`、直接建好这一次 active 会话（id 带 `recite-push-` 前缀标记来源），卡片规则与计划里的一次相同（每个词一张知意卡，`spellingWords` 里的词再加拼写卡）；已有进行中会话 409 `有进行中的一次学习` | RecitePushPanel |
 | `GET /api/recite/sessions/active` | 家长端读当前待确认会话 + 草稿；**只读，不建会话**；`actives` 数组给出全部「学习中 / 学完待保存」的会话（没保存就继续学下一次时会有多个），顶层 session / cards / drafts 仍是最早那一次的兼容字段 | ReciteParentPage / ReciteTasksPage |

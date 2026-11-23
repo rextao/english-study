@@ -2164,6 +2164,14 @@ const singleWeekTask = (await call('GET', '/api/recite/task?weekStart=' + r.body
 check('背词任务列表与单周读回一致',
   singleWeekTask?.id === r.body.tasks[0].id && singleWeekTask?.words?.length === 2, singleWeekTask)
 
+// 按周区间只取需要的那几周，不再把历史所有周一起返回
+r = await call('GET', '/api/recite/tasks?from=' + singleWeekStart + '&to=' + (singleWeekStart + 12 * 86400000))
+check('背词任务列表可按周区间过滤',
+  r.status === 200 && r.body.tasks.length === 1 && r.body.tasks[0].weekStart === singleWeekStart, r.body)
+r = await call('GET', '/api/recite/tasks?from=' + (singleWeekStart + 7 * 86400000) + '&to=' + (singleWeekStart + 14 * 86400000))
+check('区间外的周任务不返回',
+  r.status === 200 && Array.isArray(r.body.tasks) && r.body.tasks.length === 0, r.body)
+
 // 删除还没开始的一周：删掉后这一周回到「还没配置」，可以重新选词
 const removableWeek = singleWeekStart + 7 * 86400000
 await call('PUT', '/api/recite/task', {

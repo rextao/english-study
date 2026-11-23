@@ -220,11 +220,17 @@ export async function fetchReciteTask(weekStart?: number): Promise<ReciteTask | 
 }
 
 /**
- * 列出全部背词任务：背词配置二级页按周展示、学习页月历标记已配置的周。
- * 与单周读取共用同一份共享读缓存，保存任务后会整体作废重拉。
+ * 列出背词任务：背词配置二级页按周展示、学习页月历标记已配置的周。
+ * 传 from / to（周一 0 点毫秒，含两端）只取这段周区间，不再把历史所有周一起拉下来；
+ * 不传时服务端回全量。与单周读取共用同一份共享读缓存，保存任务后会整体作废重拉。
  */
-export async function fetchReciteTasks(): Promise<ReciteTask[]> {
-  const data = await queryApi<{ tasks: ReciteTask[] }>('/api/recite/tasks', {}, {
+export async function fetchReciteTasks(range?: { from?: number; to?: number }): Promise<ReciteTask[]> {
+  const from = range?.from
+  const to = range?.to
+  const path = typeof from === 'number' && typeof to === 'number'
+    ? '/api/recite/tasks?from=' + from + '&to=' + to
+    : '/api/recite/tasks'
+  const data = await queryApi<{ tasks: ReciteTask[] }>(path, {}, {
     staleTime: 15_000,
     tags: ['recite-task'],
   })

@@ -380,11 +380,19 @@ export function createReciteStore(db) {
   }
 
   /**
-   * 列出全部任务：背词配置页按周一次取齐，学习页月历也要标出已配置的周。
-   * 配置仍然只允许本周到 12 周后，过去的任务只读展示。
+   * 列出任务：背词配置页按周区间取齐，学习页月历也要标出当月已配置的周。
+   * 传 from / to（周一 0 点毫秒，含两端）只取这段周区间，历史周不再跟着一起读；
+   * 不传时保持全量，兼容老调用。
    */
-  async function listTasks() {
-    const tasks = await db.all('SELECT * FROM recite_tasks ORDER BY week_start')
+  async function listTasks({ from, to } = {}) {
+    const start = Number(from)
+    const end = Number(to)
+    const tasks = Number.isFinite(start) && Number.isFinite(end)
+      ? await db.all(
+        'SELECT * FROM recite_tasks WHERE week_start >= ? AND week_start <= ? ORDER BY week_start',
+        start, end,
+      )
+      : await db.all('SELECT * FROM recite_tasks ORDER BY week_start')
     const payloads = []
     for (const task of tasks) {
       const words = await db.all(
