@@ -26,6 +26,11 @@ interface LinkLine {
   len: number
 }
 
+/** 牌的 group 是「轮次:这一关里的单词下标」，统计错词时用它找回那对词 */
+function wordIndexOf(tile: Tile) {
+  return Number(tile.group.split(':')[1])
+}
+
 /** 一关的牌：每对拆成英文牌 + 中文牌，再整体打乱 */
 function buildTiles(pairs: GameWord[], round: number): Tile[] {
   const tiles: Tile[] = []
@@ -48,7 +53,7 @@ function fmtTime(ms: number) {
  * 单词消消乐。单词统一从游戏数据层来（与背词页当期单词一致，已去重），
  * 每关从牌堆里发一批词，词用完就结束；游戏自己只管关卡、计时、连线判定，不碰任何接口。
  */
-export function XiaoxiaoleGame({ words, onNextRound, nextLabel }: GameProps) {
+export function XiaoxiaoleGame({ words, onNextRound, nextLabel, recordWord }: GameProps) {
   const { speakWord } = useGameSound()
   // 换一次 seed 就重新洗牌并回到第一关
   const [seed, setSeed] = useState(0)
@@ -127,6 +132,11 @@ export function XiaoxiaoleGame({ words, onNextRound, nextLabel }: GameProps) {
 
     if (first.group !== tile.group) {
       // 连错：两张一起抖，记一次失误，不消牌
+      // 统一错词统计：这两张牌对应的单词都记一笔配错
+      const firstWord = pairs[wordIndexOf(first)]
+      const secondWord = pairs[wordIndexOf(tile)]
+      if (firstWord) recordWord?.(firstWord.word, 'wrong', firstWord.translation)
+      if (secondWord) recordWord?.(secondWord.word, 'wrong', secondWord.translation)
       setWrong([first.id, tile.id])
       setSelected(null)
       setMistakes(count => count + 1)
@@ -134,7 +144,9 @@ export function XiaoxiaoleGame({ words, onNextRound, nextLabel }: GameProps) {
       return
     }
 
-    // 连对：先按两张牌的中心画一条线，线画完再把牌消掉
+    // 连对：统一错词统计先记一笔正确，再按两张牌的中心画线，线画完把牌消掉
+    const matchedWord = pairs[wordIndexOf(tile)]
+    if (matchedWord) recordWord?.(matchedWord.word, 'correct', matchedWord.translation)
     const board = boardRef.current
     const from = tileRefs.current.get(first.id)
     const to = tileRefs.current.get(tile.id)

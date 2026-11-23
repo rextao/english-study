@@ -7,7 +7,8 @@
 - `registry.ts`：`GAMES` 数组是唯一清单，加一个游戏 = 加一条 `GameManifest`；`findGame(id)` 按 id 查。
 - `types.ts`：
   - `GameWord`：`{ word, translation }`，游戏里只给孩子看中文。
-  - `GameProps`：`{ words: GameWord[]; onNextRound?: () => void; nextLabel?: string }`，外壳下发，游戏组件不请求接口；结束面板那个按钮用 `nextLabel ?? '再玩一次'`，有 `onNextRound` 就交给外壳（无尽换回合 / 闯关进下一关）。
+  - `GameProps`：`{ words: GameWord[]; onNextRound?: () => void; nextLabel?: string; recordWord?: (word, outcome, translation?) => void }`，外壳下发，游戏组件不请求接口；结束面板那个按钮用 `nextLabel ?? '再玩一次'`，有 `onNextRound` 就交给外壳（无尽换回合 / 闯关进下一关）。
+  - `GameWordOutcome`：`'correct' | 'wrong'`，配合 `recordWord` 做统一错词统计。
   - `GameManifest`：`{ id, title, subtitle, emoji?, ready?, Component }`；`ready: false` 的条目汇总页不展示、路由也进不去。
 - 约定：游戏只管关卡、判定与表现，不碰路由、不碰 `/api`、不碰加载态。
 
@@ -41,7 +42,14 @@
 - `.games__notice` / `.games__notice-sub`：外壳的空态与提示样式。
 - 汇总页 / 模式页样式：`.gh__*`、`.gm__*`。
 
-## 6. 单词发音开关（`sound.tsx`）
+## 6. 错词 / 配对统计（`record.ts`）
+
+- 统一能力：任何一个游戏在「配对 / 判定成功」和「配错」时调 `recordWord(word, 'correct' | 'wrong', translation?)`，就有设置页「游戏记录」。
+- `useGameRecorder(gameId, mode)`（由 `GamesPage` 创建，通过 `GameProps.recordWord` 下发）：攒 1.5 秒一批 `POST /api/games/results`，攒满 120 条、换游戏 / 换模式、`pagehide` 时立刻冲；失败静默，不影响游戏。
+- 服务端 `worker/src/game-results.js`：按配置时区落 `day`，写 D1 `game_word_results`；`GET /api/games/results?days=30` 按「day + word」聚合出 `correct / wrong` 次数、中文和出过的游戏。
+- 已接上的游戏：消消乐（连对记 correct，连错两张牌各记 wrong）、打怪兽（合并成功记 correct，配错时拖动球和目标球各记 wrong）。新游戏只要在下判定时调一次就好，不用自己请求接口。
+
+## 7. 单词发音开关（`sound.tsx`）
 
 - `GameSoundProvider`：由游戏外壳包住所有游戏页；喇叭默认**打开**，偏好存 `localStorage` 的 `es-games-sound`（`on` / `off`），刷新和换游戏都保留；关掉时会 `stopSpeech()` 掐掉正在播的声音。
 - `GameSoundToggle`：右上角喇叭按钮（开 = 波纹，关 = 打叉），只在 `GamesPage` 里渲染一次，所有游戏共用；样式 `.games__sound` / `.games__sound.is-off` 在 `games.css`。
@@ -51,9 +59,9 @@
   - 起播交给 `speak()` 里的 `unlockSpeech()`：先在手势里把共用的 `<audio>` 解锁，await 取完音频再播（否则 iOS 会静默拦掉）。
   - 没有 Provider（比如单独预览某个游戏）时返回静音的空实现，不会报错。
 
-## 7. 接入一个新游戏的最小步骤
+## 8. 接入一个新游戏的最小步骤
 
-1. 建 `src/games/<id>/XxxGame.tsx`，接收 `GameProps`，用 `data.ts` 的牌堆 / 发牌函数发词。
+1. 建 `src/games/<id>/XxxGame.tsx`，接收 `GameProps`，用 `data.ts` 的牌堆 / 发牌函数发词；判定时调 `recordWord` 就有了错词统计。
 2. 建 `src/games/<id>/index.ts` 导出 `GameManifest`。
 3. 往 `registry.ts` 的 `GAMES` 加一条（没写完给 `ready: false`）。
 4. 需要发音时，在点击英文单词的地方调 `useGameSound().speakWord(word)`；右上角开关和静音逻辑不用自己实现。

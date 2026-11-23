@@ -3,6 +3,7 @@ import { useChallengeGameLevels, useEndlessGameWords, useGameWords } from './dat
 import { GamesHome } from './GamesHome'
 import { GameModePage } from './GameModePage'
 import { findGame } from './registry'
+import { useGameRecorder } from './record'
 import { GameSoundProvider, GameSoundToggle } from './sound'
 import type { GameMode } from './types'
 import './games.css'
@@ -70,6 +71,8 @@ export function GamesPage() {
   const normal = useGameWords(Boolean(game) && mode === 'normal')
   const endless = useEndlessGameWords(Boolean(game) && mode === 'endless', round)
   const challenge = useChallengeGameLevels(Boolean(game) && mode === 'challenge')
+  // 统一错词统计：所有游戏共用这一份上报队列（换游戏 / 换模式 / 离开页面时自动提交）
+  const recorder = useGameRecorder(game?.id ?? '', mode ?? 'normal')
 
   // 闯关模式只把当前这一关的单词交给游戏
   const lastLevel = Math.max(0, challenge.levels.length - 1)
@@ -144,6 +147,7 @@ export function GamesPage() {
           words={words}
           onNextRound={onNextRound}
           nextLabel={nextLabel}
+          recordWord={recorder.record}
         />
       )}
 

@@ -517,7 +517,7 @@ function bubbleBackdrop(cell: number): CSSProperties {
  * 单词打怪兽。单词全部来自 props（当期背词任务），游戏自己管投放、拖拽、
  * 配对判定和血量，不碰任何接口。
  */
-export function MonsterGame({ words, onNextRound, nextLabel }: GameProps) {
+export function MonsterGame({ words, onNextRound, nextLabel, recordWord }: GameProps) {
   const { speakWord } = useGameSound()
   // 只在每帧推进后 +1，用来重绘；真正的数据在 worldRef 里
   const [, setFrame] = useState(0)
@@ -995,6 +995,8 @@ export function MonsterGame({ words, onNextRound, nextLabel }: GameProps) {
       // 就在合上的这一刻读一遍英文；拖英文球的那种顺序在 pickUp 里已经读过了，不重复读
       if (ball.kind === 'meaning') speakWord(target.text)
       // 配成一对：两张球一起消失，从合并点朝小怪兽打出一颗魔法飞弹
+      const matchedWord = wordsRef.current[ball.group]
+      if (matchedWord) recordWord?.(matchedWord.word, 'correct', matchedWord.translation)
       world.balls = world.balls.filter(item => item !== ball && item !== target)
       world.score += 100 + world.combo * 20
       world.combo += 1
@@ -1016,6 +1018,11 @@ export function MonsterGame({ words, onNextRound, nextLabel }: GameProps) {
     }
 
     // 配错：两张一起闪红、被压住的那颗弹开一点，不扣血也不扣命
+    // 统一错词统计：这一下拖动的词和它想配上的词都记一笔配错
+    const draggedWord = wordsRef.current[ball.group]
+    const attemptedWord = wordsRef.current[target.group]
+    if (draggedWord) recordWord?.(draggedWord.word, 'wrong', draggedWord.translation)
+    if (attemptedWord) recordWord?.(attemptedWord.word, 'wrong', attemptedWord.translation)
     world.mistakes += 1
     world.combo = 0
     ball.wrongUntil = now + WRONG_MS

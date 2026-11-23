@@ -1308,6 +1308,45 @@ r = await call('PUT', '/api/games/config', { endlessListIds: [], endlessWords: [
 check('清空具体单词 = 范围内全部单词',
   r.body?.ok === true && JSON.stringify(r.body.endlessWords) === '[]', r.body)
 
+// ── 单词游戏结果（错词 / 配对统计） ─────────────────────────────────────
+
+r = await call('POST', '/api/games/results', { gameId: 'monster', results: [] })
+check('游戏结果：没有结果 -> 400', r.status === 400 && r.body.ok === false, r.body)
+
+r = await call('POST', '/api/games/results', { results: [{ word: 'apple', outcome: 'wrong' }] })
+check('游戏结果：缺 gameId -> 400', r.status === 400 && r.body.ok === false, r.body)
+
+r = await call('POST', '/api/games/results', { gameId: 'monster', results: 'apple' })
+check('游戏结果：results 非数组 -> 400', r.status === 400 && r.body.ok === false, r.body)
+
+r = await call('POST', '/api/games/results', {
+  gameId: 'monster', mode: 'endless',
+  results: [
+    { word: ' Grape ', translation: '葡萄', outcome: 'correct' },
+    { word: 'grape', translation: '葡萄', outcome: 'wrong' },
+    { word: 'peach', translation: '桃子', outcome: 'wrong' },
+    { word: '', outcome: 'wrong' },
+    { word: 'lemon', outcome: 'unknown' },
+  ],
+})
+check('游戏结果：只记合法条目', r.status === 200 && r.body.recorded === 3, r.body)
+
+r = await call('GET', '/api/games/results')
+check('游戏结果：按日期 + 单词聚合', r.status === 200 && Array.isArray(r.body.results), r.body)
+const grape = r.body.results.find(row => row.word === 'grape')
+check('游戏结果：同一个词对 / 错分开计数',
+  grape?.correct === 1 && grape?.wrong === 1
+    && grape.display.toLowerCase() === 'grape', grape)
+const peach = r.body.results.find(row => row.word === 'peach')
+check('游戏结果：错词带中文与游戏来源',
+  peach?.wrong === 1 && peach.correct === 0 && peach.translation === '桃子'
+    && peach.display === 'peach' && JSON.stringify(peach.games) === '["monster"]', peach)
+check('游戏结果：日期是 YYYY-MM-DD', /^\d{4}-\d{2}-\d{2}$/.test(String(grape?.day)), grape)
+
+r = await call('GET', '/api/games/results?days=1')
+check('游戏结果：days 过滤仍能读到今天的记录',
+  r.status === 200 && r.body.results.some(row => row.word === 'grape'), r.body)
+
 // ── 打印批次记录 + 整批打卡 ────────────────────────────────────────────────
 
 r = await call('POST', '/api/lists', { name: 'Printed' })

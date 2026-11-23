@@ -233,6 +233,71 @@
 
 .game-settings__message { font-size: 12px; color: var(--color-text-muted); }
 
+/* ---------------- 游戏记录（单词游戏的错词统计） ---------------- */
+
+.game-results { display: flex; flex-direction: column; gap: 16px; }
+
+.game-results__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.game-results__days { display: flex; flex-direction: column; gap: 18px; }
+
+.game-results__day {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+
+.game-results__day-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-hover);
+}
+
+.game-results__date {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.game-results__day-stat { font-size: 11px; color: var(--color-text-subtle); }
+
+.game-results__list { list-style: none; margin: 0; padding: 4px 14px 8px; }
+
+.game-results__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.game-results__row:last-child { border-bottom: none; }
+
+.game-results__word { font-size: 14px; font-weight: 600; }
+
+.game-results__trans {
+  flex: 1;
+  min-width: 120px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.game-results__badges { display: inline-flex; align-items: center; gap: 6px; }
+
+.game-results__games { font-size: 11px; color: var(--color-text-subtle); }
+
 /* ---------------- 密钥表单 ---------------- */
 
 .key-form {

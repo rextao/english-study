@@ -23,7 +23,7 @@ export const TALLY_KINDS = new Set(['spelling', 'reading', 'meaning'])
 /** 打标粒度：按天 / 按周 */
 export const MARK_SCOPES = new Set(['day', 'week'])
 
-function tzOffsetMs(env) {
+export function tzOffsetMs(env) {
   const hours = Number(env?.DICT_TZ_OFFSET_HOURS)
   return (Number.isFinite(hours) ? hours : 8) * 3600000
 }

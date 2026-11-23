@@ -10,13 +10,15 @@ import { PhoneticRepair } from '../components/PhoneticRepair'
 import { AudioRepair } from '../components/AudioRepair'
 import { ReciteRecordingManager } from '../components/ReciteRecordingManager'
 import { GameSettings } from '../components/GameSettings'
+import { GameResults } from '../components/GameResults'
 import { Tag } from '../ui'
 import './SettingsPage.css'
 
-/** 设置页的子分区：词库配置 / 学习列表 / 学习记录 / 课堂录音 / 单词游戏 / 补充音标 / 补充音频 / 查询链路 */
+/** 设置页的子分区：词库配置 / 学习列表 / 学习记录 / 课堂录音 / 单词游戏 / 游戏记录 / 补充音标 / 补充音频 / 查询链路 */
 export type SettingsSection =
   | 'audio'
   | 'chain'
+  | 'gameResults'
   | 'games'
   | 'libraries'
   | 'lists'
@@ -31,6 +33,7 @@ const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: 'records', label: '学习记录' },
   { id: 'recordings', label: '课堂录音' },
   { id: 'games', label: '单词游戏' },
+  { id: 'gameResults', label: '游戏记录' },
   { id: 'phonetics', label: '补充音标' },
   { id: 'audio', label: '补充音频' },
   { id: 'chain', label: '查询链路' },
@@ -167,6 +170,11 @@ export function SettingsPage(props: SettingsPageProps) {
       {section === 'games' && (
         <section className="settings-section">
           <GameSettings lists={study.lists} fetchListWords={study.fetchListWords} fetchBatches={study.fetchBatches} />
+        </section>
+      )}
+      {section === 'gameResults' && (
+        <section className="settings-section">
+          <GameResults />
         </section>
       )}
       {section === 'phonetics' && (

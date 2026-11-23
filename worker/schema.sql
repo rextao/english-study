@@ -259,3 +259,20 @@ CREATE TABLE IF NOT EXISTS recite_recording_chunks (
 
 -- 快照同步机制已随「后端上云」退役，旧表直接丢弃
 DROP TABLE IF EXISTS sync_snapshot;
+
+-- 单词游戏的错词 / 配对统计：任何游戏在配对正确或配错时按单词上报一条，
+-- 设置页「游戏记录」按 day + word 聚合展示。day 是配置时区下的 YYYY-MM-DD。
+CREATE TABLE IF NOT EXISTS game_word_results (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  day TEXT NOT NULL,
+  game_id TEXT NOT NULL,
+  mode TEXT NOT NULL,
+  -- word 是小写统计键，display 是上报时的原始写法，两个都留着方便展示与后续匹配
+  word TEXT NOT NULL,
+  display TEXT NOT NULL,
+  translation TEXT,
+  outcome TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+) STRICT;
+CREATE INDEX IF NOT EXISTS idx_game_word_results_day ON game_word_results(day, created_at);
+CREATE INDEX IF NOT EXISTS idx_game_word_results_word ON game_word_results(word, created_at);

@@ -1311,6 +1311,31 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     return { status: 200, body: { ok: true, ...(await loadGameConfig(app)) } }
   }
 
+  // POST /api/games/results  — 游戏里配对 / 失误按单词上报（批量，非法条目直接跳过）
+  if (method === 'POST' && pathname === '/api/games/results') {
+    try {
+      const saved = await app.gameResults.save({
+        gameId: body?.gameId,
+        mode: body?.mode,
+        results: body?.results,
+        env: app.env,
+      })
+      console.log('[game +]   ', saved.recorded, 'results', saved.day)
+      return { status: 200, body: { ok: true, ...saved } }
+    } catch (error) {
+      return { status: 400, body: { ok: false, error: error.message } }
+    }
+  }
+
+  // GET /api/games/results?days=30  — 设置页「游戏记录」：按天 + 单词聚合
+  if (method === 'GET' && pathname === '/api/games/results') {
+    const results = await app.gameResults.summary({
+      days: searchParams.get('days'),
+      env: app.env,
+    })
+    return { status: 200, body: { results } }
+  }
+
   // ── 打印批次（导出卡片的留档） ─────────────────────────────────────────
 
   // GET /api/print-batches?limit=  — 打印记录，新的在前

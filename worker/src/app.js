@@ -13,6 +13,7 @@ import { createAppServices } from './lists.js'
 import { createPassageStore } from './passages.js'
 import { createReciteStore } from './recite.js'
 import { createReciteRecordingStore } from './recordings.js'
+import { createGameResultStore } from './game-results.js'
 
 export function createApp(env, waitUntilFn) {
   const db = createDb(env.DB)
@@ -26,6 +27,7 @@ export function createApp(env, waitUntilFn) {
     passages: createPassageStore(kv, history),
     recite: createReciteStore(db),
     recordings: createReciteRecordingStore(db),
+    gameResults: createGameResultStore(db),
     ...createAppServices(db),
     config: {
       noNetwork: env.DICT_NO_NETWORK === '1',

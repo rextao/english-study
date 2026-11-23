@@ -43,7 +43,7 @@ src/pages/ListsPage.tsx           学习列表：切换 / 新建 / 重命名 / �
 src/pages/LibrariesPage.tsx       词库标签页（已并进设置页）：只显示 name + file + 显示标签 / 打印标签改名 / 重置默认值；embedded=true 时不渲染页头，主体抽成 content 变量
 src/pages/StudyPage.tsx           英语学习页：StudyGoal + 挑词弹窗（Modal，勾词 → 打印卡片 + plan.startWords）+ 月历复习计划「按天 / 按周」粒度切换（mode 只存组件 state，按天选一天 / 按周选整周，逾期折叠进今天或本周，只有当前这天 / 这周可打卡）+ 标题旁「配置背词任务」按钮跳二级页 #/recite/tasks（ReciteTasksPage，可返回）；
                                   月历格子右上角「背」小角标：完成的那天标绿（完成日期来自 /api/recite/history），今天以后按整周进度标金（进行中）/ 灰（未开始），今天之前没完成的日子不显示；日历下方一行图例说明三种颜色，角标悬停有 title、格子 aria-label 写明进度；复习面板头部用 Tag 标「未配置背词 / 背词 X/Y · 学习中」+ 打印记录：每导出一次卡片留一条档，可整批打卡 / 删记录（usePrintBatches）
-src/pages/SettingsPage.tsx        设置页（tab=settings）：顶部子菜单「词库配置 / 学习列表 / 学习记录 / 课堂录音 / 单词游戏 / 补充音标 / 补充音频 / 查询链路」；标题右侧一行小字显示构建版本（vite define 的 __BUILD_INFO__ = 短 commit + 构建时间，脏构建带 *；绝对定位，不参与标题行排版），和 git 最新提交对比即可判断线上是否已部署最新代码；查询链路 = useDictSources.chain 排成有序列表（云端缓存 → dictionaryapi → 百度翻译），不可用步骤灰色标「跳过」并给原因；词库配置 = LibrariesPage embedded，学习记录 = LearningRecordsPage embedded
+src/pages/SettingsPage.tsx        设置页（tab=settings）：顶部子菜单「词库配置 / 学习列表 / 学习记录 / 课堂录音 / 单词游戏 / 游戏记录 / 补充音标 / 补充音频 / 查询链路」；标题右侧一行小字显示构建版本（vite define 的 __BUILD_INFO__ = 短 commit + 构建时间，脏构建带 *；绝对定位，不参与标题行排版），和 git 最新提交对比即可判断线上是否已部署最新代码；查询链路 = useDictSources.chain 排成有序列表（云端缓存 → dictionaryapi → 百度翻译），不可用步骤灰色标「跳过」并给原因；词库配置 = LibrariesPage embedded，学习记录 = LearningRecordsPage embedded
 src/pages/AchievementsPage.tsx    学习成果页（tab=achievements）：目标达成度统计
 src/pages/GoalPage.tsx            目标页（tab=goal，导航「更多」里有入口）：长期里程碑时间轴 + 单词目标四项进度；周期与目标词数全在 src/config/goalMilestones.ts，页面不写死阶段数量
 src/pages/LearningRecordsPage.tsx  学习记录页：学习 / 打卡日志明细 + 筛选 + 批量删除；默认 embedded 进设置页「学习记录」分区，也仍挂在 #/records 上独立成页（导航里没有，从成果页进，带 onBack 和页头）；默认先只显示物理删除不可找回的红字提示（revealed=false 时不发请求），确认后才拉列表
@@ -71,7 +71,8 @@ src/components/ReciteTaskPanel.tsx  背词任务配置弹窗（受控 Modal）�
 src/components/ReciteTaskConfirm.tsx  家长确认弹窗（**已无调用方、死代码，待删**）：行内保存改造前的旧实现，功能已由 ReciteTasksPage 的行内判定 + 行右侧「保存」按钮取代
 src/components/AudioRepair.tsx    设置页「补充音频」分区（embedded 进 SettingsPage）：列出学习列表里还没有 tts_cache 缓存的词 / 句子，一键排进后台预合成队列，轮询进度、失败可重试；Google TTS 未配置（缺 GOOGLE_TTS_API_KEY secret）时给配置指引并禁用按钮
 src/components/ReciteRecordingManager.tsx  设置页「课堂录音」分区：列出最近 15 天的录音（时间 / 第几次 / 时长 / 大小），可试听、全选或多选后统一删除（DELETE /api/recite/recordings，音频分片一起删）；播放按钮 ReciteRecordingButton.tsx 同时用在 recite/tasks 每行的「次数」下面
-src/components/GameSettings.tsx   设置页「单词游戏」分区（embedded 进 SettingsPage）：无尽模式取词范围 = 勾选若干学习列表（不勾=全部）+ 可选用 GameWordPicker 弹窗从这些列表挑具体单词（复用 WordSelectionGroups / groupStudyWords，只管单词不管句子）；底部「保存」才写服务端
+src/components/GameSettings.tsx   设置页「单词游戏」分区（embedded 进 SettingsPage）：无尽模式取词范围 = 勾选若干学习列表（不勾=全部）+ 可选用 GameWordPicker 弹窗从这些列表挑具体单词（复用 WordSelectionGroups / groupStudyWords，只管单词不管句子）；闯关模式的关卡数（1–10）/ 每关单词数（3–50）也在这里；底部「保存」才写服务端
+src/components/GameResults.tsx    设置页「游戏记录」分区（embedded 进 SettingsPage）：最近 30 天按日期分组，每天列出出错过的单词（原文 + 中文 + 错 N / 对 N 次数 + 出过它的游戏），错得多的排前面；数据来自 useGameResults
 src/components/ReciteDebugPanel.tsx 背词页右下角齿轮弹出的调试面板（输入口令 123 才进）：录音状态（支持 / 当前状态 / 失败原因，能开关录音与重试）+ 本地缓存情况（本周拉取进度、本地音频条数与占用、失败词单独重试 / 重新拉取本周 / 清空本地缓存）
 
 src/hooks/useTabRoute.ts          hash 路由（#/search #/lists #/settings #/achievements #/records #/study #/recite），刷新与前进后退都停在原页；二级页 #/recite/parent、#/recite/tasks 走独立 hash；#/games/<id> 归到 tab=games 且首次进入时不会被规范成 #/games/home（保住游戏名），tab 对应的默认地址是 #/games/home；LEGACY_TABS 把 #/import → #/search、#/libraries → #/settings，老书签不会失效
@@ -86,6 +87,7 @@ src/hooks/useStudyList.ts         学习列表全套 CRUD + 导入 + senseIds + 
 src/hooks/useStudyPlan.ts         复习计划 GET /api/study/plan + startWords + reviewWords + tallyUndo；三个写操作成功后按 listId 作废 apiCache 的词条缓存（否则学习页打卡后停在旧数据）；导出 StudyPlanApi / ReviewAction / ReviewOptions
 src/hooks/usePrintBatches.ts      打印批次：留档 + 整批打卡 + 删记录（/api/print-batches 四个接口）；导出 PrintBatchesApi；只在 StudyPage 里用，不进 App.tsx
 src/hooks/useStudyGoal.ts         目标词库读写 GET|PUT /api/study/goal
+src/hooks/useGameResults.ts       游戏记录读取 GET /api/games/results?days=30（按日期 + 单词聚合，返回 correct / wrong 次数与出现过的游戏）
 src/hooks/useGameConfig.ts        单词游戏配置读写 GET|PUT /api/games/config（无尽 / 闯关模式取词范围 endlessListIds + endlessWords，都为空就是全部学习列表的全部单词；闯关关卡数 challengeLevels 默认 3、每关单词数 challengeWordsPerLevel 默认 20）
 src/hooks/useVocabLibraries.ts    构建期打包 vocab/*.json + 标签读写 + localStorage 镜像与迁移
 src/hooks/useLearningRecords.ts   学习记录页的数据层：achievements / history 分页 / 删事件 / 清词 / purge
@@ -96,7 +98,8 @@ src/hooks/useRecitePreload.ts     背词首页的发音预取：没点「开始�
 src/ui/                           手写组件库：Button Select Dropdown Input(含 TextArea) Checkbox Tag Popconfirm Popover Modal Drawer + useDismiss；统一从 src/ui/index.ts 导出（它顺带 import ui.css）
 
 src/games/data.ts                 游戏统一数据层：useGameWords 取当期单词（与背词页同源：进行中的会话卡片 → 本周任务词表，句子卡与无释义的不要，按小写去重、去掉词性前缀）；shuffleWords / createWordDeck / dealWordRounds 提供「每个词只取一次」的牌堆，取完即这一局单词全部用完；所有游戏只从这里拿词，组件自己不请求接口
-src/games/types.ts                游戏公共类型：GameWord（单词 + 中文释义）/ GameProps（外壳下发的 words，已去重）/ GameManifest（id + title + subtitle + Component）
+src/games/types.ts                游戏公共类型：GameWord（单词 + 中文释义）/ GameWordOutcome（correct | wrong）/ GameProps（外壳下发的 words 已去重、onNextRound / nextLabel、统一错词上报 recordWord）/ GameManifest（id + title + subtitle + Component）
+src/games/record.ts               游戏结果统一上报：useGameRecorder(gameId, mode) 给游戏一个 recordWord(word, outcome, translation)，攒 1.5 秒一批 POST /api/games/results，换游戏 / 换模式 / pagehide 立刻冲，提交失败不打断游戏；新游戏只要调 recordWord 就有「游戏记录」
 src/games/sound.tsx               游戏共用发音开关：GameSoundProvider（默认开，偏好 localStorage es-games-sound）+ useGameSound().speakWord(word) + 右上角 GameSoundToggle（外壳只渲染一次；关掉时静音并 stopSpeech）
 src/games/registry.ts             游戏清单 GAMES + findGame(id)：加新游戏只往这里加一条，其余文件不动；没开发完的给 ready: false（汇总页置灰）
 src/games/GamesHome.tsx           游戏汇总页（#/games/home）：从 registry 列出可玩的游戏卡片（标题 / 说明 / emoji；ready:false 的还在开发，直接不展示），点整张卡片进该游戏的模式选择页 #/games/<id>；页面没有返回按钮；入口是导航里的「游戏」
@@ -278,6 +281,8 @@ PrintBatch       { id, printedAt, kind: 'start'|'review', scope?, title, wordCou
 | `POST /api/study/history/purge` `{words}` 或 `{all:true}` | 物理删除事件 + 回退列表累计计数（保留排期锚点） | useLearningRecords |
 | `GET\|PUT /api/study/goal` `{libraryId}` | 目标词库，空串=不设目标 | useStudyGoal |
 | `GET\|PUT /api/games/config` `{endlessListIds, endlessWords, challengeLevels, challengeWordsPerLevel}` | 无尽 / 闯关模式取词范围：列表 id 数组（空=全部学习列表）+ 具体单词数组（空=范围内全部单词）；闯关关卡数 1–10（默认 3）、每关单词数 3–50（默认 20），不传保留默认；存 kv `game-config` | useGameConfig |
+| `POST /api/games/results` `{gameId, mode, results:[{word, translation?, outcome}]}` | 游戏里配对 / 失误按单词上报（一次最多 200 条，非法条目跳过）；按配置时区落成 `day`（YYYY-MM-DD）写 D1 `game_word_results` | src/games/record.ts（useGameRecorder） |
+| `GET /api/games/results?days=30` | 设置页「游戏记录」：最近 N 天（默认 30，最多 180）按 day + word 聚合，每词带 correct / wrong 次数、中文、出过的游戏列表 | useGameResults → GameResults |
 | `GET /api/print-batches?limit=` | 打印记录（新在前，默认 20 条，最多留 60 条） | usePrintBatches |
 | `POST /api/print-batches` `{groups:[{listId,words}], title?, kind?, scope?, printedAt?}` | 记一次卡片导出，顺带给每个词打一条 `print` 标 | usePrintBatches.record |
 | `POST /api/print-batches/:id/review` | 按批次整批打卡；scope 缺省沿用打印时的粒度 | usePrintBatches.reviewBatch |
