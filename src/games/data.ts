@@ -290,8 +290,10 @@ export async function loadRandomStudyWords(limit = ENDLESS_ROUND_SIZE): Promise<
 
 /**
  * 闯关模式分关：按「关卡数 × 每关单词数」取够总数，一关一截。
- * 词池够就一关一关用新词；不够就一轮一轮重新洗牌接着补（「随机补充一些单词」），
- * 所以配置小了也不会出现空关，同一批词可能在不同关里再出现。
+ * 词池不够就在后面的关里接着补（一轮一轮重新洗牌），但**同一关里绝不重复**：
+ * 一关里出现两个一模一样的单词，场上就会有两组看着一样、却永远合不到一起的球
+ * （打怪兽里拖过去不合并、消消乐里点上去算配错），所以这一关只取词池里还没用过的词。
+ * 词池比一关还小时这一关就只有词池那么多词，不会靠重复凑数。
  */
 export function buildChallengeLevels(
   pool: readonly GameWord[], levelCount: number, wordsPerLevel: number,
@@ -299,12 +301,24 @@ export function buildChallengeLevels(
   if (pool.length === 0) return []
   const levels = Math.max(1, Math.floor(levelCount) || 1)
   const perLevel = Math.max(1, Math.floor(wordsPerLevel) || 1)
-  const needed = levels * perLevel
-  const sequence: GameWord[] = []
-  while (sequence.length < needed) sequence.push(...shuffleWords(pool))
+  // 词袋：取完一轮再重新洗牌，所以跨关才会复用单词，同关里由 used 拦住
+  const bag: GameWord[] = []
+  const take = () => {
+    if (bag.length === 0) bag.push(...shuffleWords(pool))
+    return bag.pop() as GameWord
+  }
   const out: GameWord[][] = []
   for (let i = 0; i < levels; i += 1) {
-    out.push(sequence.slice(i * perLevel, (i + 1) * perLevel))
+    const level: GameWord[] = []
+    const used = new Set<string>()
+    while (level.length < perLevel && used.size < pool.length) {
+      const word = take()
+      const key = word.word.trim().toLowerCase()
+      if (used.has(key)) continue
+      used.add(key)
+      level.push(word)
+    }
+    if (level.length > 0) out.push(level)
   }
   return out
 }

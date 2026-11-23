@@ -356,6 +356,23 @@ function spreadDeck(tokens: Token[]): Token[] {
 }
 
 /**
+ * 同一批词里重复的单词只留一次。场上一旦出现两组一模一样的中文 / 英文球，
+ * 孩子看着能配、拖上去却因为不是同一组（group 不同）消不掉，整局会卡在那几对球上，
+ * 所以进游戏前先按单词去重。
+ */
+function uniqueWords(words: readonly GameWord[]): GameWord[] {
+  const seen = new Set<string>()
+  const out: GameWord[] = []
+  for (const item of words) {
+    const key = item.word.trim().toLowerCase()
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    out.push(item)
+  }
+  return out
+}
+
+/**
  * 这副「球」怎么发：每个单词拆成英文球 + 中文球，先铺平再拉开同组距离（见 spreadDeck）。
  * 两个球都会发出来（牌堆是整副牌，发完才结束），场上只剩单张而牌堆快见底时，
  * spawnStrandedPartner 会把它的搭档提前发出来。
@@ -871,9 +888,9 @@ export function MonsterGame({ words, onNextRound, nextLabel }: GameProps) {
     return () => observer.disconnect()
   }, [])
 
-  // 换一批单词（正常只会发生一次）就重开一局
+  // 换一批单词（正常只会发生一次）就重开一局；重复的单词先去重，免得场上出现两组一样的球
   useEffect(() => {
-    wordsRef.current = words
+    wordsRef.current = uniqueWords(words)
     resetWorld()
     setStatus('idle')
   }, [words])
@@ -1022,8 +1039,8 @@ export function MonsterGame({ words, onNextRound, nextLabel }: GameProps) {
   const world = worldRef.current
   const now = performance.now()
   const hit = world.hitAt > 0 && now - world.hitAt < HIT_FEEDBACK_MS
-  // 还剩几对没打：一场总共 words.length 个词，配对一次少一个
-  const pairsLeft = Math.max(0, words.length - world.matchCount)
+  // 还剩几对没打：一场总共 wordsRef.current.length 个（已去重）词，配对一次少一个
+  const pairsLeft = Math.max(0, wordsRef.current.length - world.matchCount)
   const mood = monsterMood(world.hp, world.hpMax, world.hitAt, now, pairsLeft)
   const moodLabel = mood === MOOD_DEFEATED && world.hp <= 0 ? '战败倒地' : MOOD_LABELS[mood]
   const hpPercent = world.hpMax > 0 ? Math.max(0, Math.round((world.hp / world.hpMax) * 100)) : 0

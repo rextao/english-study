@@ -24,7 +24,7 @@
 
 - `useGameWords(enabled)`：常规模式词源，与背词页同源——优先「进行中」会话的卡片，否则本周任务词表；句子卡与无中文释义的词不进游戏，按小写去重，`stripTranslationPos` 去掉 `n.` / `v.` 这类词性前缀。
 - `useEndlessGameWords(enabled, round)`：无尽模式词源，每回合从设置页配置的取词范围（学习列表 + 可选的具体单词，未配置即全部）随机抽 `ENDLESS_ROUND_SIZE`（20）个带中文释义的单词；`round` 变化重新抽一批。
-- `useChallengeGameLevels(enabled)`：闯关模式词源，取词范围与无尽模式同一个词池（`loadScopedGameWords`），按配置的 `challengeLevels`（默认 3）× `challengeWordsPerLevel`（默认 20）分关；词池不够总数时一轮一轮重新洗牌接着补，返回 `{ levels, levelCount, wordsPerLevel, loading, error }`。
+- `useChallengeGameLevels(enabled)`：闯关模式词源，取词范围与无尽模式同一个词池（`loadScopedGameWords`），按配置的 `challengeLevels`（默认 3）× `challengeWordsPerLevel`（默认 20）分关；词池不够总数时一轮一轮重新洗牌接着补，但同一关里不重复同一个单词（重复词会让场上出现两组一样的球，永远合不到一起），返回 `{ levels, levelCount, wordsPerLevel, loading, error }`。
 - 两者都返回 `GameWordsState { words, loading, error }`，错误信息可直接展示。
 - 词表接口走共享读缓存 `apiCache`（`/api/lists` 30s，列表单词 5 分钟），反复开新回合不重复打接口。
 
