@@ -871,14 +871,9 @@ export function ReciteTasksPage({ study, today, onBack }: ReciteTasksPageProps) 
                           </span>
                         </th>
                         <td colSpan={3} className="recite-tasks__empty-cell">
-                          <span className="recite-tasks__empty-text">这一周还没有背词任务</span>
-                          {/* 空周也要能就地配置：背词页只读本周任务，本周缺任务就进不去学习 */}
-                          <Button
-                            size="small"
-                            onClick={() => { setModalWeek(week); setModalSession(null) }}
-                          >
-                            配置这一周
-                          </Button>
+                          <span className="recite-tasks__empty-text">
+                            这一周还没有背词任务，点右上角「配置周任务」新建
+                          </span>
                         </td>
                       </tr>
                     </tbody>
