@@ -86,7 +86,7 @@ src/hooks/useStudyList.ts         学习列表全套 CRUD + 导入 + senseIds + 
 src/hooks/useStudyPlan.ts         复习计划 GET /api/study/plan + startWords + reviewWords + tallyUndo；三个写操作成功后按 listId 作废 apiCache 的词条缓存（否则学习页打卡后停在旧数据）；导出 StudyPlanApi / ReviewAction / ReviewOptions
 src/hooks/usePrintBatches.ts      打印批次：留档 + 整批打卡 + 删记录（/api/print-batches 四个接口）；导出 PrintBatchesApi；只在 StudyPage 里用，不进 App.tsx
 src/hooks/useStudyGoal.ts         目标词库读写 GET|PUT /api/study/goal
-src/hooks/useGameConfig.ts        单词游戏配置读写 GET|PUT /api/games/config（无尽模式取词范围 endlessListIds + endlessWords，都为空就是全部学习列表的全部单词）
+src/hooks/useGameConfig.ts        单词游戏配置读写 GET|PUT /api/games/config（无尽 / 闯关模式取词范围 endlessListIds + endlessWords，都为空就是全部学习列表的全部单词；闯关关卡数 challengeLevels 默认 3、每关单词数 challengeWordsPerLevel 默认 20）
 src/hooks/useVocabLibraries.ts    构建期打包 vocab/*.json + 标签读写 + localStorage 镜像与迁移
 src/hooks/useLearningRecords.ts   学习记录页的数据层：achievements / history 分页 / 删事件 / 清词 / purge
 src/hooks/useReciteRecording.ts   背词页课堂录音（MediaRecorder）：每 10 秒切块，Web Audio AnalyserNode 每 250ms 量一次音量（RMS ≥ 0.02 算有声音），连续 60 秒无声音就停下这一段并在下次点击 / 按键时重开；任何一次停（学完 / 切后台 / 关页面 / 离开页面 / 静音 / 录满 30 分钟或 16MB）都先把整段字节写进 IndexedDB 队列，再分片上传，传完才删本地副本；每段带会话 id、片段序号（localStorage es-recite-seg:<sessionId> 自增）、录制时间，永远绑在当前这次学习上；回前台 / 从 bfcache 回来重新开一段
@@ -101,7 +101,7 @@ src/games/sound.tsx               游戏共用发音开关：GameSoundProvider�
 src/games/registry.ts             游戏清单 GAMES + findGame(id)：加新游戏只往这里加一条，其余文件不动；没开发完的给 ready: false（汇总页置灰）
 src/games/GamesHome.tsx           游戏汇总页（#/games/home）：从 registry 列出可玩的游戏卡片（标题 / 说明 / emoji；ready:false 的还在开发，直接不展示），点整张卡片进该游戏的模式选择页 #/games/<id>；页面没有返回按钮；入口是导航里的「游戏」
 src/games/GameModePage.tsx        模式选择页（#/games/<id>）：先选游戏再选模式，两个大按钮——常规模式 → #/games/<id>/normal，无尽模式 → #/games/<id>/endless，顶部「← 换个游戏」回汇总页
-src/games/GamesPage.tsx           游戏外壳（tab=games，全屏、不渲染导航）：hash 里没 slug 或 slug=home 时渲染 GamesHome；有 slug 没模式段时渲染 GameModePage；#/games/<id>/normal|endless 才真正进游戏（ready:false 的游戏当作没找到）→ findGame，单词由 src/games/data.ts 统一提供当 GameWord[] 下发——常规模式用 useGameWords（与背词页同一份词表），无尽模式用 useEndlessGameWords 每回合从「设置页配置的取词范围」（未配置则全部学习列表）随机抽 20 个词，并把 onNextRound 交给游戏（MonsterGame 的「再玩一次」改成换一批新词）；未找到 / 加载中 / 无任务 / 词太少都有中文提示和回游戏列表的链接
+src/games/GamesPage.tsx           游戏外壳（tab=games，全屏、不渲染导航）：hash 里没 slug 或 slug=home 时渲染 GamesHome；有 slug 没模式段时渲染 GameModePage；#/games/<id>/normal|endless 才真正进游戏（ready:false 的游戏当作没找到）→ findGame，单词由 src/games/data.ts 统一提供当 GameWord[] 下发——常规模式用 useGameWords（与背词页同一份词表），无尽模式用 useEndlessGameWords 每回合从「设置页配置的取词范围」（未配置则全部学习列表）随机抽 20 个词，并把 onNextRound 交给游戏（MonsterGame 的「再玩一次」改成换一批新词）；#/games/<id>/challenge 是闯关模式，取词范围与无尽模式相同，用 useChallengeGameLevels 一次读配置的关卡数 × 每关单词数分好关（词池不够就随机重复补满），一次只把当前这一关的词交给游戏，左上角角标显示「第 N / M 关」，onNextRound 进下一关（最后一关不给，游戏自己重玩这一关）；未找到 / 加载中 / 无任务 / 词太少都有中文提示和回游戏列表的链接
 src/games/games.css              游戏外壳布局与 --g-* 粉彩变量（与背词页同一套配色，游戏子文件夹直接用）
 src/games/xiaoxiaole/index.ts    消消乐清单项（id=xiaoxiaole，标题「单词消消乐」）
 src/games/xiaoxiaole/XiaoxiaoleGame.tsx  单词消消乐：一关 6 对（12 张牌，4 列 3 行），英文牌与中文牌打乱混排，先点一张再点另一张，同组（同一对）就按两张牌中心画一条 SVG 线（stroke-dashoffset 描边动画）再一起缩掉；不同组则两张红外抖动 + 失误 +1；消掉的牌留在格子里透明（牌桌不重排）；每一关的词由 data.ts 的 dealWordRounds 从牌堆里发（7 个词切成 4+3，不留只有一对的尾巴；一个词整局只出现一次，打完最后一关 = 单词全部用完），每关底部「下一关」，全消完给用时 / 失误 /「再玩一次」（重洗牌回第一关）；游戏只管关卡与判定，不碰接口
@@ -277,7 +277,7 @@ PrintBatch       { id, printedAt, kind: 'start'|'review', scope?, title, wordCou
 | `DELETE /api/study/history/words/:word` | 清空某词全部历史 | useLearningRecords |
 | `POST /api/study/history/purge` `{words}` 或 `{all:true}` | 物理删除事件 + 回退列表累计计数（保留排期锚点） | useLearningRecords |
 | `GET\|PUT /api/study/goal` `{libraryId}` | 目标词库，空串=不设目标 | useStudyGoal |
-| `GET\|PUT /api/games/config` `{endlessListIds, endlessWords}` | 无尽模式取词范围：列表 id 数组（空=全部学习列表）+ 具体单词数组（空=范围内全部单词）；存 kv `game-config` | useGameConfig |
+| `GET\|PUT /api/games/config` `{endlessListIds, endlessWords, challengeLevels, challengeWordsPerLevel}` | 无尽 / 闯关模式取词范围：列表 id 数组（空=全部学习列表）+ 具体单词数组（空=范围内全部单词）；闯关关卡数 1–10（默认 3）、每关单词数 3–50（默认 20），不传保留默认；存 kv `game-config` | useGameConfig |
 | `GET /api/print-batches?limit=` | 打印记录（新在前，默认 20 条，最多留 60 条） | usePrintBatches |
 | `POST /api/print-batches` `{groups:[{listId,words}], title?, kind?, scope?, printedAt?}` | 记一次卡片导出，顺带给每个词打一条 `print` 标 | usePrintBatches.record |
 | `POST /api/print-batches/:id/review` | 按批次整批打卡；scope 缺省沿用打印时的粒度 | usePrintBatches.reviewBatch |

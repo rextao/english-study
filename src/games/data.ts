@@ -3,6 +3,9 @@ import { fetchReciteActiveSession, fetchReciteTask } from '../hooks/useRecite'
 import type { ReciteCard, ReciteTaskWord } from '../hooks/useRecite'
 import { stripTranslationPos } from '../utils/translations'
 import { queryApi } from '../utils/apiCache'
+import {
+  DEFAULT_CHALLENGE_LEVELS, DEFAULT_CHALLENGE_WORDS_PER_LEVEL,
+} from '../hooks/useGameConfig'
 import type { GameConfig } from '../hooks/useGameConfig'
 import type { StudyList, StudyWordItem } from '../types/vocab'
 import type { GameWord } from './types'
@@ -228,13 +231,12 @@ export function useGameWords(enabled: boolean): GameWordsState {
 export const ENDLESS_ROUND_SIZE = 20
 
 /**
- * 无尽模式的取词：从设置页配好的单词范围里随机抽 limit 个带中文释义的单词。
- * 范围 = 若干学习列表；没配置（空数组）就用全部学习列表。
- * 池子由范围内的列表单词拼起来再去重，每次调用都重新洗牌，
- * 所以同一个单词在一回合里只出现一次，玩完一局再来一批就可能是另一批词。
+ * 设置页配好的取词范围拼出来的词池（已去重，未洗牌），无尽模式与闯关模式共用。
+ * 范围 = 若干学习列表；没配置（空数组）就用全部学习列表，再按具体单词收一层。
  * 列表单词走共享读缓存，反复开新回合不会反复打接口。
+ * 顺带把配置本身返回，闯关模式要用它读关卡数 / 每关单词数。
  */
-export async function loadRandomStudyWords(limit = ENDLESS_ROUND_SIZE): Promise<GameWord[]> {
+export async function loadScopedGameWords(): Promise<{ pool: GameWord[]; config: GameConfig | null }> {
   const [lists, config] = await Promise.all([
     queryApi<StudyList[]>('/api/lists', {}, { staleTime: 30_000, tags: ['lists'] }),
     // 配置读不到（老服务 / 离线）就退回默认的全量取词，不因此拦住游戏
@@ -273,7 +275,91 @@ export async function loadRandomStudyWords(limit = ENDLESS_ROUND_SIZE): Promise<
   }
   const unique = uniqueGameWords(pool)
   if (unique.length === 0) throw new Error('游戏范围里还没有带中文释义的单词，去设置页改一下取词范围吧。')
-  return shuffleWords(unique).slice(0, limit)
+  return { pool: unique, config }
+}
+
+/**
+ * 无尽模式的取词：从设置页配好的单词范围里随机抽 limit 个带中文释义的单词。
+ * 每次调用都重新洗牌，所以同一个单词在一回合里只出现一次，
+ * 玩完一局再来一批就可能是另一批词。
+ */
+export async function loadRandomStudyWords(limit = ENDLESS_ROUND_SIZE): Promise<GameWord[]> {
+  const { pool } = await loadScopedGameWords()
+  return shuffleWords(pool).slice(0, limit)
+}
+
+/**
+ * 闯关模式分关：按「关卡数 × 每关单词数」取够总数，一关一截。
+ * 词池够就一关一关用新词；不够就一轮一轮重新洗牌接着补（「随机补充一些单词」），
+ * 所以配置小了也不会出现空关，同一批词可能在不同关里再出现。
+ */
+export function buildChallengeLevels(
+  pool: readonly GameWord[], levelCount: number, wordsPerLevel: number,
+): GameWord[][] {
+  if (pool.length === 0) return []
+  const levels = Math.max(1, Math.floor(levelCount) || 1)
+  const perLevel = Math.max(1, Math.floor(wordsPerLevel) || 1)
+  const needed = levels * perLevel
+  const sequence: GameWord[] = []
+  while (sequence.length < needed) sequence.push(...shuffleWords(pool))
+  const out: GameWord[][] = []
+  for (let i = 0; i < levels; i += 1) {
+    out.push(sequence.slice(i * perLevel, (i + 1) * perLevel))
+  }
+  return out
+}
+
+/** 闯关模式的取词状态：外壳按关数取 words，并显示第几关 */
+export interface ChallengeWordsState {
+  /** 每一关的单词，下标 = 关卡序号 - 1 */
+  levels: GameWord[][]
+  levelCount: number
+  wordsPerLevel: number
+  loading: boolean
+  error: string
+}
+
+/**
+ * 闯关模式的取词 hook：一次读配置的关卡数 / 每关单词数并分好关，
+ * 外壳换关只切下标，不重新请求。
+ */
+export function useChallengeGameLevels(enabled: boolean): ChallengeWordsState {
+  const empty: ChallengeWordsState = {
+    levels: [],
+    levelCount: DEFAULT_CHALLENGE_LEVELS,
+    wordsPerLevel: DEFAULT_CHALLENGE_WORDS_PER_LEVEL,
+    loading: enabled,
+    error: '',
+  }
+  const [state, setState] = useState<ChallengeWordsState>(empty)
+  useEffect(() => {
+    if (!enabled) return
+    let alive = true
+    setState({ ...empty, loading: true })
+    loadScopedGameWords()
+      .then(({ pool, config }) => {
+        if (!alive) return
+        const levelCount = config?.challengeLevels ?? DEFAULT_CHALLENGE_LEVELS
+        const wordsPerLevel = config?.challengeWordsPerLevel ?? DEFAULT_CHALLENGE_WORDS_PER_LEVEL
+        setState({
+          levels: buildChallengeLevels(pool, levelCount, wordsPerLevel),
+          levelCount,
+          wordsPerLevel,
+          loading: false,
+          error: '',
+        })
+      })
+      .catch(error => {
+        if (!alive) return
+        const message = error instanceof Error ? error.message : '单词读取失败'
+        setState({ ...empty, loading: false, error: message })
+      })
+    return () => {
+      alive = false
+    }
+    // empty 里的默认值都是常量，只随 enabled 重新取词
+  }, [enabled])
+  return state
 }
 
 /**

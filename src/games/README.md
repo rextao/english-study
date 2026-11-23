@@ -7,22 +7,24 @@
 - `registry.ts`：`GAMES` 数组是唯一清单，加一个游戏 = 加一条 `GameManifest`；`findGame(id)` 按 id 查。
 - `types.ts`：
   - `GameWord`：`{ word, translation }`，游戏里只给孩子看中文。
-  - `GameProps`：`{ words: GameWord[]; onNextRound?: () => void }`，外壳下发，游戏组件不请求接口。
+  - `GameProps`：`{ words: GameWord[]; onNextRound?: () => void; nextLabel?: string }`，外壳下发，游戏组件不请求接口；结束面板那个按钮用 `nextLabel ?? '再玩一次'`，有 `onNextRound` 就交给外壳（无尽换回合 / 闯关进下一关）。
   - `GameManifest`：`{ id, title, subtitle, emoji?, ready?, Component }`；`ready: false` 的条目汇总页不展示、路由也进不去。
 - 约定：游戏只管关卡、判定与表现，不碰路由、不碰 `/api`、不碰加载态。
 
 ## 2. 路由与页面外壳（`GamesPage.tsx`）
 
-- hash 路由：`#/games/home` 汇总页、`#/games/<id>` 模式选择页、`#/games/<id>/normal|endless` 进游戏。
+- hash 路由：`#/games/home` 汇总页、`#/games/<id>` 模式选择页、`#/games/<id>/normal|endless|challenge` 进游戏。
 - 外壳负责：`findGame` 取组件、`ready` 过滤、按模式取词、`key={id:mode:round}` 重挂载（换游戏 / 换模式 / 换回合都从第一关重来）。
 - 统一状态提示（中文，带「去游戏列表」链接）：加载中、读取失败、单词太少（`words.length < 3`）、游戏不存在。
 - 无尽模式下把 `onNextRound` 交给游戏：`onNextRound()` 让外壳 `round + 1` 换一批新词。
+- 闯关模式：外壳一次读好全部关卡，只把当前这一关的词交给游戏，左上角角标显示「第 N / M 关」；`onNextRound()` 进下一关（最后一关不给，游戏自己重玩这一关），`nextLabel` 是「下一关」。
 - 汇总页 `GamesHome.tsx`、模式选择页 `GameModePage.tsx` 自动读取 `GAMES`，新增游戏不需要改这两个文件（汇总页没有返回按钮，模式页顶部「← 换个游戏」）。
 
 ## 3. 取词（`data.ts`）
 
 - `useGameWords(enabled)`：常规模式词源，与背词页同源——优先「进行中」会话的卡片，否则本周任务词表；句子卡与无中文释义的词不进游戏，按小写去重，`stripTranslationPos` 去掉 `n.` / `v.` 这类词性前缀。
 - `useEndlessGameWords(enabled, round)`：无尽模式词源，每回合从设置页配置的取词范围（学习列表 + 可选的具体单词，未配置即全部）随机抽 `ENDLESS_ROUND_SIZE`（20）个带中文释义的单词；`round` 变化重新抽一批。
+- `useChallengeGameLevels(enabled)`：闯关模式词源，取词范围与无尽模式同一个词池（`loadScopedGameWords`），按配置的 `challengeLevels`（默认 3）× `challengeWordsPerLevel`（默认 20）分关；词池不够总数时一轮一轮重新洗牌接着补，返回 `{ levels, levelCount, wordsPerLevel, loading, error }`。
 - 两者都返回 `GameWordsState { words, loading, error }`，错误信息可直接展示。
 - 词表接口走共享读缓存 `apiCache`（`/api/lists` 30s，列表单词 5 分钟），反复开新回合不重复打接口。
 

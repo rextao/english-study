@@ -32,6 +32,7 @@ import {
 import {
   loadGameConfig, saveGameConfig, MAX_GAME_LIST_IDS, MAX_GAME_LIST_ID_LENGTH,
   MAX_GAME_WORDS, MAX_GAME_WORD_LENGTH,
+  MAX_CHALLENGE_LEVELS, MIN_CHALLENGE_WORDS_PER_LEVEL, MAX_CHALLENGE_WORDS_PER_LEVEL,
 } from './games.js'
 import { progressRow } from './study-lists.js'
 import { enqueuePrefetch, enqueuePhoneticPrefetch, enqueueFullPhoneticPrefetch, currentPrefetchState } from './prefetch.js'
@@ -1267,7 +1268,8 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     return { status: 200, body: await loadGameConfig(app) }
   }
 
-  // PUT /api/games/config  — listIds 空 = 全部学习列表；words 空 = 范围内全部单词
+  // PUT /api/games/config  — listIds 空 = 全部学习列表；words 空 = 范围内全部单词；
+  //   闯关的关卡数 / 每关单词数不传就保留默认值（3 关 × 20 词）
   if (method === 'PUT' && pathname === '/api/games/config') {
     const raw = body?.endlessListIds
     if (!Array.isArray(raw) || raw.some(id => typeof id !== 'string')) {
@@ -1283,7 +1285,29 @@ export async function handleApi(method, pathname, searchParams, body, app) {
     if (rawWords.length > MAX_GAME_WORDS || rawWords.some(word => word.trim().length > MAX_GAME_WORD_LENGTH)) {
       return { status: 400, body: { ok: false, error: 'endlessWords 过长' } }
     }
-    await saveGameConfig(app, { endlessListIds: raw, endlessWords: rawWords })
+    const rawLevels = body?.challengeLevels
+    if (rawLevels != null && (!Number.isInteger(rawLevels) || rawLevels < 1 || rawLevels > MAX_CHALLENGE_LEVELS)) {
+      return { status: 400, body: { ok: false, error: 'challengeLevels 必须是 1–' + MAX_CHALLENGE_LEVELS + ' 的整数' } }
+    }
+    const rawWordsPerLevel = body?.challengeWordsPerLevel
+    if (rawWordsPerLevel != null && (!Number.isInteger(rawWordsPerLevel)
+      || rawWordsPerLevel < MIN_CHALLENGE_WORDS_PER_LEVEL
+      || rawWordsPerLevel > MAX_CHALLENGE_WORDS_PER_LEVEL)) {
+      return {
+        status: 400,
+        body: {
+          ok: false,
+          error: 'challengeWordsPerLevel 必须是 ' + MIN_CHALLENGE_WORDS_PER_LEVEL
+            + '–' + MAX_CHALLENGE_WORDS_PER_LEVEL + ' 的整数',
+        },
+      }
+    }
+    await saveGameConfig(app, {
+      endlessListIds: raw,
+      endlessWords: rawWords,
+      challengeLevels: rawLevels,
+      challengeWordsPerLevel: rawWordsPerLevel,
+    })
     return { status: 200, body: { ok: true, ...(await loadGameConfig(app)) } }
   }
 

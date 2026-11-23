@@ -281,3 +281,24 @@
   background: #FFFFFF;
 }
 
+.gh__mode--challenge {
+  background: var(--g-primary-tint);
+}
+
+/* 闯关模式的关卡角标：左上角，绝对定位，不参与游戏排版 */
+.games__level {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 10px);
+  left: calc(env(safe-area-inset-left) + 12px);
+  z-index: 60;
+  padding: 7px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--g-line);
+  background: rgba(255, 255, 255, .92);
+  color: var(--g-primary-deep);
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 8px 18px -12px rgba(150, 95, 105, .7);
+  pointer-events: none;
+}
+

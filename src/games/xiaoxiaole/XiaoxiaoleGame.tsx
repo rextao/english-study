@@ -48,7 +48,7 @@ function fmtTime(ms: number) {
  * 单词消消乐。单词统一从游戏数据层来（与背词页当期单词一致，已去重），
  * 每关从牌堆里发一批词，词用完就结束；游戏自己只管关卡、计时、连线判定，不碰任何接口。
  */
-export function XiaoxiaoleGame({ words }: GameProps) {
+export function XiaoxiaoleGame({ words, onNextRound, nextLabel }: GameProps) {
   const { speakWord } = useGameSound()
   // 换一次 seed 就重新洗牌并回到第一关
   const [seed, setSeed] = useState(0)
@@ -237,8 +237,9 @@ export function XiaoxiaoleGame({ words }: GameProps) {
           <div className="xxl__panel-card">
             <p className="xxl__panel-title">全部消完啦 🎉</p>
             <p className="xxl__panel-sub">用时 {fmtTime(elapsed)} · 失误 {mistakes} 次</p>
-            <button type="button" className="xxl__btn" onClick={restart}>
-              再玩一次
+            {/* 无尽 / 闯关模式交给外壳换下一批词，自己重洗只在常规模式 */}
+            <button type="button" className="xxl__btn" onClick={onNextRound ?? restart}>
+              {nextLabel ?? '再玩一次'}
             </button>
           </div>
         </div>

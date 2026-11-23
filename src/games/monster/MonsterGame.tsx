@@ -500,7 +500,7 @@ function bubbleBackdrop(cell: number): CSSProperties {
  * 单词打怪兽。单词全部来自 props（当期背词任务），游戏自己管投放、拖拽、
  * 配对判定和血量，不碰任何接口。
  */
-export function MonsterGame({ words, onNextRound }: GameProps) {
+export function MonsterGame({ words, onNextRound, nextLabel }: GameProps) {
   const { speakWord } = useGameSound()
   // 只在每帧推进后 +1，用来重绘；真正的数据在 worldRef 里
   const [, setFrame] = useState(0)
@@ -1156,13 +1156,13 @@ export function MonsterGame({ words, onNextRound }: GameProps) {
             </svg>
             <p className="mst__win-title">小怪兽被打跑啦</p>
             <p className="mst__win-sub">得分 {world.score} · 配错 {world.mistakes} 次</p>
-            {/* 无尽模式不重洗同一批词：交给外壳换一批新单词（重新随机 20 个） */}
+            {/* 无尽 / 闯关模式不重洗同一批词：交给外壳换一批新单词（无尽换回合、闯关进下一关） */}
             <button
               type="button"
               className="mst__btn"
               onClick={() => (onNextRound ? onNextRound() : start(true))}
             >
-              再玩一次
+              {nextLabel ?? '再玩一次'}
             </button>
           </div>
         )}

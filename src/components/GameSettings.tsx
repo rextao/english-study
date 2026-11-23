@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { useGameConfig } from '../hooks/useGameConfig'
+import {
+  useGameConfig, DEFAULT_CHALLENGE_LEVELS, DEFAULT_CHALLENGE_WORDS_PER_LEVEL,
+  MAX_CHALLENGE_LEVELS, MIN_CHALLENGE_WORDS_PER_LEVEL, MAX_CHALLENGE_WORDS_PER_LEVEL,
+} from '../hooks/useGameConfig'
 import type { StudyList, StudyWordItem } from '../types/vocab'
 import type { SelectOption } from '../ui'
 import { ENGLISH_WORD_INPUT_PROPS, Button, Checkbox, Input, Modal, Select, Tag } from '../ui'
@@ -13,16 +16,26 @@ interface GameSettingsProps {
   fetchBatches: (listId: string) => Promise<Record<string, string>>
 }
 
+/** 把输入框里的数字收成范围内的整数，非法值退回默认 */
+function clampInt(raw: string, fallback: number, min: number, max: number) {
+  const num = Math.floor(Number(raw))
+  if (!Number.isFinite(num)) return fallback
+  return Math.min(max, Math.max(min, num))
+}
+
 /**
- * 设置页「单词游戏」分区：无尽模式的取词范围，两层。
+ * 设置页「单词游戏」分区：无尽模式 / 闯关模式的取词范围，两层。
  * 1. 学习列表：勾选若干列表，一个不勾 = 全部学习列表（默认）。
  * 2. 具体单词：可选地从这些列表里挑一批词，挑了就只在这些词里抽。
+ * 3. 闯关模式：关卡数与每关单词数（默认 3 关 × 20 词），词不够就随机重复补满。
  * 常规模式用本周背词任务的单词，不受这里影响。
  */
 export function GameSettings({ lists, fetchListWords, fetchBatches }: GameSettingsProps) {
   const { config, loading, offline, save } = useGameConfig()
   const [selected, setSelected] = useState<string[]>([])
   const [words, setWords] = useState<string[]>([])
+  const [levels, setLevels] = useState(String(DEFAULT_CHALLENGE_LEVELS))
+  const [wordsPerLevel, setWordsPerLevel] = useState(String(DEFAULT_CHALLENGE_WORDS_PER_LEVEL))
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -33,8 +46,10 @@ export function GameSettings({ lists, fetchListWords, fetchBatches }: GameSettin
     if (loading) return
     setSelected(config.endlessListIds)
     setWords(config.endlessWords)
+    setLevels(String(config.challengeLevels))
+    setWordsPerLevel(String(config.challengeWordsPerLevel))
     setDirty(false)
-  }, [loading, config.endlessListIds, config.endlessWords])
+  }, [loading, config.endlessListIds, config.endlessWords, config.challengeLevels, config.challengeWordsPerLevel])
 
   const scopedLists = selected.length > 0 ? lists.filter(list => selected.includes(list.id)) : lists
   const scopeListOptions: SelectOption[] = scopedLists.map(list => ({
@@ -53,8 +68,20 @@ export function GameSettings({ lists, fetchListWords, fetchBatches }: GameSettin
   }
 
   async function handleSave() {
+    const nextLevels = clampInt(levels, DEFAULT_CHALLENGE_LEVELS, 1, MAX_CHALLENGE_LEVELS)
+    const nextWordsPerLevel = clampInt(
+      wordsPerLevel, DEFAULT_CHALLENGE_WORDS_PER_LEVEL,
+      MIN_CHALLENGE_WORDS_PER_LEVEL, MAX_CHALLENGE_WORDS_PER_LEVEL,
+    )
+    setLevels(String(nextLevels))
+    setWordsPerLevel(String(nextWordsPerLevel))
     setSaving(true)
-    const ok = await save({ endlessListIds: selected, endlessWords: words })
+    const ok = await save({
+      endlessListIds: selected,
+      endlessWords: words,
+      challengeLevels: nextLevels,
+      challengeWordsPerLevel: nextWordsPerLevel,
+    })
     setSaving(false)
     if (ok) {
       setDirty(false)
@@ -67,7 +94,7 @@ export function GameSettings({ lists, fetchListWords, fetchBatches }: GameSettin
   return (
     <div className="game-settings">
       <p className="hint">
-        无尽模式每回合从这个范围里随机抽 20 个单词，一批一批换着玩。
+        无尽模式每回合从这个范围里随机抽 20 个单词，一批一批换着玩；闯关模式也从这里取词，按下面的关卡数分关。
         先选学习列表（不选就是全部），要的话再从这些列表里挑一批具体的词；常规模式用本周背词任务的单词，不受这里影响。
       </p>
 
@@ -126,6 +153,36 @@ export function GameSettings({ lists, fetchListWords, fetchBatches }: GameSettin
           </Button>
         )}
       </div>
+
+      <div className="game-settings__head">
+        <span className="game-settings__title">闯关模式</span>
+        <Tag color="default">{levels || '?'} 关 · 每关 {wordsPerLevel || '?'} 词</Tag>
+      </div>
+
+      <div className="game-settings__row">
+        <label className="field-label" htmlFor="game-challenge-levels">关卡数</label>
+        <Input
+          id="game-challenge-levels"
+          type="number"
+          min={1}
+          max={MAX_CHALLENGE_LEVELS}
+          value={levels}
+          onChange={event => { setLevels(event.target.value); setDirty(true); setMessage('') }}
+        />
+        <label className="field-label" htmlFor="game-challenge-words">每关单词数</label>
+        <Input
+          id="game-challenge-words"
+          type="number"
+          min={MIN_CHALLENGE_WORDS_PER_LEVEL}
+          max={MAX_CHALLENGE_WORDS_PER_LEVEL}
+          value={wordsPerLevel}
+          onChange={event => { setWordsPerLevel(event.target.value); setDirty(true); setMessage('') }}
+        />
+      </div>
+      <p className="hint">
+        关卡数 1–{MAX_CHALLENGE_LEVELS}，每关 {MIN_CHALLENGE_WORDS_PER_LEVEL}–{MAX_CHALLENGE_WORDS_PER_LEVEL} 个词；
+        词池不够「关卡数 × 每关单词数」时会随机补充一些单词把每一关填满。
+      </p>
 
       <div className="game-settings__foot">
         <Button type="primary" disabled={!dirty || saving} onClick={handleSave}>

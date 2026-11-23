@@ -1,12 +1,12 @@
 import type { GameManifest, GameMode } from './types'
 
-/** 选好模式才真正进游戏：#/games/<id>/normal 或 #/games/<id>/endless */
+/** 选好模式才真正进游戏：#/games/<id>/normal、#/games/<id>/endless 或 #/games/<id>/challenge */
 function startGame(id: string, mode: GameMode) {
   window.location.hash = '#/games/' + id + '/' + mode
 }
 
 /**
- * 模式选择页（#/games/<id>）：汇总页点某个游戏后先到这一页，再选常规 / 无尽模式。
+ * 模式选择页（#/games/<id>）：汇总页点某个游戏后先到这一页，再选常规 / 无尽 / 闯关模式。
  * 「换个游戏」回汇总页——这是游戏内部的返回，不是退出游戏。
  */
 export function GameModePage({ game }: { game: GameManifest }) {
@@ -37,6 +37,14 @@ export function GameModePage({ game }: { game: GameManifest }) {
         >
           <strong>无尽模式</strong>
           <span>每回合随机 20 个学习列表里的单词</span>
+        </button>
+        <button
+          type="button"
+          className="gh__mode gm__mode gh__mode--challenge"
+          onClick={() => startGame(game.id, 'challenge')}
+        >
+          <strong>闯关模式</strong>
+          <span>按设置里的关卡数与每关单词数一关一关往下打</span>
         </button>
       </div>
     </div>

@@ -220,6 +220,15 @@
   font-family: var(--font-mono);
 }
 
+.game-settings__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.game-settings__row .ui-input { width: 92px; }
+
 .game-settings__foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 .game-settings__message { font-size: 12px; color: var(--color-text-muted); }
