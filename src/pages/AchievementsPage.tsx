@@ -92,7 +92,7 @@ function CountCell({
   return (
     <td className="achievements-table__number" data-label={editing ? undefined : label}>
       {editing ? (
-        <TallyCounter kind={kind} value={value} disabled={mutating} onAdjust={onAdjust} />
+        <TallyCounter kind={kind} value={value} disabled={mutating} confirm={false} onAdjust={onAdjust} />
       ) : <span className={classes.join(' ')}>{value}</span>}
     </td>
   )
