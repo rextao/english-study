@@ -84,13 +84,14 @@ src/hooks/useTtsPrefill.ts        发音预合成队列：prefill() 入队 + 1.2
 src/hooks/useDictSources.ts       词典来源状态 GET /api/dict/sources（字段校验不过 / 老服务 404 → null，界面不显示）；buildChain 排成设置页的查词链路（缓存 → dictionaryapi → 百度翻译，不可用给原因）
 src/hooks/useStudy.ts             某个词在哪些学习列表里（查词页用）；走 apiCache（TTL 5 分钟），markAdded 增量更新；invalidateMembership(词 或 词数组) 按词作废，删列表时用 invalidateListMembership 全量作废
 src/hooks/useStudyList.ts         学习列表全套 CRUD + 导入 + senseIds + 批量移除（removeItems）；导出类型 StudyListApi；fetchListWords / fetchBatches 走共享读缓存 apiCache，写操作自己作废；增删词后连带调 invalidateMembership（成员关系变了，查词页不能停在旧结果）
-src/hooks/useStudyPlan.ts         复习计划 GET /api/study/plan + startWords + reviewWords + tallyUndo；三个写操作成功后按 listId 作废 apiCache 的词条缓存（否则学习页打卡后停在旧数据）；导出 StudyPlanApi / ReviewAction / ReviewOptions
+src/hooks/useStudyPlan.ts         复习计划 GET /api/study/plan + startWords + reviewWords + tallyUndo；三个写操作成功后按 listId 作废 apiCache 的词条缓存（否则学习页打卡后停在旧数据）；会拼 / 会读 / 知意走 utils/tallyQueue 的共享队列；导出 StudyPlanApi / ReviewAction / ReviewOptions
 src/hooks/usePrintBatches.ts      打印批次：留档 + 整批打卡 + 删记录（/api/print-batches 四个接口）；导出 PrintBatchesApi；只在 StudyPage 里用，不进 App.tsx
 src/hooks/useStudyGoal.ts         目标词库读写 GET|PUT /api/study/goal
 src/hooks/useGameResults.ts       游戏记录读取 GET /api/games/results?days=30（按日期 + 单词聚合，返回 correct / wrong 次数与出现过的游戏）
 src/hooks/useGameConfig.ts        单词游戏配置读写 GET|PUT /api/games/config（无尽 / 闯关模式取词范围 endlessListIds + endlessWords，都为空就是全部学习列表的全部单词；闯关关卡数 challengeLevels 默认 3、每关单词数 challengeWordsPerLevel 默认 20）
 src/hooks/useVocabLibraries.ts    构建期打包 vocab/*.json + 标签读写 + localStorage 镜像与迁移
-src/hooks/useLearningRecords.ts   学习记录页的数据层：achievements / history 分页 / 删事件 / 清词 / purge
+src/hooks/useLearningRecords.ts   学习记录页的数据层：achievements / history 分页 / 删事件 / 清词 / purge；成果页「编辑次数」与学习页共用 utils/tallyQueue，本地乐观改数后再对账
+src/utils/tallyQueue.ts           会拼 / 会读 / 知意的模块级计次队列（两个页面共用）：同词同维度的连点合并成 count、350ms 后落库；带 listId 走 POST /api/lists/:id/tally-batch（撤销限本周期），不带 listId 走 PATCH /api/study/achievements/:word（撤销最近一条，count 拆成多次请求）；请求带 requestId 幂等，离线 2s 重试、被连续拒绝 3 次才丢弃，成功统一作废 study-plan / achievements / history 缓存并通知订阅方对账
 src/hooks/useReciteRecording.ts   背词页课堂录音（MediaRecorder）：每 10 秒切块，Web Audio AnalyserNode 每 250ms 量一次音量（RMS ≥ 0.02 算有声音），连续 60 秒无声音就停下这一段并在下次点击 / 按键时重开；任何一次停（学完 / 切后台 / 关页面 / 离开页面 / 静音 / 录满 30 分钟或 16MB）都先把整段字节写进 IndexedDB 队列，再分片上传，传完才删本地副本；每段带会话 id、片段序号（localStorage es-recite-seg:<sessionId> 自增）、录制时间，永远绑在当前这次学习上；回前台 / 从 bfcache 回来重新开一段
 src/hooks/useReciteRecordingPlayback.ts  课堂录音播放：把一次学习的一个 / 多个片段当成一条音频顺序播（按需拉 /api/recite/recordings/:id/audio、跨段进度与拖动、暂停后从当前位置续播、全站同时只播一条）
 src/hooks/useRecitePreload.ts     背词首页的发音预取：没点「开始学习」时把本周词池的发音并发 2 拉到 IndexedDB，优先下一次要学的那一次（activeSessionIndex ?? completedSessions+1），主动推送的那次排最后；预取语速对齐背词页默认档——单词正常速、句子按 SENTENCE_SPEAKING_RATE（0.7）拉，缓存键走 speechCacheKey（句子带 @sr0.7），点喇叭才命中；已缓存跳过，503 / 401 整体停下并给原因；点开始后暂停，调试面板可重试失败词

@@ -9,6 +9,7 @@ import type {
 
 import { apiFetch } from '../utils/apiBase'
 import { invalidateApiCache, queryApi } from '../utils/apiCache'
+import { enqueueTally, pendingTallyOperations, resumeTallyQueue, subscribeTallyResults } from '../utils/tallyQueue'
 
 export type LearningRecordFilterAction = 'all' | Extract<StudyMarkAction, 'spelling' | 'done' | 'again'>
 
@@ -34,41 +35,53 @@ async function readJson<T>(response: Response, fallback: string): Promise<T> {
   return body as T
 }
 
+/** 次数维度对应的成果字段（与服务端 tally 维度一致） */
+const ACHIEVEMENT_COUNT_FIELD: Record<'spelling' | 'reading' | 'meaning',
+  'spellingCount' | 'readingCount' | 'rememberedCount'> = {
+  spelling: 'spellingCount', reading: 'readingCount', meaning: 'rememberedCount',
+}
+
 /** 从永久事件账本读取成果；libraryId 为空字符串表示全部词库。 */
 export function useLearningAchievements(libraryId: string) {
   const [items, setItems] = useState<LearningAchievement[]>([])
   const [loading, setLoading] = useState(true)
-  const [mutating, setMutating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [version, setVersion] = useState(0)
   const reload = useCallback(() => setVersion(current => current + 1), [])
 
-  const adjustCount = useCallback(async (
+  /** 与学习页共用同一条计次队列：先本地生效，落库交给队列合并 / 幂等重试 */
+  const adjustCount = useCallback((
     word: string,
     kind: 'spelling' | 'reading' | 'meaning',
     delta: 1 | -1,
   ) => {
-    setMutating(true)
+    const field = ACHIEVEMENT_COUNT_FIELD[kind]
     setError(null)
-    try {
-      const response = await apiFetch('/api/study/achievements/' + encodeURIComponent(word), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          kind,
-          delta,
-          requestId: 'achievement-edit|' + word + '|' + kind + '|' + delta + '|' + Date.now() + '|' + Math.random().toString(36).slice(2),
-        }),
-      })
-      await readJson<{ ok: boolean }>(response, '学习成果次数修改失败')
-      invalidateApiCache(['achievements', 'history', 'study-plan'])
-      setVersion(current => current + 1)
-      return true
-    } catch (mutationError) {
-      setError(mutationError instanceof Error ? mutationError.message : '学习成果次数修改失败')
-      return false
-    } finally {
-      setMutating(false)
+    setItems(current => current.map(item => (item.word === word
+      ? { ...item, [field]: Math.max(0, item[field] + delta) }
+      : item)))
+    enqueueTally({ word, kind, delta })
+  }, [])
+
+  // 人工修正落库后对账一次；被服务端拒绝时重新拉一次，用服务端计数纠正乐观值
+  useEffect(() => {
+    resumeTallyQueue()
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const unsubscribe = subscribeTallyResults(results => {
+      const relevant = results.filter(result => !result.listId)
+      if (relevant.length === 0) return
+      const failed = relevant.find(result => !result.ok)
+      if (failed) setError(failed.error ?? '学习成果次数修改失败')
+      if (pendingTallyOperations().some(operation => !operation.listId)) return
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => {
+        timer = null
+        setVersion(current => current + 1)
+      }, 300)
+    })
+    return () => {
+      unsubscribe()
+      if (timer) clearTimeout(timer)
     }
   }, [])
 
@@ -98,7 +111,7 @@ export function useLearningAchievements(libraryId: string) {
     return () => controller.abort()
   }, [libraryId, version])
 
-  return { items, loading, mutating, error, reload, adjustCount }
+  return { items, loading, error, reload, adjustCount }
 }
 
 const PAGE_SIZE = 20

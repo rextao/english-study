@@ -107,7 +107,8 @@ export function AchievementsPage({ libraries, getLabelById }: AchievementsPagePr
 
   // 「最近学习」是相对时间：一次渲染共用同一个基准，同屏卡片的说法才不会自相矛盾
   const now = Date.now()
-  const countMutating = achievements.mutating || achievements.loading
+  // 计次改成乐观 + 队列后不再整表加锁，只有数据还没到位时禁用
+  const countMutating = achievements.loading
 
   useEffect(() => {
     if (selectedLibrary && !libraries.some(library => library.id === selectedLibrary)) setSelectedLibrary(ALL_LIBRARIES)
